@@ -128,3 +128,11 @@ a { color: var(--accent); }
 .choice input { position: absolute; opacity: 0; pointer-events: none; }
 .choice-name { display: block; font-weight: 600; }
 .choice-summary { display: block; margin-top: 0.25rem; font-size: 0.85rem; color: var(--muted); line-height: 1.35; }
+
+/* Validation errors */
+.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+.form-actions .error { margin: 0; }
+.field-error { margin: -0.4rem 0 0.75rem; }
+.has-error .section-title { color: var(--error); }
+.has-error input[type="text"] { border-color: var(--error); }
+.has-error .choice { border-color: color-mix(in srgb, var(--error) 45%, var(--border)); }

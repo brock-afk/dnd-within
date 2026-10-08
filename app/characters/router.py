@@ -8,7 +8,7 @@ from app.auth.dependencies import CurrentUser
 from app.characters.models import Character
 from app.classes.models import CharacterClass
 from app.core.db import DbSession
-from app.core.templates import form_error, hx_redirect, templates
+from app.core.templates import hx_redirect, templates
 from app.species.models import Species
 
 router = APIRouter(tags=["characters"])
@@ -29,16 +29,17 @@ def list_characters(request: Request, db: DbSession, user: CurrentUser):
     )
 
 
+def _form_options(db: DbSession) -> dict:
+    return {
+        "classes": db.scalars(select(CharacterClass).order_by(CharacterClass.name)).all(),
+        "species": db.scalars(select(Species).order_by(Species.name)).all(),
+    }
+
+
 @router.get("/characters/new", response_class=HTMLResponse)
 def new_character(request: Request, db: DbSession, user: CurrentUser):
     return templates.TemplateResponse(
-        request,
-        "characters/new.html",
-        {
-            "user": user,
-            "classes": db.scalars(select(CharacterClass).order_by(CharacterClass.name)).all(),
-            "species": db.scalars(select(Species).order_by(Species.name)).all(),
-        },
+        request, "characters/new.html", {"user": user, **_form_options(db)}
     )
 
 
@@ -52,12 +53,29 @@ def create_character(
     species_id: Annotated[int | None, Form()] = None,
 ):
     name = name.strip()
-    if not 1 <= len(name) <= 60:
-        return form_error(request, "Give your character a name (up to 60 characters).")
+    errors = {}
+    if not name:
+        errors["name"] = "Give your character a name."
+    elif len(name) > 60:
+        errors["name"] = "Names can be at most 60 characters."
     if class_id is None or db.get(CharacterClass, class_id) is None:
-        return form_error(request, "Choose a class.")
+        errors["class_id"] = "Choose a class."
     if species_id is None or db.get(Species, species_id) is None:
-        return form_error(request, "Choose a species.")
+        errors["species_id"] = "Choose a species."
+
+    if errors:
+        # Re-render the whole form so every problem shows next to its field,
+        # with the user's entries kept.
+        return templates.TemplateResponse(
+            request,
+            "characters/partials/form.html",
+            {
+                "errors": errors,
+                "values": {"name": name, "class_id": class_id, "species_id": species_id},
+                **_form_options(db),
+            },
+            status_code=400,
+        )
 
     db.add(Character(user_id=user.id, name=name, class_id=class_id, species_id=species_id))
     db.commit()

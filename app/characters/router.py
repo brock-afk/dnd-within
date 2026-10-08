@@ -4,6 +4,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 
+from app.abilities.service import ability_views
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
@@ -109,6 +110,7 @@ def show_character(request: Request, db: DbSession, user: CurrentUser, character
         {
             "user": user,
             "character": character,
+            "abilities": ability_views(db, character),
             "feature_groups": groups,
             "pending": pending,
             "skills": character_skills(db, character.id),

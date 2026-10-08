@@ -1,0 +1,98 @@
+{# Loaded in place on the character page. Tabs, stepper clicks and value changes redraw the
+   whole editor from the server; saving redirects. #}
+{% set editor_swap = 'hx-target="#ability-editor" hx-swap="outerHTML"' %}
+<div id="ability-editor" class="ability-editor">
+  <div class="tabs" role="tablist">
+    {% for key, label in methods.items() %}
+    <button type="button" role="tab" id="tab-{{ key }}" class="tab{% if key == method %} active{% endif %}"
+            aria-selected="{{ 'true' if key == method else 'false' }}"
+            hx-get="/characters/{{ character.id }}/abilities/edit?method={{ key }}"
+            {{ editor_swap | safe }}>{{ label }}</button>
+    {% endfor %}
+  </div>
+
+  <form hx-post="/characters/{{ character.id }}/abilities" {{ editor_swap | safe }} novalidate
+        class="ability-form">
+    <input type="hidden" name="method" value="{{ method }}">
+    {# Any changed dropdown or roll redraws the editor: modifiers, what's left to assign. #}
+    <div hidden hx-post="/characters/{{ character.id }}/abilities/preview"
+         hx-trigger='change from:"closest form"' {{ editor_swap | safe }}></div>
+
+    <p class="muted method-hint">
+      {% if method == "standard_array" %}Assign 15, 14, 13, 12, 10 and 8, one to each ability.
+      {% elif method == "point_buy" %}Every score starts at 8. Raising a score costs points; 14 and 15 cost 2 each.
+      {% else %}Enter the six numbers you rolled, then assign them.{% endif %}
+    </p>
+
+    {% if method == "manual" %}
+    <fieldset class="rolls{% if errors.rolls %} has-error{% endif %}">
+      <legend>Your rolls</legend>
+      <div class="roll-inputs">
+        {% for r in rolls %}
+        <input id="roll-{{ loop.index }}" name="rolls" type="text" inputmode="numeric" maxlength="2"
+               aria-label="Roll {{ loop.index }}" value="{{ r if r is not none else '' }}">
+        {% endfor %}
+      </div>
+      {% if errors.rolls %}<p class="error field-error">{{ errors.rolls }}</p>{% endif %}
+    </fieldset>
+    {% endif %}
+
+    <div class="ability-rows">
+      {% for row in rows %}
+      {% set col = row.ability.column %}
+      <div class="ability-row{% if row.error %} has-error{% endif %}">
+        {% if method == "point_buy" %}
+        <span class="row-name">{{ row.ability.name }}</span>
+        <div class="stepper">
+          <button type="button" id="dec-{{ col }}" class="step" aria-label="Lower {{ row.ability.name }}"
+                  hx-post="/characters/{{ character.id }}/abilities/preview"
+                  hx-vals='{"step": "{{ col }}:-1"}' {{ editor_swap | safe }}
+                  {% if not row.can_decrease %}disabled{% endif %}>−</button>
+          <output class="step-value" aria-live="polite">{{ row.score if row.score is not none else '' }}</output>
+          <input type="hidden" name="{{ col }}" value="{{ row.score if row.score is not none else '' }}">
+          <button type="button" id="inc-{{ col }}" class="step" aria-label="Raise {{ row.ability.name }}"
+                  hx-post="/characters/{{ character.id }}/abilities/preview"
+                  hx-vals='{"step": "{{ col }}:1"}' {{ editor_swap | safe }}
+                  {% if not row.can_increase %}disabled{% endif %}>+</button>
+        </div>
+        {% else %}
+        <label class="row-name" for="ability-{{ col }}">{{ row.ability.name }}</label>
+        <select id="ability-{{ col }}" name="{{ col }}">
+          <option value="">—</option>
+          {% for opt in row.options %}
+          <option value="{{ opt.value }}" {% if row.score == opt.value %}selected{% endif %}
+                  {% if opt.disabled %}disabled{% endif %}>{{ opt.value }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
+        <span class="row-mod">{{ row.modifier }}</span>
+        {% if method == "point_buy" %}
+        <span class="row-cost muted">
+          {% if row.cost is not none %}{{ row.cost }} pt{{ "s" if row.cost != 1 }}{% endif %}
+        </span>
+        {% endif %}
+        {% if row.error %}<p class="error field-error">{{ row.error }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <p class="editor-status" aria-live="polite">
+      {% if method == "point_buy" %}
+        Points left: <strong>{{ remaining }}</strong> of {{ budget }}
+      {% elif left_to_assign %}
+        Left to assign: <strong>{{ left_to_assign | join(", ") }}</strong>
+      {% elif has_pool %}
+        All values assigned.
+      {% else %}
+        Enter your rolls above, then assign them.
+      {% endif %}
+    </p>
+
+    <div class="form-actions">
+      <button type="submit">Save scores</button>
+      <a href="/characters/{{ character.id }}">Cancel</a>
+      {% if errors._form %}<p class="error" role="alert">{{ errors._form }}</p>
+      {% elif errors %}<p class="error" role="alert">Fix the highlighted fields.</p>{% endif %}
+    </div>
+  </form>
+</div>

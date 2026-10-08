@@ -4,6 +4,7 @@ Used by Alembic (migrations/env.py) and the app. Lives at app level, not in core
 because core never imports from domains.
 """
 
+from app.abilities import models as abilities  # noqa: F401
 from app.auth import models as auth  # noqa: F401
 from app.characters import models as characters  # noqa: F401
 from app.classes import models as classes  # noqa: F401

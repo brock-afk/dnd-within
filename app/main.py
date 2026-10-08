@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import models  # noqa: F401  (registers every table, so relationships resolve)
+from app.abilities.router import router as abilities_router
 from app.auth.dependencies import LoginRequired, login_required_handler
 from app.auth.router import router as auth_router
 from app.characters.router import router as characters_router
@@ -50,3 +51,4 @@ app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 app.include_router(auth_router)
 app.include_router(characters_router)
 app.include_router(features_router)
+app.include_router(abilities_router)

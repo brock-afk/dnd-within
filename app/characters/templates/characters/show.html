@@ -18,10 +18,20 @@
   <a href="/characters">All characters</a>
 </div>
 
-{% if pending %}
+{% if pending or not abilities %}
 <section class="sheet-section">
   <h2>Choices to make</h2>
   <ul class="plain-list">
+    {% if not abilities %}
+    <li class="card pending-choice" id="abilities-pending">
+      <div>
+        <span class="character-name">Ability scores</span>
+        <span class="muted">· standard array, point buy, or manual</span>
+      </div>
+      <button type="button" hx-get="/characters/{{ character.id }}/abilities/edit"
+              hx-target="#abilities-pending">Set</button>
+    </li>
+    {% endif %}
     {% for cv in pending %}
     <li class="card pending-choice" id="choice-{{ cv.choice.id }}">
       <div>
@@ -32,6 +42,27 @@
     </li>
     {% endfor %}
   </ul>
+</section>
+{% endif %}
+
+{% if abilities %}
+<section class="sheet-section">
+  <div class="section-heading">
+    <h2>Ability scores</h2>
+    <button type="button" class="link-button" hx-get="/characters/{{ character.id }}/abilities/edit"
+            hx-target="#ability-scores">Change</button>
+  </div>
+  <div id="ability-scores">
+    <ul class="ability-grid">
+      {% for a in abilities %}
+      <li class="card" title="{{ a.name }}: base {{ a.base }}{% if a.bonus %} + {{ a.bonus }} bonus{% endif %}">
+        <span class="ability-abbr">{{ a.abbr }}</span>
+        <span class="ability-mod">{{ a.modifier }}</span>
+        <span class="ability-score">{{ a.total }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
 </section>
 {% endif %}
 

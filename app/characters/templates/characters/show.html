@@ -8,6 +8,7 @@
 {% endmacro %}
 
 {% block content %}
+<div id="character-page">
 <div class="page-header">
   <div>
     {% include "characters/partials/name_heading.html" %}
@@ -155,4 +156,5 @@
   <summary>Delete character</summary>
   {% include "characters/partials/delete_form.html" %}
 </details>
+</div>
 {% endblock %}

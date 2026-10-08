@@ -1,3 +1,4 @@
+{% from "partials/refresh.html" import refresh_button %}
 {% from "partials/choices.html" import choice_grid %}
 <form hx-post="/characters/{{ character.id }}/choices/{{ choice.id }}" hx-swap="outerHTML" novalidate
       class="choice-form{% if error %} has-error{% endif %}">
@@ -11,6 +12,6 @@
 
   <div class="form-actions">
     <button type="submit">Save</button>
-    <a href="/characters/{{ character.id }}">Cancel</a>
+    {{ refresh_button(character) }}
   </div>
 </form>

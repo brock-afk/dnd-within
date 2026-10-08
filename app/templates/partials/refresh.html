@@ -1,0 +1,7 @@
+{# Re-renders the character page in place (see app/characters/page.py), so cancelling
+   doesn't reload the page or lose the scroll position. #}
+{% macro refresh_button(character, label="Cancel") %}
+<button type="button" class="link-button"
+        hx-get="/characters/{{ character.id }}" hx-select="#character-page"
+        hx-target="#character-page" hx-swap="outerMorph">{{ label }}</button>
+{% endmacro %}

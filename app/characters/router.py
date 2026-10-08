@@ -4,19 +4,15 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 
-from app.abilities.service import ability_views
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
+from app.characters.page import render_character_page
 from app.classes.models import CharacterClass, CharacterClassLevel
 from app.core.db import DbSession
 from app.core.templates import hx_redirect, templates
-from app.features.service import feature_groups
 from app.leveling.models import CharacterLevel
-from app.leveling.service import hit_points
-from app.skills.queries import character_skills
 from app.species.models import Species
-from app.spells.queries import character_spells
 
 router = APIRouter(tags=["characters"])
 
@@ -105,22 +101,7 @@ def create_character(
 
 @router.get("/characters/{character_id}", response_class=HTMLResponse)
 def show_character(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
-    groups = feature_groups(db, character)
-    pending = [cv for g in groups for fv in g.features for cv in fv.choices if not cv.done]
-    return templates.TemplateResponse(
-        request,
-        "characters/show.html",
-        {
-            "user": user,
-            "character": character,
-            "abilities": ability_views(db, character),
-            "hit_points": hit_points(db, character),
-            "feature_groups": groups,
-            "pending": pending,
-            "skills": character_skills(db, character.id),
-            "spells": character_spells(db, character.id),
-        },
-    )
+    return render_character_page(request, db, user, character)
 
 
 def _name_heading(request: Request, character: Character) -> HTMLResponse:

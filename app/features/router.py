@@ -4,10 +4,12 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
+from app.characters.page import refresh_character_page
 from app.core.db import DbSession
-from app.core.templates import hx_redirect, templates
+from app.core.templates import templates
 from app.features.kinds import KINDS
 from app.features.models import Choice
 from app.features.service import applicable_choice, remove_inapplicable_picks
@@ -48,6 +50,7 @@ def choice_form(request: Request, db: DbSession, character: OwnedCharacter, choi
 def save_choice(
     request: Request,
     db: DbSession,
+    user: CurrentUser,
     character: OwnedCharacter,
     choice_id: int,
     picks: Annotated[list[str], Form()] = [],
@@ -66,4 +69,4 @@ def save_choice(
     # A new pick can make others stale, e.g. switching subclass drops the old one's picks.
     remove_inapplicable_picks(db, character)
     db.commit()
-    return hx_redirect(f"/characters/{character.id}")
+    return refresh_character_page(request, db, user, character)

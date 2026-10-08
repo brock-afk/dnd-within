@@ -21,10 +21,12 @@ from app.abilities.rules import (
     unassigned,
     validate,
 )
+from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
+from app.characters.page import refresh_character_page
 from app.core.db import DbSession
-from app.core.templates import hx_redirect, templates
+from app.core.templates import templates
 
 router = APIRouter(tags=["abilities"])
 
@@ -165,7 +167,11 @@ def preview_abilities(
 
 @router.post("/characters/{character_id}/abilities")
 def save_abilities(
-    request: Request, db: DbSession, character: OwnedCharacter, form: Annotated[AbilityForm, Form()]
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    form: Annotated[AbilityForm, Form()],
 ):
     scores = parse_scores(form.raw_scores())
     rolls = parse_rolls(form.rolls)
@@ -177,4 +183,4 @@ def save_abilities(
     for column, score in scores.items():
         setattr(character, column, score)
     db.commit()
-    return hx_redirect(f"/characters/{character.id}")
+    return refresh_character_page(request, db, user, character)

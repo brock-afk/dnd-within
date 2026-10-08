@@ -1,3 +1,4 @@
+{% from "partials/refresh.html" import refresh_button %}
 {# Loaded in place on the character page. Tabs, stepper clicks and value changes redraw the
    whole editor from the server; saving redirects. #}
 {% set editor_swap = 'hx-target="#ability-editor" hx-swap="outerHTML"' %}
@@ -93,7 +94,7 @@
       <button type="button" id="reset-scores" class="link-button"
               hx-post="/characters/{{ character.id }}/abilities/preview"
               hx-vals='{"reset": "1"}' {{ editor_swap | safe }}>Reset</button>
-      <a href="/characters/{{ character.id }}">Cancel</a>
+      {{ refresh_button(character) }}
       {% if errors._form %}<p class="error" role="alert">{{ errors._form }}</p>
       {% elif errors %}<p class="error" role="alert">Fix the highlighted fields.</p>{% endif %}
     </div>

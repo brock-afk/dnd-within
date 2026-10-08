@@ -1,11 +1,12 @@
+{% from "partials/refresh.html" import refresh_button %}
 {% macro signed(n) %}{{ "+" if n >= 0 else "−" }}{{ n | abs }}{% endmacro %}
 <div id="level-up-panel" class="card level-up-panel">
   {% if at_max %}
   <p>Level 20 is the maximum.</p>
-  <a href="/characters/{{ character.id }}">Close</a>
+  {{ refresh_button(character, "Close") }}
   {% elif con_mod is none %}
   <p>Set ability scores first: hit points depend on Constitution.</p>
-  <a href="/characters/{{ character.id }}">Close</a>
+  {{ refresh_button(character, "Close") }}
   {% else %}
   <form hx-post="/characters/{{ character.id }}/level-up" hx-target="#level-up-panel" hx-swap="outerHTML"
         novalidate class="level-up-form">
@@ -23,7 +24,7 @@
     </div>
 
     {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-    <a href="/characters/{{ character.id }}">Cancel</a>
+    {{ refresh_button(character) }}
   </form>
   {% endif %}
 </div>

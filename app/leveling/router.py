@@ -3,10 +3,12 @@ from typing import Annotated
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
 
+from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
+from app.characters.page import refresh_character_page
 from app.core.db import DbSession
-from app.core.templates import hx_redirect, templates
+from app.core.templates import templates
 from app.features.service import remove_inapplicable_picks
 from app.leveling.models import CharacterLevel
 from app.leveling.rules import MAX_LEVEL, fixed_hp, level_hp
@@ -49,6 +51,7 @@ def level_up_panel(request: Request, db: DbSession, character: OwnedCharacter):
 def level_up(
     request: Request,
     db: DbSession,
+    user: CurrentUser,
     character: OwnedCharacter,
     hp_method: Annotated[str, Form()] = "",
     hp_roll: Annotated[str, Form()] = "",
@@ -78,11 +81,11 @@ def level_up(
         )
     )
     db.commit()
-    return hx_redirect(f"/characters/{character.id}")
+    return refresh_character_page(request, db, user, character)
 
 
 @router.post("/characters/{character_id}/level-down")
-def level_down(db: DbSession, character: OwnedCharacter):
+def level_down(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
     if character.level <= 1:
         return HTMLResponse("Level 1 can't be removed.", status_code=400)
     character.levels.remove(character.levels[-1])
@@ -90,4 +93,4 @@ def level_down(db: DbSession, character: OwnedCharacter):
     # Features from the removed level are gone, so their picks go too.
     remove_inapplicable_picks(db, character)
     db.commit()
-    return hx_redirect(f"/characters/{character.id}")
+    return refresh_character_page(request, db, user, character)

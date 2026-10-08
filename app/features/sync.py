@@ -29,6 +29,7 @@ def sync_features(
             feature.name = fdef.name
             feature.summary = fdef.summary
             feature.level = fdef.level
+            feature.applies_to = fdef.applies_to
             feature.position = position
             _sync_choices(feature, fdef)
     db.commit()

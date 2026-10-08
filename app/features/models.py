@@ -15,7 +15,10 @@ class Feature(Base):
 
     __tablename__ = "features"
     __table_args__ = (
-        CheckConstraint("(class_id IS NULL) <> (species_id IS NULL)", name="ck_features_one_source"),
+        CheckConstraint("(class_id IS NULL) <> (species_id IS NULL)", name="one_source"),
+        CheckConstraint(
+            "applies_to IN ('all', 'starting_class', 'multiclass')", name="applies_to_values"
+        ),
         UniqueConstraint("class_id", "slug"),
         UniqueConstraint("species_id", "slug"),
     )
@@ -26,7 +29,11 @@ class Feature(Base):
     slug: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(80))
     summary: Mapped[str] = mapped_column(String(500))
-    level: Mapped[int] = mapped_column(default=1)  # character level the feature is gained at
+    # Gained at this class level (class features) or character level (species features).
+    level: Mapped[int] = mapped_column(default=1)
+    # Class features only: "starting_class" features (like the full starting proficiencies)
+    # apply only to a character's first class, "multiclass" ones only to classes added later.
+    applies_to: Mapped[str] = mapped_column(String(20), default="all", server_default="all")
     position: Mapped[int] = mapped_column(default=0)
 
     choices: Mapped[list["Choice"]] = relationship(

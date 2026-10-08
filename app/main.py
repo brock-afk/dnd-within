@@ -4,19 +4,16 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-# Model modules are imported so their tables are registered with Base before create_all.
-from app.auth import models as auth_models  # noqa: F401
+from app import models  # noqa: F401  (registers every table, so relationships resolve)
 from app.auth.dependencies import LoginRequired, login_required_handler
 from app.auth.router import router as auth_router
-from app.characters import models as character_models  # noqa: F401
 from app.characters.router import router as characters_router
 from app.classes.data import CLASS_FEATURES, CLASSES
 from app.classes.models import CharacterClass
 from app.core.config import settings
-from app.core.db import Base, SessionLocal, engine
+from app.core.db import SessionLocal
 from app.core.reference_data import sync_reference_rows
 from app.core.templates import APP_DIR
-from app.features import models as feature_models  # noqa: F401
 from app.features.router import router as features_router
 from app.features.sync import sync_features
 from app.skills.data import SKILLS
@@ -29,8 +26,7 @@ from app.spells.sync import sync_spells
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Fine while tables are only being added; switch to Alembic before changing existing ones.
-    Base.metadata.create_all(engine)
+    # The schema itself is managed by Alembic (run on container start); this only syncs content.
     with SessionLocal() as db:
         sync_reference_rows(db, CharacterClass, CLASSES)
         sync_reference_rows(db, Species, SPECIES)

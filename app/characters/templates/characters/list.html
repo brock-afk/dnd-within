@@ -11,7 +11,7 @@
   {% for character in characters %}
   <li class="card">
     <a class="character-name" href="/characters/{{ character.id }}">{{ character.name }}</a>
-    <span class="muted">{{ character.species.name }} {{ character.character_class.name }}</span>
+    <span class="muted">{{ character.species.name }} {{ character.class_summary }}</span>
   </li>
   {% endfor %}
 </ul>

@@ -7,10 +7,10 @@ from sqlalchemy import select
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
-from app.classes.models import CharacterClass
+from app.classes.models import CharacterClass, CharacterClassLevel
 from app.core.db import DbSession
 from app.core.templates import hx_redirect, templates
-from app.features.service import class_features, species_features
+from app.features.service import feature_groups
 from app.skills.queries import character_skills
 from app.species.models import Species
 from app.spells.queries import character_spells
@@ -81,7 +81,12 @@ def create_character(
             status_code=400,
         )
 
-    character = Character(user_id=user.id, name=name, class_id=class_id, species_id=species_id)
+    character = Character(
+        user_id=user.id,
+        name=name,
+        species_id=species_id,
+        classes=[CharacterClassLevel(class_id=class_id, level=1, position=0)],
+    )
     db.add(character)
     db.commit()
     return hx_redirect(f"/characters/{character.id}")
@@ -89,17 +94,15 @@ def create_character(
 
 @router.get("/characters/{character_id}", response_class=HTMLResponse)
 def show_character(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
-    species_feats = species_features(db, character)
-    class_feats = class_features(db, character)
-    pending = [cv for fv in species_feats + class_feats for cv in fv.choices if not cv.done]
+    groups = feature_groups(db, character)
+    pending = [cv for g in groups for fv in g.features for cv in fv.choices if not cv.done]
     return templates.TemplateResponse(
         request,
         "characters/show.html",
         {
             "user": user,
             "character": character,
-            "species_features": species_feats,
-            "class_features": class_feats,
+            "feature_groups": groups,
             "pending": pending,
             "skills": character_skills(db, character.id),
             "spells": character_spells(db, character.id),

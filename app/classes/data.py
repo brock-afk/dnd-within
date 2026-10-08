@@ -23,6 +23,7 @@ CLASS_FEATURES: dict[str, list[FeatureDef]] = {
         FeatureDef(
             slug="proficiencies",
             name="Proficiencies",
+            applies_to="starting_class",
             summary="Hit die d6. Saving throws: Intelligence, Wisdom. Weapons: Simple. Armor: none.",
             choices=[
                 ChoiceDef(

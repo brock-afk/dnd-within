@@ -40,4 +40,5 @@ class FeatureDef(BaseModel):
     name: str
     summary: str
     level: int = Field(default=1, ge=1, le=20)
+    applies_to: Literal["all", "starting_class", "multiclass"] = "all"
     choices: list[ChoiceDef] = []

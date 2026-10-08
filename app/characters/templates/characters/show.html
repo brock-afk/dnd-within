@@ -12,7 +12,7 @@
   <div>
     <h1>{{ character.name }}</h1>
     <p class="subtitle">
-      {{ character.species.name }} {{ character.character_class.name }} · Level {{ character.level }}
+      {{ character.species.name }} {{ character.class_summary }} · Level {{ character.level }}
     </p>
   </div>
   <a href="/characters">All characters</a>
@@ -37,12 +37,11 @@
 
 <section class="sheet-section">
   <h2>Traits &amp; features</h2>
-  {% for source, features in [(character.species.name, species_features),
-                               (character.character_class.name, class_features)] %}
-  <h3 class="group-title">{{ source }}</h3>
-  {% if features %}
+  {% for group in feature_groups %}
+  <h3 class="group-title">{{ group.name }}</h3>
+  {% if group.features %}
   <ul class="plain-list feature-list">
-    {% for fv in features %}
+    {% for fv in group.features %}
     <li>
       <span class="feature-name">{{ fv.feature.name }}</span>
       <span class="muted">{{ fv.feature.summary }}</span>
@@ -63,7 +62,7 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="muted">{{ source }} options aren't available yet.</p>
+  <p class="muted">{{ group.name }} options aren't available yet.</p>
   {% endif %}
   {% endfor %}
 </section>

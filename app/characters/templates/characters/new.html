@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}New character · DnD Within{% endblock %}
+
+{% macro choice_grid(field, options) %}
+<div class="choices">
+  {% for option in options %}
+  <label class="choice">
+    <input type="radio" name="{{ field }}" value="{{ option.id }}" required>
+    <span class="choice-name">{{ option.name }}</span>
+    <span class="choice-summary">{{ option.summary }}</span>
+  </label>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-header">
+  <h1>New character</h1>
+  <a href="/characters">Cancel</a>
+</div>
+
+<form hx-post="/characters" hx-target="#form-error" class="character-form">
+  <section>
+    <label for="name" class="section-title">Name</label>
+    <input id="name" name="name" type="text" maxlength="60" required autofocus>
+  </section>
+
+  <fieldset>
+    <legend class="section-title">Class</legend>
+    {{ choice_grid("class_id", classes) }}
+  </fieldset>
+
+  <fieldset>
+    <legend class="section-title">Species</legend>
+    {{ choice_grid("species_id", species) }}
+  </fieldset>
+
+  <div id="form-error" aria-live="polite"></div>
+  <button type="submit">Create character</button>
+</form>
+{% endblock %}

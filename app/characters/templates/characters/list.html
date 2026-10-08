@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Characters · DnD Within{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Your characters</h1>
+  <a class="button" href="/characters/new">New character</a>
+</div>
+
+{% if characters %}
+<ul class="character-list">
+  {% for character in characters %}
+  <li class="card">
+    <span class="character-name">{{ character.name }}</span>
+    <span class="muted">{{ character.species.name }} {{ character.character_class.name }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="card empty">
+  <p>No characters yet.</p>
+  <a href="/characters/new">Create your first one</a>
+</div>
+{% endif %}
+{% endblock %}

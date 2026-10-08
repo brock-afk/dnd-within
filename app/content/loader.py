@@ -175,7 +175,7 @@ def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
                 if choice.kind == "skill":
                     for ref in choice.criteria["from"]:
                         check(ref, "skills", where)
-                elif choice.kind == "spell":
+                elif choice.kind in ("spell", "spellbook"):
                     check(choice.criteria["class"], "classes", where)
 
     for sp in pack.species:

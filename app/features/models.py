@@ -1,7 +1,15 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    SmallInteger,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -53,7 +61,10 @@ class Choice(Base):
     options come from and where picks are saved (see app/features/kinds.py)."""
 
     __tablename__ = "choices"
-    __table_args__ = (UniqueConstraint("feature_id", "slug"),)
+    __table_args__ = (
+        UniqueConstraint("feature_id", "slug"),
+        CheckConstraint("level BETWEEN 1 AND 20", name="level_range"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     feature_id: Mapped[int] = mapped_column(ForeignKey("features.id"))
@@ -61,6 +72,10 @@ class Choice(Base):
     name: Mapped[str] = mapped_column(String(80))
     kind: Mapped[str] = mapped_column(String(20))
     count: Mapped[int] = mapped_column(default=1)
+    # Available once the class (or, for species, the character) reaches this level, as well as
+    # the feature's own level. Lets one feature hold choices that unlock over time, like the
+    # Wizard's two new spellbook spells per level.
+    level: Mapped[int] = mapped_column(SmallInteger, default=1, server_default="1")
     criteria: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     position: Mapped[int] = mapped_column(default=0)
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack

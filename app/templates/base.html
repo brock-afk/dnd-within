@@ -6,6 +6,7 @@
   <title>{% block title %}DnD Within{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
   <script src="{{ url_for('static', path='htmx.min.js') }}"></script>
+  <script src="{{ url_for('static', path='option-filters.js') }}" defer></script>
 </head>
 <body class="{% block body_class %}{% endblock %}">
   {% if user %}

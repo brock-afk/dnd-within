@@ -25,13 +25,19 @@ def _get_choice(db: Session, character: Character, choice_id: int) -> Choice:
 
 
 def _render_form(request, db, character, choice, selected, error=None, status_code=200):
+    options = KINDS[choice.kind].options(db, choice)
     return templates.TemplateResponse(
         request,
         "features/partials/choice_form.html",
         {
             "character": character,
             "choice": choice,
-            "options": KINDS[choice.kind].options(db, choice),
+            "options": options,
+            # Spell choices get filters; the schools listed are the ones among the options.
+            "filter_schools": sorted({o.school for o in options if o.school}),
+            "known": KINDS[choice.kind].already_have(db, choice, character.id),
+            "known_label": KINDS[choice.kind].known_label,
+            "noun": KINDS[choice.kind].noun,
             "selected": selected,
             "error": error,
         },

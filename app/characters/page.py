@@ -16,7 +16,7 @@ from app.core.templates import templates
 from app.features.service import feature_groups
 from app.leveling.service import hit_points
 from app.skills.queries import character_skills
-from app.spells.queries import character_spells
+from app.spells.queries import character_spells, spellbook
 
 # The element in characters/show.html that a refresh replaces.
 PAGE_SELECTOR = "#character-page"
@@ -39,6 +39,7 @@ def render_character_page(
             "pending": pending,
             "skills": character_skills(db, character.id),
             "spells": character_spells(db, character.id),
+            "spellbook": spellbook(db, character.id),
         },
     )
 

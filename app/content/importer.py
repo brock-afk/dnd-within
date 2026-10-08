@@ -85,7 +85,7 @@ class _Importer:
         """Choice rules as written in YAML use slugs; the database stores resolved ids."""
         if choice.kind == "skill":
             return {"skill_ids": [self._id(Skill, ref, "skills") for ref in choice.criteria["from"]]}
-        if choice.kind == "spell":
+        if choice.kind in ("spell", "spellbook"):
             rest = {k: v for k, v in choice.criteria.items() if k != "class"}
             return {"class_id": self._id(CharacterClass, choice.criteria["class"], "classes"), **rest}
         return dict(choice.criteria)
@@ -120,6 +120,7 @@ class _Importer:
             choice.name = cdef.name
             choice.kind = cdef.kind
             choice.count = cdef.count
+            choice.level = cdef.level
             choice.criteria = self._criteria(cdef)
             choice.position = position
             choice.retired_at = None

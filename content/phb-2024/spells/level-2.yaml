@@ -1,0 +1,607 @@
+# Level 2 spells from the 2024 Player's Handbook (so far: those on the Wizard's list).
+# Summaries are short reminders in our own words, not the book's rules text.
+# `classes` lists every class whose spell list includes the spell.
+
+- slug: alter-self
+  name: Alter Self
+  level: 2
+  school: transmutation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: hour}
+  concentration: true
+  summary: Change your appearance, adapt to water, or grow natural weapons.
+
+- slug: arcane-lock
+  name: Arcane Lock
+  level: 2
+  school: abjuration
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: gold dust worth 25+ GP, cost_gp: 25, consumed: true}
+  duration: {kind: until_dispelled}
+  summary: Magically lock a door, window, or container; you can set a password.
+
+- slug: arcane-vigor
+  name: Arcane Vigor
+  level: 2
+  school: abjuration
+  classes: [sorcerer, wizard]
+  casting_time: {unit: bonus_action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  higher_slots: {note: Expend one additional Hit Die per slot level above 2.}
+  note: >-
+    Expend one or two of your Hit Dice, roll them, and regain hit points equal to the total
+    plus your spellcasting ability modifier.
+  summary: Spend one or two Hit Dice to heal yourself as a bonus action.
+
+- slug: augury
+  name: Augury
+  level: 2
+  school: divination
+  classes: [cleric, druid, wizard]
+  casting_time: {unit: minute, amount: 1}
+  ritual: true
+  range: {kind: self}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: specially marked divinatory tokens worth 25+ GP, cost_gp: 25}
+  duration: {kind: instantaneous}
+  summary: Get an omen about a course of action you plan within 30 minutes.
+
+- slug: blindness-deafness
+  name: Blindness/Deafness
+  level: 2
+  school: transmutation
+  classes: [bard, cleric, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 120}
+  components: {verbal: true}
+  duration: {kind: timed, amount: 1, unit: minute}
+  save: {ability: CON, on_success: none}
+  higher_slots: {note: One additional creature per slot level above 2.}
+  summary: Con save or Blinded or Deafened (your choice); repeat the save each turn.
+
+- slug: blur
+  name: Blur
+  level: 2
+  school: illusion
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  summary: Attackers have disadvantage against you.
+
+- slug: cloud-of-daggers
+  name: Cloud of Daggers
+  level: 2
+  school: conjuration
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  area: {shape: cube, feet: 5}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a sliver of glass}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  damage:
+    - {dice: 4d4, type: slashing, note: when a creature enters the cube or ends its turn there}
+  higher_slots: {damage_per_level: 2d4}
+  summary: A cube of spinning daggers; 4d4 slashing to creatures that enter or stay in it.
+
+- slug: continual-flame
+  name: Continual Flame
+  level: 2
+  school: evocation
+  classes: [cleric, druid, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: ruby dust worth 50+ GP, cost_gp: 50, consumed: true}
+  duration: {kind: until_dispelled}
+  summary: A heatless flame on an object that never goes out.
+
+- slug: crown-of-madness
+  name: Crown of Madness
+  level: 2
+  school: enchantment
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 120}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: WIS, on_success: none}
+  summary: Wis save or a humanoid is Charmed and attacks a creature you choose.
+
+- slug: darkness
+  name: Darkness
+  level: 2
+  school: evocation
+  classes: [sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  area: {shape: sphere, feet: 15}
+  components:
+    verbal: true
+    material: {text: bat fur and a piece of coal}
+  duration: {kind: timed, amount: 10, unit: minute}
+  concentration: true
+  summary: A 15-ft sphere of magical darkness that even darkvision can't see through.
+
+- slug: darkvision
+  name: Darkvision
+  level: 2
+  school: transmutation
+  classes: [druid, ranger, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a dried carrot}
+  duration: {kind: timed, amount: 8, unit: hour}
+  summary: A creature gains darkvision out to 150 ft.
+
+- slug: detect-thoughts
+  name: Detect Thoughts
+  level: 2
+  school: divination
+  classes: [bard, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: 1 copper piece}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: WIS, on_success: special}
+  note: Probing deeper into a creature's mind requires it to fail a Wisdom save.
+  summary: Sense creatures' surface thoughts nearby, and probe deeper with a Wis save.
+
+- slug: dragons-breath
+  name: Dragon's Breath
+  level: 2
+  school: transmutation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: bonus_action}
+  range: {kind: touch}
+  area: {shape: cone, feet: 15}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a hot pepper}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: DEX, on_success: half}
+  damage:
+    - dice: 3d6
+      type_choice: [acid, cold, fire, lightning, poison]
+  higher_slots: {damage_per_level: 1d6}
+  note: The touched creature can exhale a 15-ft cone as a Magic action each turn.
+  summary: A creature can breathe a 15-ft cone of elemental damage; Dex save, 3d6.
+
+- slug: enhance-ability
+  name: Enhance Ability
+  level: 2
+  school: transmutation
+  classes: [bard, cleric, druid, ranger, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: fur or a feather}
+  duration: {kind: timed, amount: 1, unit: hour}
+  concentration: true
+  higher_slots: {note: One additional creature per slot level above 2.}
+  summary: A creature has advantage on checks with one ability you choose.
+
+- slug: enlarge-reduce
+  name: Enlarge/Reduce
+  level: 2
+  school: transmutation
+  classes: [bard, druid, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 30}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a pinch of powdered iron}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: CON, on_success: none}
+  note: Only an unwilling creature makes the save.
+  summary: A creature or object grows or shrinks one size, changing its weapon damage.
+
+- slug: flaming-sphere
+  name: Flaming Sphere
+  level: 2
+  school: conjuration
+  classes: [druid, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a ball of wax}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: DEX, on_success: half}
+  damage:
+    - {dice: 2d6, type: fire, note: to creatures that end their turn within 5 ft or that it rams}
+  higher_slots: {damage_per_level: 1d6}
+  note: A 5-ft-diameter ball of fire you can move 30 ft as a Bonus Action.
+  summary: A rolling ball of fire you steer; Dex save, 2d6 fire.
+
+- slug: gentle-repose
+  name: Gentle Repose
+  level: 2
+  school: necromancy
+  classes: [cleric, paladin, wizard]
+  casting_time: {unit: action}
+  ritual: true
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: 2 copper pieces, consumed: true}
+  duration: {kind: timed, amount: 10, unit: day}
+  summary: A corpse doesn't decay and can't become undead.
+
+- slug: gust-of-wind
+  name: Gust of Wind
+  level: 2
+  school: evocation
+  classes: [druid, ranger, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  area: {shape: line, feet: 60, width_feet: 10}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a legume seed}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: STR, on_success: none}
+  note: A failed save pushes a creature 15 feet away; the line also blows out flames and gas.
+  summary: A strong wind in a 60-ft line pushes creatures back; Str save.
+
+- slug: hold-person
+  name: Hold Person
+  level: 2
+  school: enchantment
+  classes: [bard, cleric, druid, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a straight piece of iron}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: WIS, on_success: none}
+  higher_slots: {note: One additional creature per slot level above 2.}
+  summary: Wis save or a humanoid is Paralyzed; it repeats the save each turn.
+
+- slug: invisibility
+  name: Invisibility
+  level: 2
+  school: illusion
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: an eyelash in gum arabic}
+  duration: {kind: timed, amount: 1, unit: hour}
+  concentration: true
+  higher_slots: {note: One additional creature per slot level above 2.}
+  note: Ends early for a creature that attacks, deals damage, or casts a spell.
+  summary: A creature turns invisible until it attacks, deals damage, or casts a spell.
+
+- slug: knock
+  name: Knock
+  level: 2
+  school: transmutation
+  classes: [bard, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components: {verbal: true}
+  duration: {kind: instantaneous}
+  note: Makes a loud knock audible up to 300 feet away.
+  summary: Unlock a locked door, chest, or similar object (loudly).
+
+- slug: levitate
+  name: Levitate
+  level: 2
+  school: transmutation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a metal spring}
+  duration: {kind: timed, amount: 10, unit: minute}
+  concentration: true
+  save: {ability: CON, on_success: none}
+  note: Only an unwilling creature makes the save.
+  summary: A creature or object rises up to 20 ft and hovers.
+
+- slug: locate-object
+  name: Locate Object
+  level: 2
+  school: divination
+  classes: [bard, cleric, druid, paladin, ranger, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a forked twig}
+  duration: {kind: timed, amount: 10, unit: minute}
+  concentration: true
+  summary: Sense the direction of an object you know within 1,000 ft.
+
+- slug: magic-mouth
+  name: Magic Mouth
+  level: 2
+  school: illusion
+  classes: [bard, wizard]
+  casting_time: {unit: minute, amount: 1}
+  ritual: true
+  range: {kind: distance, feet: 30}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: jade dust worth 10+ GP, cost_gp: 10, consumed: true}
+  duration: {kind: until_dispelled}
+  summary: An object speaks a message when a trigger you set happens.
+
+- slug: magic-weapon
+  name: Magic Weapon
+  level: 2
+  school: transmutation
+  classes: [paladin, ranger, sorcerer, warlock, wizard]
+  casting_time: {unit: bonus_action}
+  range: {kind: touch}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: hour}
+  higher_slots: {note: The bonus becomes +2 with a level 3-5 slot and +3 with a level 6+ slot.}
+  summary: A nonmagical weapon becomes a +1 magic weapon.
+
+- slug: melfs-acid-arrow
+  name: Melf's Acid Arrow
+  level: 2
+  school: evocation
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 90}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: powdered rhubarb leaf}
+  duration: {kind: instantaneous}
+  attack: {kind: ranged}
+  damage:
+    - {dice: 4d4, type: acid, note: "on a hit (half on a miss, and no later damage)"}
+    - {dice: 2d4, type: acid, note: at the end of the target's next turn}
+  higher_slots: {damage_per_level: 1d4, note: Applies to both the initial and the later damage.}
+  summary: Ranged spell attack for 4d4 acid, then 2d4 more at the end of its next turn.
+
+- slug: mind-spike
+  name: Mind Spike
+  level: 2
+  school: divination
+  classes: [sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 120}
+  components: {somatic: true}
+  duration: {kind: timed, amount: 1, unit: hour}
+  concentration: true
+  save: {ability: WIS, on_success: half}
+  damage:
+    - {dice: 3d8, type: psychic}
+  higher_slots: {damage_per_level: 1d8}
+  note: On a failed save you always know where the target is while the spell lasts.
+  summary: Wis save, 3d8 psychic, and you track the target's location.
+
+- slug: mirror-image
+  name: Mirror Image
+  level: 2
+  school: illusion
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: minute}
+  summary: Three illusory duplicates of you that attacks can hit instead.
+
+- slug: misty-step
+  name: Misty Step
+  level: 2
+  school: conjuration
+  classes: [sorcerer, warlock, wizard]
+  casting_time: {unit: bonus_action}
+  range: {kind: self}
+  components: {verbal: true}
+  duration: {kind: instantaneous}
+  summary: Teleport up to 30 ft to a space you can see.
+
+- slug: nystuls-magic-aura
+  name: Nystul's Magic Aura
+  level: 2
+  school: illusion
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a small square of silk}
+  duration: {kind: timed, amount: 24, unit: hour}
+  summary: Mask or falsify how a creature or object appears to divination magic.
+
+- slug: phantasmal-force
+  name: Phantasmal Force
+  level: 2
+  school: illusion
+  classes: [bard, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a bit of fleece}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: INT, on_success: none}
+  damage:
+    - {dice: 2d8, type: psychic, note: on each of your turns if the illusion can harm the target}
+  summary: Int save or the target believes in an illusion only it perceives; 2d8 psychic.
+
+- slug: ray-of-enfeeblement
+  name: Ray of Enfeeblement
+  level: 2
+  school: necromancy
+  classes: [warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: CON, on_success: special}
+  note: >-
+    On a failed save the target has disadvantage on Strength checks and saves and deals 1d8
+    less damage with Strength attacks; on a success it's only weakened until your next turn.
+  summary: Con save or the target is weakened, dealing less damage with Strength.
+
+- slug: rope-trick
+  name: Rope Trick
+  level: 2
+  school: transmutation
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a segment of rope}
+  duration: {kind: timed, amount: 1, unit: hour}
+  summary: A rope leads to a hidden extradimensional space for up to eight creatures.
+
+- slug: scorching-ray
+  name: Scorching Ray
+  level: 2
+  school: evocation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 120}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  attack: {kind: ranged}
+  damage:
+    - {dice: 2d6, type: fire, note: "per ray; three rays, each with its own attack roll"}
+  higher_slots: {note: One additional ray per slot level above 2.}
+  summary: Three rays of fire, each a ranged spell attack for 2d6 fire.
+
+- slug: see-invisibility
+  name: See Invisibility
+  level: 2
+  school: divination
+  classes: [bard, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a pinch of talc and powdered silver}
+  duration: {kind: timed, amount: 1, unit: hour}
+  summary: See invisible creatures and objects, and into the Ethereal Plane.
+
+- slug: shatter
+  name: Shatter
+  level: 2
+  school: evocation
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  area: {shape: sphere, feet: 10}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a chip of mica}
+  duration: {kind: instantaneous}
+  save: {ability: CON, on_success: half}
+  damage:
+    - {dice: 3d8, type: thunder}
+  higher_slots: {damage_per_level: 1d8}
+  note: Constructs have disadvantage on the save.
+  summary: A 10-ft sphere of thunder; Con save, 3d8 thunder.
+
+- slug: spider-climb
+  name: Spider Climb
+  level: 2
+  school: transmutation
+  classes: [sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a drop of bitumen and a spider}
+  duration: {kind: timed, amount: 1, unit: hour}
+  concentration: true
+  higher_slots: {note: One additional creature per slot level above 2.}
+  summary: A creature can climb walls and ceilings with its hands free.
+
+- slug: suggestion
+  name: Suggestion
+  level: 2
+  school: enchantment
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 30}
+  components:
+    verbal: true
+    material: {text: a drop of honey}
+  duration: {kind: timed, amount: 8, unit: hour}
+  concentration: true
+  save: {ability: WIS, on_success: none}
+  summary: Wis save or a creature follows a reasonable-sounding course of action.
+
+- slug: web
+  name: Web
+  level: 2
+  school: conjuration
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  area: {shape: cube, feet: 20}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a bit of spiderweb}
+  duration: {kind: timed, amount: 1, unit: hour}
+  concentration: true
+  save: {ability: DEX, on_success: none}
+  note: The webs are Difficult Terrain and lightly obscure the area; a failed save means Restrained.
+  summary: A 20-ft cube of sticky webs; Dex save or Restrained.

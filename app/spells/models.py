@@ -98,3 +98,29 @@ class CharacterSpell(Base):
     choice_id: Mapped[int | None] = mapped_column(ForeignKey("choices.id"))
 
     spell: Mapped[Spell] = relationship(lazy="joined")
+
+
+class SpellbookEntry(Base):
+    """A spell written in a character's spellbook, and how it got there.
+
+    Separate from character_spells (cantrips and other known spells) because a spellbook has
+    its own rules: spells are added on level up, by features, or copied from scrolls and other
+    books, and only spells in the book can be prepared.
+    """
+
+    __tablename__ = "spellbook_entries"
+    __table_args__ = (
+        UniqueConstraint("character_id", "spell_id"),  # a book can't hold a spell twice
+        CheckConstraint(
+            "acquired_via IN ('level_up', 'feature', 'copied')", name="acquired_via_values"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    character_id: Mapped[int] = mapped_column(ForeignKey("characters.id", ondelete="CASCADE"))
+    spell_id: Mapped[int] = mapped_column(ForeignKey("spells.id"))
+    acquired_via: Mapped[str] = mapped_column(String(20))
+    # The level-up or feature choice that added it; NULL for copied spells.
+    choice_id: Mapped[int | None] = mapped_column(ForeignKey("choices.id"))
+
+    spell: Mapped[Spell] = relationship(lazy="joined")

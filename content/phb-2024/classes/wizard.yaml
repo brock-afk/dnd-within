@@ -24,7 +24,9 @@ features:
       - religion
 - slug: spellcasting
   name: Spellcasting
-  summary: You cast wizard spells with Intelligence, learned from your spellbook.
+  summary: >-
+    You cast wizard spells with Intelligence, learned from your spellbook. You know more
+    cantrips at Wizard levels 4 and 10, and add two spells to your spellbook every level.
   choices:
   - slug: cantrips
     name: Cantrips
@@ -35,11 +37,138 @@ features:
       level: 0
   - slug: spellbook
     name: Spellbook
-    kind: spell
+    kind: spellbook
     count: 6
     criteria:
       class: wizard
       level: 1
+  # Each Wizard level after 1 adds two wizard spells of a level you have spell slots for.
+  - slug: spellbook-2
+    name: Spellbook (Wizard 2)
+    kind: spellbook
+    count: 2
+    level: 2
+    criteria: {class: wizard, max_level: 1}
+  - slug: spellbook-3
+    name: Spellbook (Wizard 3)
+    kind: spellbook
+    count: 2
+    level: 3
+    criteria: {class: wizard, max_level: 2}
+  - slug: spellbook-4
+    name: Spellbook (Wizard 4)
+    kind: spellbook
+    count: 2
+    level: 4
+    criteria: {class: wizard, max_level: 2}
+  - slug: cantrip-4
+    name: Cantrip (Wizard 4)
+    kind: spell
+    count: 1
+    level: 4
+    criteria: {class: wizard, level: 0}
+  - slug: spellbook-5
+    name: Spellbook (Wizard 5)
+    kind: spellbook
+    count: 2
+    level: 5
+    criteria: {class: wizard, max_level: 3}
+  - slug: spellbook-6
+    name: Spellbook (Wizard 6)
+    kind: spellbook
+    count: 2
+    level: 6
+    criteria: {class: wizard, max_level: 3}
+  - slug: spellbook-7
+    name: Spellbook (Wizard 7)
+    kind: spellbook
+    count: 2
+    level: 7
+    criteria: {class: wizard, max_level: 4}
+  - slug: spellbook-8
+    name: Spellbook (Wizard 8)
+    kind: spellbook
+    count: 2
+    level: 8
+    criteria: {class: wizard, max_level: 4}
+  - slug: spellbook-9
+    name: Spellbook (Wizard 9)
+    kind: spellbook
+    count: 2
+    level: 9
+    criteria: {class: wizard, max_level: 5}
+  - slug: spellbook-10
+    name: Spellbook (Wizard 10)
+    kind: spellbook
+    count: 2
+    level: 10
+    criteria: {class: wizard, max_level: 5}
+  - slug: cantrip-10
+    name: Cantrip (Wizard 10)
+    kind: spell
+    count: 1
+    level: 10
+    criteria: {class: wizard, level: 0}
+  - slug: spellbook-11
+    name: Spellbook (Wizard 11)
+    kind: spellbook
+    count: 2
+    level: 11
+    criteria: {class: wizard, max_level: 6}
+  - slug: spellbook-12
+    name: Spellbook (Wizard 12)
+    kind: spellbook
+    count: 2
+    level: 12
+    criteria: {class: wizard, max_level: 6}
+  - slug: spellbook-13
+    name: Spellbook (Wizard 13)
+    kind: spellbook
+    count: 2
+    level: 13
+    criteria: {class: wizard, max_level: 7}
+  - slug: spellbook-14
+    name: Spellbook (Wizard 14)
+    kind: spellbook
+    count: 2
+    level: 14
+    criteria: {class: wizard, max_level: 7}
+  - slug: spellbook-15
+    name: Spellbook (Wizard 15)
+    kind: spellbook
+    count: 2
+    level: 15
+    criteria: {class: wizard, max_level: 8}
+  - slug: spellbook-16
+    name: Spellbook (Wizard 16)
+    kind: spellbook
+    count: 2
+    level: 16
+    criteria: {class: wizard, max_level: 8}
+  - slug: spellbook-17
+    name: Spellbook (Wizard 17)
+    kind: spellbook
+    count: 2
+    level: 17
+    criteria: {class: wizard, max_level: 9}
+  - slug: spellbook-18
+    name: Spellbook (Wizard 18)
+    kind: spellbook
+    count: 2
+    level: 18
+    criteria: {class: wizard, max_level: 9}
+  - slug: spellbook-19
+    name: Spellbook (Wizard 19)
+    kind: spellbook
+    count: 2
+    level: 19
+    criteria: {class: wizard, max_level: 9}
+  - slug: spellbook-20
+    name: Spellbook (Wizard 20)
+    kind: spellbook
+    count: 2
+    level: 20
+    criteria: {class: wizard, max_level: 9}
 - slug: ritual-adept
   name: Ritual Adept
   summary: >-

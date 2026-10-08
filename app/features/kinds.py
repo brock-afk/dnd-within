@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.skills.models import CharacterSkill, Skill
-from app.spells.models import CharacterSpell, Spell
+from app.spells.models import CharacterSpell, Spell, SpellbookEntry
 
 
 @dataclass(frozen=True)
@@ -23,12 +23,22 @@ class OptionView:
     name: str
     summary: str = ""
     detail: str = ""
+    group: str = ""  # options with groups are shown in collapsible sections, e.g. spell levels
+    school: str = ""  # spells only: enables the school/ritual/name filters
+    ritual: bool = False
 
 
 class ChoiceKind:
     target: type  # table the options come from
     pick: type  # table a character's picks are saved in
     target_fk: str  # column on `pick` pointing at `target`
+    # Shown on options the character already has from somewhere else (they can't be picked).
+    known_label = "Already known"
+    noun = ("option", "options")  # for counts like "31 spells"
+
+    def pick_values(self) -> dict:
+        """Extra columns to set on each new pick row."""
+        return {}
 
     def options_query(self, choice: Choice) -> Select:
         raise NotImplementedError
@@ -74,11 +84,29 @@ class ChoiceKind:
             )
         )
         db.add_all(
-            self.pick(character_id=character_id, choice_id=choice.id, **{self.target_fk: t.id})
+            self.pick(
+                character_id=character_id,
+                choice_id=choice.id,
+                **{self.target_fk: t.id},
+                **self.pick_values(),
+            )
             for t in targets
         )
         db.commit()
         return None
+
+    def already_have(self, db: Session, choice: Choice, character_id: int) -> set[str]:
+        """Slugs of options the character has from anything other than this choice."""
+        fk = getattr(self.pick, self.target_fk)
+        query = (
+            select(self.target.slug)
+            .join(self.pick, fk == self.target.id)
+            .where(
+                self.pick.character_id == character_id,
+                self.pick.choice_id.is_distinct_from(choice.id),
+            )
+        )
+        return set(db.scalars(query))
 
     def picked_choice_ids(self, db: Session, character_id: int) -> set[int]:
         """Every choice of this kind the character has picks for."""
@@ -114,6 +142,7 @@ class SkillKind(ChoiceKind):
     """Skill proficiencies. criteria: {"skill_ids": [...]}, resolved from slugs on import."""
 
     target, pick, target_fk = Skill, CharacterSkill, "skill_id"
+    known_label = "Already proficient"
 
     def options_query(self, choice):
         return (
@@ -125,24 +154,38 @@ class SkillKind(ChoiceKind):
 
 
 class SpellKind(ChoiceKind):
-    """Spells from a class's spell list. criteria: {"class_id": ..., "level": spell level},
-    with the class resolved from its slug on import."""
+    """Spells known from a class's list, like cantrips. criteria: {"class_id": ...} plus either
+    "level" (an exact spell level) or "max_level" (levels 1 up to it). The class is resolved
+    from its slug on import."""
 
     target, pick, target_fk = Spell, CharacterSpell, "spell_id"
+    noun = ("spell", "spells")
 
     def options_query(self, choice):
-        return (
-            select(Spell)
-            .join(Spell.classes)
-            .where(
-                CharacterClass.id == choice.criteria["class_id"],
-                Spell.level == choice.criteria["level"],
-            )
-            .order_by(Spell.name)
-        )
+        criteria = choice.criteria
+        query = select(Spell).join(Spell.classes).where(CharacterClass.id == criteria["class_id"])
+        if "level" in criteria:
+            query = query.where(Spell.level == criteria["level"])
+        else:
+            query = query.where(Spell.level.between(1, criteria["max_level"]))
+        return query.order_by(Spell.level, Spell.name)
 
     def view(self, spell):
-        return OptionView(spell.slug, spell.name, spell.summary, spell.detail)
+        group = "Cantrips" if spell.level == 0 else f"Level {spell.level}"
+        return OptionView(
+            spell.slug, spell.name, spell.summary, spell.detail, group, spell.school, spell.ritual
+        )
+
+
+class SpellbookKind(SpellKind):
+    """Spells written into a Wizard's spellbook on level up. Same options as SpellKind, but
+    picks become spellbook entries."""
+
+    pick = SpellbookEntry
+    known_label = "In your spellbook"
+
+    def pick_values(self):
+        return {"acquired_via": "level_up"}
 
 
 class SubclassKind(ChoiceKind):
@@ -184,6 +227,9 @@ class SubclassKind(ChoiceKind):
         db.commit()
         return None
 
+    def already_have(self, db, choice, character_id):
+        return set()  # one subclass slot per class; nothing to mark
+
     def picked_choice_ids(self, db, character_id):
         query = (
             select(Choice.id)
@@ -208,5 +254,6 @@ KINDS: dict[str, ChoiceKind] = {
     "option": OptionKind(),
     "skill": SkillKind(),
     "spell": SpellKind(),
+    "spellbook": SpellbookKind(),
     "subclass": SubclassKind(),
 }

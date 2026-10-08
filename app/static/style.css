@@ -253,3 +253,32 @@ a { color: var(--accent); }
 .remove-level { margin-top: 0.75rem; max-width: 32rem; }
 .remove-level p { margin: 0 0 0.75rem; }
 .danger-zone + .danger-zone { margin-top: 1rem; padding-top: 0; border-top: 0; }
+
+/* Options the character already has from elsewhere */
+.choice.known { cursor: not-allowed; opacity: 0.6; }
+.choice.known:hover { border-color: var(--border); }
+.choice-known { display: inline-block; margin-top: 0.3rem; font-size: 0.75rem; font-weight: 600; color: var(--accent); }
+
+/* Collapsible option groups (e.g. spells by level) */
+.choice-group { border-top: 1px solid var(--border); padding-top: 0.6rem; }
+.choice-group + .choice-group { margin-top: 0.6rem; }
+.choice-group > summary {
+  display: flex; align-items: baseline; gap: 0.6rem; cursor: pointer; list-style: none;
+  padding: 0.25rem 0 0.6rem; user-select: none;
+}
+.choice-group > summary::-webkit-details-marker { display: none; }
+.choice-group > summary::before { content: "▸"; color: var(--muted); transition: transform 0.15s; }
+.choice-group[open] > summary::before { transform: rotate(90deg); }
+.choice-group-name { font-weight: 600; }
+.choice-group > summary .muted { font-size: 0.85rem; }
+
+/* Option filters (spells) */
+[hidden] { display: none !important; }
+.option-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.option-filters input[type="search"], .option-filters select {
+  padding: 0.45rem 0.6rem; border: 1px solid var(--border-strong); border-radius: 6px;
+  background: var(--bg); color: inherit; font: inherit; font-size: 0.95rem;
+}
+.option-filters input[type="search"] { flex: 1 1 12rem; min-width: 0; }
+.filter-check { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 0.9rem; }
+.filter-empty { flex-basis: 100%; font-size: 0.9rem; }

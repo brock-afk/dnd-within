@@ -42,9 +42,18 @@ def _applies(applies_to: str, cc: CharacterClassLevel) -> bool:
     return True
 
 
-def _views(db: Session, character: Character, features) -> list[FeatureView]:
+def _views(db: Session, character: Character, features, level: int) -> list[FeatureView]:
+    """Features with the choices unlocked at `level` (the class level, or the character level
+    for species features)."""
     return [
-        FeatureView(f, [ChoiceView(c, KINDS[c.kind].picked(db, c, character.id)) for c in f.choices])
+        FeatureView(
+            f,
+            [
+                ChoiceView(c, KINDS[c.kind].picked(db, c, character.id))
+                for c in f.choices
+                if c.level <= level
+            ],
+        )
         for f in features
     ]
 
@@ -57,7 +66,12 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
         .where(Feature.species_id == character.species_id, Feature.level <= character.level)
         .order_by(Feature.position)
     ).all()
-    groups = [FeatureGroup(character.species.name, _views(db, character, species_features))]
+    groups = [
+        FeatureGroup(
+            character.species.name,
+            _views(db, character, species_features, character.level),
+        )
+    ]
 
     for cc in character.classes:
         class_features = db.scalars(
@@ -66,7 +80,9 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
             .order_by(Feature.position)
         ).all()
         applicable = [f for f in class_features if _applies(f.applies_to, cc)]
-        groups.append(FeatureGroup(cc.character_class.name, _views(db, character, applicable)))
+        groups.append(
+            FeatureGroup(cc.character_class.name, _views(db, character, applicable, cc.level))
+        )
 
         if cc.subclass_id is not None:
             subclass_features = db.scalars(
@@ -75,7 +91,7 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
                 .order_by(Feature.position)
             ).all()
             name = db.get(Subclass, cc.subclass_id).name
-            groups.append(FeatureGroup(name, _views(db, character, subclass_features)))
+            groups.append(FeatureGroup(name, _views(db, character, subclass_features, cc.level)))
     return groups
 
 
@@ -85,15 +101,16 @@ def applicable_choice(db: Session, character: Character, choice_id: int) -> Choi
     if choice is None:
         return None
     feature = choice.feature
+    unlocks_at = max(feature.level, choice.level)
     if feature.species_id is not None:
-        ok = feature.species_id == character.species_id and feature.level <= character.level
+        ok = feature.species_id == character.species_id and unlocks_at <= character.level
         return choice if ok else None
     for cc in character.classes:
         if feature.class_id is not None and cc.class_id == feature.class_id:
-            ok = feature.level <= cc.level and _applies(feature.applies_to, cc)
+            ok = unlocks_at <= cc.level and _applies(feature.applies_to, cc)
             return choice if ok else None
         if feature.subclass_id is not None and cc.subclass_id == feature.subclass_id:
-            return choice if feature.level <= cc.level else None
+            return choice if unlocks_at <= cc.level else None
     return None
 
 

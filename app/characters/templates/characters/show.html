@@ -85,7 +85,7 @@
       <span class="muted">{{ fv.feature.summary }}</span>
       {% for cv in fv.choices if cv.done %}
       <div class="feature-choice" id="choice-{{ cv.choice.id }}">
-        {% if cv.choice.kind == "spell" %}
+        {% if cv.choice.kind in ("spell", "spellbook") %}
           <span>{{ cv.choice.name }}: {{ cv.picked | length }} chosen</span>
         {% else %}
           <span>{{ cv.choice.name }}: <strong>{{ cv.picked | map(attribute="name") | join(", ") }}</strong></span>
@@ -116,23 +116,34 @@
 </section>
 {% endif %}
 
-{% if spells %}
+{% macro spell_list(rows) %}
+<ul class="plain-list spell-list">
+  {% for row in rows %}
+  <li>
+    <span class="feature-name">{{ row.spell.name }}</span>
+    <span class="choice-detail">{{ row.spell.detail }}</span>
+    <span class="muted">{{ row.spell.summary }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+
+{% if spells or spellbook %}
 <section class="sheet-section">
   <h2>Spells</h2>
-  {% for level, label in [(0, "Cantrips"), (1, "Level 1 · Spellbook")] %}
-  {% set at_level = spells | selectattr("spell.level", "equalto", level) | list %}
-  {% if at_level %}
-  <h3 class="group-title">{{ label }}</h3>
-  <ul class="plain-list spell-list">
-    {% for cs in at_level %}
-    <li>
-      <span class="feature-name">{{ cs.spell.name }}</span>
-      <span class="choice-detail">{{ cs.spell.detail }}</span>
-      <span class="muted">{{ cs.spell.summary }}</span>
-    </li>
-    {% endfor %}
-  </ul>
+  {% set cantrips = spells | selectattr("spell.level", "equalto", 0) | list %}
+  {% if cantrips %}
+  <h3 class="group-title">Cantrips</h3>
+  {{ spell_list(cantrips) }}
   {% endif %}
+  {% set other_known = spells | rejectattr("spell.level", "equalto", 0) | list %}
+  {% if other_known %}
+  <h3 class="group-title">Other spells known</h3>
+  {{ spell_list(other_known) }}
+  {% endif %}
+  {% for level, entries in spellbook | groupby("spell.level") %}
+  <h3 class="group-title">Spellbook · Level {{ level }}</h3>
+  {{ spell_list(entries) }}
   {% endfor %}
 </section>
 {% endif %}

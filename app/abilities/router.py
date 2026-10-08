@@ -27,6 +27,7 @@ from app.characters.models import Character
 from app.characters.page import refresh_character_page
 from app.core.db import DbSession
 from app.core.templates import templates
+from app.sheet.service import max_hp, track_max_change
 
 router = APIRouter(tags=["abilities"])
 
@@ -179,8 +180,11 @@ def save_abilities(
         method = form.method if form.method in METHODS else "standard_array"
         return _render_editor(request, character, method, scores, rolls, errors, status_code=400)
 
+    old_max = max_hp(db, character)
     character.ability_method = form.method
     for column, score in scores.items():
         setattr(character, column, score)
+    # A Constitution change moves max HP: an increase raises current HP too, a decrease caps it.
+    track_max_change(db, character, old_max, heal=True)
     db.commit()
     return refresh_character_page(request, db, user, character)

@@ -1,0 +1,20 @@
+{% from "partials/option_filters.html" import filter_bar %}
+{% from "partials/choices.html" import choice_grid %}
+{% from "partials/refresh.html" import refresh_button %}
+{% set noun = ("spell", "spells") %}
+<form hx-post="/characters/{{ character.id }}/sheet/prepared" hx-swap="outerHTML" novalidate data-filter-scope
+      class="choice-form{% if error %} has-error{% endif %}">
+  <div class="choice-form-header">
+    <h3 class="section-title">Prepare spells</h3>
+    <span class="muted">Up to {{ limit }} from your spellbook</span>
+  </div>
+  {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}
+
+  {{ filter_bar(filter_schools, noun) }}
+  {{ choice_grid("picks", options, selected=selected, multiple=true, value_key="slug", noun=noun) }}
+
+  <div class="form-actions">
+    <button type="submit">Save</button>
+    {{ refresh_button(character, page="play") }}
+  </div>
+</form>

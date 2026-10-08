@@ -1,6 +1,7 @@
+{% from "partials/option_filters.html" import filter_bar %}
 {% from "partials/refresh.html" import refresh_button %}
 {% from "partials/choices.html" import choice_grid %}
-<form hx-post="/characters/{{ character.id }}/choices/{{ choice.id }}" hx-swap="outerHTML" novalidate
+<form hx-post="/characters/{{ character.id }}/choices/{{ choice.id }}" hx-swap="outerHTML" novalidate data-filter-scope
       class="choice-form{% if error %} has-error{% endif %}">
   <div class="choice-form-header">
     <h3 class="section-title">{{ choice.name }}</h3>
@@ -8,19 +9,7 @@
   </div>
   {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}
 
-  {% if filter_schools %}
-  {# Filtering happens in the browser (static/option-filters.js). The filter inputs have no
-     name, so they're never submitted, and hidden cards keep their picks. #}
-  <div class="option-filters" role="search">
-    <input type="search" data-filter="name" placeholder="Search by name" aria-label="Search by name">
-    <select data-filter="school" aria-label="School">
-      <option value="">All schools</option>
-      {% for school in filter_schools %}<option value="{{ school }}">{{ school | title }}</option>{% endfor %}
-    </select>
-    <label class="filter-check"><input type="checkbox" data-filter="ritual"> Rituals only</label>
-    <span class="filter-empty muted" hidden>No {{ noun[1] }} match these filters.</span>
-  </div>
-  {% endif %}
+  {{ filter_bar(filter_schools, noun) }}
 
   {{ choice_grid("picks", options, selected=selected, multiple=choice.count > 1, value_key="slug",
                  known=known, known_label=known_label, noun=noun) }}

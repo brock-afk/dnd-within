@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ character.name }} · Play · DnD Within{% endblock %}
+{% from "partials/page_tabs.html" import page_tabs %}
+{% macro signed(n) %}{{ "+" if n >= 0 else "−" }}{{ n | abs }}{% endmacro %}
+
+{% from "partials/spell_list.html" import spell_groups %}
+
+{% block content %}
+<div id="sheet-page">
+<div class="page-header">
+  <div>
+    <h1>{{ character.name }}</h1>
+    <p class="subtitle">{{ character.species.name }} {{ character.class_summary }} · Level {{ character.level }}</p>
+  </div>
+  <a href="/characters">All characters</a>
+</div>
+{{ page_tabs(character, "play") }}
+
+<section class="sheet-section hp-block">
+  <h2>Hit points</h2>
+  {% if hp is none %}
+  <p class="muted">Set ability scores first: hit points depend on Constitution.
+    <a href="/characters/{{ character.id }}">Go to Build</a></p>
+  {% else %}
+  <div class="hp-display">
+    <span class="hp-current">{{ hp.current }}</span>
+    <span class="hp-max">/ {{ hp.maximum }}</span>
+    {% if hp.temp %}
+    <span class="hp-temp">+{{ hp.temp }} temp{% if hp.temp_source %} · {{ hp.temp_source }}{% endif %}</span>
+    {% endif %}
+  </div>
+  {% if hp.effects %}
+  <p class="muted hp-breakdown">
+    {{ hp.base }} base{% for e in hp.effects %} {{ signed(e.max_hp_delta) }} {{ e.label }}{% endfor %}
+  </p>
+  {% endif %}
+
+  <form hx-post="/characters/{{ character.id }}/sheet/hp" novalidate class="hp-form">
+    <label for="hp-amount" class="visually-hidden">Amount</label>
+    <input id="hp-amount" name="amount" type="text" inputmode="numeric" maxlength="3" placeholder="Amount"
+           {% if errors.hp %}aria-invalid="true"{% endif %}>
+    <button type="submit" name="action" value="damage" class="danger-button">Damage</button>
+    <button type="submit" name="action" value="heal">Heal</button>
+  </form>
+  {% if errors.hp %}<p class="error" role="alert">{{ errors.hp }}</p>{% endif %}
+
+  <form hx-post="/characters/{{ character.id }}/sheet/temp-hp" novalidate class="hp-form">
+    <label for="temp-amount">Temp HP</label>
+    <input id="temp-amount" name="amount" type="text" inputmode="numeric" maxlength="3"
+           value="{{ hp.temp }}" {% if errors.temp_hp %}aria-invalid="true"{% endif %}>
+    <input name="source" type="text" maxlength="80" placeholder="Source (optional)" aria-label="Temp HP source"
+           value="{{ hp.temp_source or '' }}">
+    <button type="submit" class="secondary-button">Set</button>
+  </form>
+  {% if errors.temp_hp %}<p class="error" role="alert">{{ errors.temp_hp }}</p>{% endif %}
+
+  <div class="hp-effects">
+    <h3 class="group-title">Max HP effects</h3>
+    {% if hp.effects %}
+    <ul class="plain-list">
+      {% for e in hp.effects %}
+      <li class="hp-effect">
+        <span><strong>{{ e.label }}</strong> <span class="muted">{{ signed(e.max_hp_delta) }} max HP</span></span>
+        <button type="button" class="link-button"
+                hx-post="/characters/{{ character.id }}/sheet/hp-effects/{{ e.id }}/end">End</button>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <details class="add-effect" {% if errors.effect %}open{% endif %}>
+      <summary>Add effect</summary>
+      <form hx-post="/characters/{{ character.id }}/sheet/hp-effects" novalidate class="hp-form">
+        <input name="label" type="text" maxlength="80" placeholder="Name, e.g. Aid" aria-label="Effect name">
+        <input name="delta" type="text" inputmode="numeric" maxlength="4" placeholder="+5 or −4"
+               aria-label="Change to max HP" class="delta-input">
+        <button type="submit" class="secondary-button">Add</button>
+      </form>
+      {% if errors.effect %}<p class="error" role="alert">{{ errors.effect }}</p>{% endif %}
+    </details>
+  </div>
+  {% endif %}
+</section>
+
+{% if castable or has_spellbook %}
+<section class="sheet-section">
+  <h2>Spells</h2>
+  <div id="prepared-section">
+    {% if prepared_limit is not none %}
+    <div class="section-heading">
+      <span class="group-title">Prepared · {{ prepared_count }} / {{ prepared_limit }}</span>
+      {% if has_spellbook %}
+      <button type="button" class="link-button"
+              hx-get="/characters/{{ character.id }}/sheet/prepared/edit"
+              hx-target="#prepared-section">Change prepared</button>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% if castable %}
+    {{ spell_groups(castable) }}
+    {% else %}
+    <p class="muted">No spells prepared yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+</div>
+{% endblock %}

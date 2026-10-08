@@ -282,3 +282,45 @@ a { color: var(--accent); }
 .option-filters input[type="search"] { flex: 1 1 12rem; min-width: 0; }
 .filter-check { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 0.9rem; }
 .filter-empty { flex-basis: 100%; font-size: 0.9rem; }
+
+/* Build | Play tabs */
+.page-tabs { display: flex; gap: 0.25rem; margin: -0.5rem 0 1.75rem; border-bottom: 1px solid var(--border); }
+.page-tabs a { padding: 0.5rem 1rem; color: var(--muted); text-decoration: none; border-radius: 6px 6px 0 0; }
+.page-tabs a:hover { color: var(--text); background: var(--surface); }
+.page-tabs a.active { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* Sheet: hit points */
+.secondary-button { background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); }
+.secondary-button:hover { background: var(--border); }
+.hp-block { display: grid; gap: 0.75rem; }
+.hp-block h2 { margin-bottom: 0; }
+.hp-display { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; }
+.hp-current { font-size: 2.6rem; font-weight: 700; color: var(--accent); line-height: 1; }
+.hp-max { font-size: 1.3rem; color: var(--muted); }
+.hp-temp { padding: 0.15rem 0.6rem; border-radius: 999px; background: var(--surface); border: 1px solid var(--border-strong); font-size: 0.9rem; }
+.hp-breakdown { margin: -0.4rem 0 0; font-size: 0.9rem; }
+.hp-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.hp-form label { margin: 0; }
+.hp-form input[type="text"] { width: 6.5rem; }
+.hp-form input[name="source"], .hp-form input[name="label"] { width: auto; flex: 1 1 10rem; }
+.hp-form .delta-input { width: 6rem; }
+.hp-block .error { margin: -0.4rem 0 0; }
+.hp-effects .group-title { margin-top: 0.5rem; }
+.hp-effect { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.add-effect { margin-top: 0.5rem; }
+.add-effect summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; width: fit-content; }
+.add-effect form { margin-top: 0.6rem; }
+#prepared-section .section-heading { margin-bottom: 0.5rem; }
+#prepared-section .group-title { margin: 1.25rem 0 0; }
+
+/* Spell lists: name line with tags */
+.spell-groups { display: grid; gap: 0.6rem; }
+.spell-groups .choice-group { padding-bottom: 0.4rem; }
+.spell-list li { padding: 0.15rem 0; }
+.spell-name-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
+.spell-tag {
+  padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.02em; color: var(--muted); border: 1px solid var(--border-strong);
+}
+.spell-tag.ritual-only { color: var(--accent); border-color: var(--accent); }
+#prepared-section .section-heading .group-title { margin: 0; }

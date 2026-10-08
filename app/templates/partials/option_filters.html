@@ -1,0 +1,28 @@
+{# Filters for spell lists and spell choice cards, applied in the browser by
+   static/option-filters.js to [data-filter-item] elements inside the nearest
+   [data-filter-scope]. The inputs have no name, so they're never submitted, and hidden
+   choice cards keep their picks. #}
+
+{% macro filter_bar(schools, noun=("spell", "spells")) %}
+{% if schools %}
+<div class="option-filters" role="search">
+  <input type="search" data-filter="name" placeholder="Search by name" aria-label="Search by name">
+  <select data-filter="school" aria-label="School">
+    <option value="">All schools</option>
+    {% for school in schools %}<option value="{{ school }}">{{ school | title }}</option>{% endfor %}
+  </select>
+  <select data-filter="ritual" aria-label="Rituals">
+    <option value="">All, rituals included</option>
+    <option value="only">Only rituals</option>
+    <option value="hide">Hide rituals</option>
+  </select>
+  <span class="filter-empty muted" hidden>No {{ noun[1] }} match these filters.</span>
+</div>
+{% endif %}
+{% endmacro %}
+
+{# The data attributes a filterable item needs. #}
+{% macro filter_attrs(name, school="", ritual=false) -%}
+data-filter-item data-name="{{ name | lower }}"
+{%- if school %} data-school="{{ school }}" data-ritual="{{ '1' if ritual else '0' }}"{% endif %}
+{%- endmacro %}

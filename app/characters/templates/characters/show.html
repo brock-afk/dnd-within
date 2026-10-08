@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ character.name }} · DnD Within{% endblock %}
+{% from "partials/page_tabs.html" import page_tabs %}
+{% from "partials/spell_list.html" import spell_groups %}
 
 {% macro choose_button(choice, label) %}
 <button type="button" class="{{ 'link-button' if label == 'Change' }}"
@@ -23,6 +25,7 @@
   </div>
   <a href="/characters">All characters</a>
 </div>
+{{ page_tabs(character, "build") }}
 <div id="level-up-slot"></div>
 
 {% if pending or not abilities %}
@@ -116,35 +119,10 @@
 </section>
 {% endif %}
 
-{% macro spell_list(rows) %}
-<ul class="plain-list spell-list">
-  {% for row in rows %}
-  <li>
-    <span class="feature-name">{{ row.spell.name }}</span>
-    <span class="choice-detail">{{ row.spell.detail }}</span>
-    <span class="muted">{{ row.spell.summary }}</span>
-  </li>
-  {% endfor %}
-</ul>
-{% endmacro %}
-
 {% if spells or spellbook %}
 <section class="sheet-section">
   <h2>Spells</h2>
-  {% set cantrips = spells | selectattr("spell.level", "equalto", 0) | list %}
-  {% if cantrips %}
-  <h3 class="group-title">Cantrips</h3>
-  {{ spell_list(cantrips) }}
-  {% endif %}
-  {% set other_known = spells | rejectattr("spell.level", "equalto", 0) | list %}
-  {% if other_known %}
-  <h3 class="group-title">Other spells known</h3>
-  {{ spell_list(other_known) }}
-  {% endif %}
-  {% for level, entries in spellbook | groupby("spell.level") %}
-  <h3 class="group-title">Spellbook · Level {{ level }}</h3>
-  {{ spell_list(entries) }}
-  {% endfor %}
+  {{ spell_groups((spells + spellbook) | sort(attribute="spell.name") | sort(attribute="spell.level")) }}
 </section>
 {% endif %}
 

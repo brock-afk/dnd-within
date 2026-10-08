@@ -13,6 +13,7 @@ from app.features.service import remove_inapplicable_picks
 from app.leveling.models import CharacterLevel
 from app.leveling.rules import MAX_LEVEL, fixed_hp, level_hp
 from app.leveling.service import constitution_modifier
+from app.sheet.service import max_hp, track_max_change
 
 router = APIRouter(tags=["leveling"])
 
@@ -72,6 +73,7 @@ def level_up(
     if error:
         return _render_panel(request, db, character, roll, error, status_code=400)
 
+    old_max = max_hp(db, character)
     character.levels.append(
         CharacterLevel(
             character_level=character.level + 1,
@@ -80,6 +82,7 @@ def level_up(
             hp_roll=int(roll) if hp_method == "rolled" else None,
         )
     )
+    track_max_change(db, character, old_max, heal=True)  # current HP rises with the max
     db.commit()
     return refresh_character_page(request, db, user, character)
 
@@ -88,8 +91,10 @@ def level_up(
 def level_down(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
     if character.level <= 1:
         return HTMLResponse("Level 1 can't be removed.", status_code=400)
+    old_max = max_hp(db, character)
     character.levels.remove(character.levels[-1])
     db.flush()
+    track_max_change(db, character, old_max, heal=False)  # current HP is capped at the new max
     # Features from the removed level are gone, so their picks go too.
     remove_inapplicable_picks(db, character)
     db.commit()

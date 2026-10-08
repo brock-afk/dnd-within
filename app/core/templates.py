@@ -23,3 +23,13 @@ def form_error(request: Request, message: str, status_code: int = 400) -> HTMLRe
 def hx_redirect(path: str) -> Response:
     # htmx follows HX-Redirect with a full page load.
     return Response(status_code=200, headers={"HX-Redirect": path})
+
+
+def morph_in_place(response: Response, selector: str) -> Response:
+    """Tell htmx to morph just `selector` from this full-page response into the current page,
+    whatever element sent the request. Unchanged parts stay put, so the scroll position and
+    focus are kept, unlike a redirect."""
+    response.headers["HX-Retarget"] = selector
+    response.headers["HX-Reswap"] = "outerMorph"
+    response.headers["HX-Reselect"] = selector
+    return response

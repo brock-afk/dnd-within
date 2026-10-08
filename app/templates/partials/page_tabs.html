@@ -1,0 +1,7 @@
+{# Switches between the character's Build page and Play sheet. #}
+{% macro page_tabs(character, active) %}
+<nav class="page-tabs" aria-label="Character views">
+  <a href="/characters/{{ character.id }}" {% if active == "build" %}class="active" aria-current="page"{% endif %}>Build</a>
+  <a href="/characters/{{ character.id }}/sheet" {% if active == "play" %}class="active" aria-current="page"{% endif %}>Play</a>
+</nav>
+{% endmacro %}

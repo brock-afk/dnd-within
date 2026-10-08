@@ -55,15 +55,22 @@ class Spell(ContentMixin, Base):
     classes: Mapped[list[CharacterClass]] = relationship(secondary=class_spells)
 
     @property
-    def detail(self) -> str:
-        """One-line stat summary, e.g. "Evocation · Action · 120 ft · Concentration"."""
+    def stat_line(self) -> str:
+        """School, casting time and range, e.g. "Evocation · Action · 120 ft"."""
         parts = [self.school.title(), _casting_label(self.details.get("casting_time", {}))]
         parts.append(_range_label(self.details.get("range", {}), self.details.get("area")))
+        return " · ".join(p for p in parts if p)
+
+    @property
+    def detail(self) -> str:
+        """The stat line plus ritual/concentration, e.g. "Evocation · Action · 120 ft ·
+        Concentration". Spell lists show those two as tags instead (partials/spell_list.html)."""
+        parts = [self.stat_line]
         if self.ritual:
             parts.append("Ritual")
         if self.concentration:
             parts.append("Concentration")
-        return " · ".join(p for p in parts if p)
+        return " · ".join(parts)
 
 
 def _casting_label(casting: dict) -> str:

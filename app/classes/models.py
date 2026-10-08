@@ -1,4 +1,7 @@
+from typing import Any
+
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     ForeignKey,
     ForeignKeyConstraint,
@@ -26,6 +29,8 @@ class CharacterClass(ContentMixin, Base):
     name: Mapped[str] = mapped_column(String(50))
     summary: Mapped[str] = mapped_column(String(255))
     hit_die: Mapped[int] = mapped_column(SmallInteger, default=8, server_default="8")
+    # {"ability": "INT", "prepared": [20 counts]} for spellcasting classes, else NULL.
+    spellcasting: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
 
 class Subclass(ContentMixin, Base):

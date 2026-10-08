@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.abilities.service import ability_views
 from app.auth.models import User
 from app.characters.models import Character
-from app.core.templates import templates
+from app.core.templates import morph_in_place, templates
 from app.features.service import feature_groups
 from app.leveling.service import hit_points
 from app.skills.queries import character_skills
@@ -52,8 +52,4 @@ def refresh_character_page(
     # Sessions don't expire objects on commit, so relationships loaded before the change
     # (e.g. a class row's subclass) would render stale. Reload everything from the database.
     db.expire_all()
-    response = render_character_page(request, db, user, character)
-    response.headers["HX-Retarget"] = PAGE_SELECTOR
-    response.headers["HX-Reswap"] = "outerMorph"
-    response.headers["HX-Reselect"] = PAGE_SELECTOR
-    return response
+    return morph_in_place(render_character_page(request, db, user, character), PAGE_SELECTOR)

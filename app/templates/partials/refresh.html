@@ -1,7 +1,10 @@
-{# Re-renders the character page in place (see app/characters/page.py), so cancelling
-   doesn't reload the page or lose the scroll position. #}
-{% macro refresh_button(character, label="Cancel") %}
+{# Re-renders a character page in place (see app/core/templates.py:morph_in_place), so
+   cancelling doesn't reload the page or lose the scroll position. `page` is "build" (the
+   character page) or "play" (the sheet). #}
+{% macro refresh_button(character, label="Cancel", page="build") %}
+{% set url = "/characters/%d" % character.id ~ ("/sheet" if page == "play" else "") %}
+{% set selector = "#sheet-page" if page == "play" else "#character-page" %}
 <button type="button" class="link-button"
-        hx-get="/characters/{{ character.id }}" hx-select="#character-page"
-        hx-target="#character-page" hx-swap="outerMorph">{{ label }}</button>
+        hx-get="{{ url }}" hx-select="{{ selector }}"
+        hx-target="{{ selector }}" hx-swap="outerMorph">{{ label }}</button>
 {% endmacro %}

@@ -1,0 +1,35 @@
+{% from "partials/option_filters.html" import filter_bar, filter_attrs %}
+
+{# Spells grouped by level in collapsible sections, with name/school/ritual filters.
+   `rows` need .spell, and optionally .ritual_only (a ritual castable without being prepared). #}
+{% macro spell_groups(rows) %}
+<div class="spell-groups" data-filter-scope>
+  {{ filter_bar(rows | map(attribute="spell.school") | unique | sort | list) }}
+  {% for level, in_level in rows | groupby("spell.level") %}
+  <details class="choice-group" data-filter-group open>
+    <summary>
+      <span class="choice-group-name">{{ "Cantrips" if level == 0 else "Level %d" % level }}</span>
+      <span class="muted">{{ in_level | length }} {{ "spell" if in_level | length == 1 else "spells" }}</span>
+    </summary>
+    <ul class="plain-list spell-list">
+      {% for row in in_level %}
+      {% set spell = row.spell %}
+      <li {{ filter_attrs(spell.name, spell.school, spell.ritual) }}>
+        <span class="spell-name-line">
+          <span class="feature-name">{{ spell.name }}</span>
+          {% if row.ritual_only is defined and row.ritual_only %}
+          <span class="spell-tag ritual-only">Ritual only · not prepared</span>
+          {% elif spell.ritual %}
+          <span class="spell-tag">Ritual</span>
+          {% endif %}
+          {% if spell.concentration %}<span class="spell-tag">Concentration</span>{% endif %}
+        </span>
+        <span class="choice-detail">{{ spell.stat_line }}</span>
+        <span class="muted">{{ spell.summary }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endfor %}
+</div>
+{% endmacro %}

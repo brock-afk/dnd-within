@@ -58,11 +58,23 @@ class SpeciesDef(Strict):
     features: list[FeatureDef] = []
 
 
+class Spellcasting(Strict):
+    """How a class casts spells. Spell slots will be added here too."""
+
+    ability: Ability
+    # Spells you can prepare at each class level, 1 through 20.
+    prepared: list[int] = Field(min_length=20, max_length=20)
+    # Which ritual spells you can cast as rituals: only prepared ones (the general rule), or any
+    # in your spellbook without preparing them (the Wizard's Ritual Adept).
+    ritual_casting: Literal["prepared", "spellbook"] = "prepared"
+
+
 class ClassDef(Strict):
     slug: str
     name: str
     summary: str
     hit_die: Literal[6, 8, 10, 12]
+    spellcasting: Spellcasting | None = None
     features: list[FeatureDef] = []
 
 

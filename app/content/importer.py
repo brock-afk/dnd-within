@@ -171,7 +171,12 @@ class _Importer:
         classes = self._sync_rows(
             CharacterClass,
             self.pack.classes,
-            lambda d: {"name": d.name, "summary": d.summary, "hit_die": d.hit_die},
+            lambda d: {
+                "name": d.name,
+                "summary": d.summary,
+                "hit_die": d.hit_die,
+                "spellcasting": d.spellcasting.model_dump() if d.spellcasting else None,
+            },
         )
         subclasses = self._sync_rows(
             Subclass,

@@ -39,6 +39,7 @@ class AbilityForm(BaseModel):
     charisma: str = ""
     rolls: list[str] = []  # manual entry: the six rolled numbers
     step: str = ""  # point buy: "<column>:1" or "<column>:-1" from a stepper button
+    reset: str = ""  # set by the Reset button
 
     def raw_scores(self) -> dict[str, str]:
         return {a.column: getattr(self, a.column) for a in ABILITIES}
@@ -150,6 +151,10 @@ def preview_abilities(
     which buttons are enabled all come from the server."""
     method = form.method if form.method in METHODS else "standard_array"
     scores = parse_scores(form.raw_scores())
+    if form.reset:
+        # Back to a fresh tab: point buy starts every score at 8, the others clear the
+        # assignments. Manual entry keeps the rolls, since those came from real dice.
+        scores = {column: None for column in scores}
     if method == "point_buy":
         scores = {column: score or 8 for column, score in scores.items()}
         column, _, delta = form.step.partition(":")

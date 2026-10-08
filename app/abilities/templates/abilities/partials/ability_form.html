@@ -90,6 +90,9 @@
 
     <div class="form-actions">
       <button type="submit">Save scores</button>
+      <button type="button" id="reset-scores" class="link-button"
+              hx-post="/characters/{{ character.id }}/abilities/preview"
+              hx-vals='{"reset": "1"}' {{ editor_swap | safe }}>Reset</button>
       <a href="/characters/{{ character.id }}">Cancel</a>
       {% if errors._form %}<p class="error" role="alert">{{ errors._form }}</p>
       {% elif errors %}<p class="error" role="alert">Fix the highlighted fields.</p>{% endif %}

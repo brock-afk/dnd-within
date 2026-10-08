@@ -10,7 +10,7 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>{{ character.name }}</h1>
+    {% include "characters/partials/name_heading.html" %}
     <p class="subtitle">
       {{ character.species.name }} {{ character.class_summary }} · Level {{ character.level }}
     </p>

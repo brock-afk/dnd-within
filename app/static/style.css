@@ -162,3 +162,13 @@ a { color: var(--accent); }
 .choice-form-header .section-title { margin: 0; }
 .choice-form .field-error { margin: 0; }
 .choice-detail { display: block; margin-top: 0.15rem; font-size: 0.8rem; color: var(--accent); }
+
+/* Inline rename */
+.name-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.75rem; }
+.name-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.name-form input[type="text"] { width: auto; flex: 1 1 16rem; font-size: 1.3rem; font-weight: 600; }
+.name-form .error { flex-basis: 100%; margin: 0; }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

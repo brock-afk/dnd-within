@@ -1,0 +1,6 @@
+<div id="character-name" class="name-heading">
+  <h1>{{ character.name }}</h1>
+  <button type="button" class="link-button"
+          hx-get="/characters/{{ character.id }}/name/edit"
+          hx-target="#character-name" hx-swap="outerHTML">Rename</button>
+</div>

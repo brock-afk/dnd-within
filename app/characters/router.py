@@ -47,6 +47,15 @@ def new_character(request: Request, db: DbSession, user: CurrentUser):
     )
 
 
+def _name_error(name: str) -> str | None:
+    """Validation shared by creating and renaming. Expects an already-stripped name."""
+    if not name:
+        return "Give your character a name."
+    if len(name) > 60:
+        return "Names can be at most 60 characters."
+    return None
+
+
 @router.post("/characters")
 def create_character(
     request: Request,
@@ -58,10 +67,8 @@ def create_character(
 ):
     name = name.strip()
     errors = {}
-    if not name:
-        errors["name"] = "Give your character a name."
-    elif len(name) > 60:
-        errors["name"] = "Names can be at most 60 characters."
+    if error := _name_error(name):
+        errors["name"] = error
     if class_id is None or db.get(CharacterClass, class_id) is None:
         errors["class_id"] = "Choose a class."
     if species_id is None or db.get(Species, species_id) is None:
@@ -108,3 +115,40 @@ def show_character(request: Request, db: DbSession, user: CurrentUser, character
             "spells": character_spells(db, character.id),
         },
     )
+
+
+def _name_heading(request: Request, character: Character) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "characters/partials/name_heading.html", {"character": character}
+    )
+
+
+@router.get("/characters/{character_id}/name", response_class=HTMLResponse)
+def name_heading(request: Request, character: OwnedCharacter):
+    return _name_heading(request, character)
+
+
+@router.get("/characters/{character_id}/name/edit", response_class=HTMLResponse)
+def edit_name(request: Request, character: OwnedCharacter):
+    return templates.TemplateResponse(
+        request,
+        "characters/partials/name_form.html",
+        {"character": character, "value": character.name},
+    )
+
+
+@router.post("/characters/{character_id}/name", response_class=HTMLResponse)
+def rename_character(
+    request: Request, db: DbSession, character: OwnedCharacter, name: Annotated[str, Form()] = ""
+):
+    name = name.strip()
+    if error := _name_error(name):
+        return templates.TemplateResponse(
+            request,
+            "characters/partials/name_form.html",
+            {"character": character, "value": name, "error": error},
+            status_code=400,
+        )
+    character.name = name
+    db.commit()
+    return _name_heading(request, character)

@@ -1,0 +1,13 @@
+<div id="character-name">
+  <form hx-post="/characters/{{ character.id }}/name" hx-target="#character-name" hx-swap="outerHTML"
+        novalidate class="name-form{% if error %} has-error{% endif %}">
+    <label for="character-name-input" class="visually-hidden">Character name</label>
+    <input id="character-name-input" name="name" type="text" maxlength="60" value="{{ value }}" autofocus
+           {% if error %}aria-invalid="true" aria-describedby="character-name-error"{% endif %}>
+    <button type="submit">Save</button>
+    <button type="button" class="link-button"
+            hx-get="/characters/{{ character.id }}/name"
+            hx-target="#character-name" hx-swap="outerHTML">Cancel</button>
+    {% if error %}<p class="error" id="character-name-error" role="alert">{{ error }}</p>{% endif %}
+  </form>
+</div>

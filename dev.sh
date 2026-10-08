@@ -8,6 +8,10 @@
 #                                                             (run on the host so the file isn't owned by root)
 #   ./dev.sh exec app alembic upgrade head                    apply migrations without a restart
 #   ./dev.sh exec app alembic downgrade -1                    undo the latest migration
+#
+# Content packs (content/, content-private/) are imported on startup when their files change.
+#   ./dev.sh exec app python -m app.content check             validate every pack
+#   ./dev.sh exec app python -m app.content import [PACK] [--force]
 set -euo pipefail
 cd "$(dirname "$0")"
 

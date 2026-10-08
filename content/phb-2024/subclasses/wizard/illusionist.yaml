@@ -1,0 +1,19 @@
+slug: illusionist
+name: Illusionist
+class: wizard
+summary: Weaves sights and sounds that fool the senses.
+features:
+- slug: savant
+  name: Illusion Savant
+  summary: >-
+    Add two Illusion spells of level 2 or lower to your spellbook for free, and one more whenever
+    you gain access to a new level of spell slots. (Picking them arrives with the spellbook
+    update.)
+  level: 3
+- slug: improved-illusions
+  name: Improved Illusions
+  summary: >-
+    Cast Illusion spells without Verbal components, with +60 ft range when it's 10 ft or more.
+    You know Minor Illusion (or another cantrip if you already do), can make sound and image
+    together, and can cast it as a Bonus Action.
+  level: 3

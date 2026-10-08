@@ -5,16 +5,20 @@ Mistakes in content data fail loudly at startup instead of showing up as broken 
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class OptionDef(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # typos are errors, not ignored
+
     slug: str
     name: str
     summary: str
 
 
 class ChoiceDef(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # typos are errors, not ignored
+
     slug: str
     name: str
     kind: Literal["option", "skill", "spell", "subclass"]
@@ -36,6 +40,8 @@ class ChoiceDef(BaseModel):
 
 
 class FeatureDef(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # typos are errors, not ignored
+
     slug: str
     name: str
     summary: str

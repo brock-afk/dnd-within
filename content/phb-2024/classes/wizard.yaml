@@ -1,0 +1,59 @@
+slug: wizard
+name: Wizard
+summary: A scholar who masters magic through study.
+hit_die: 6
+features:
+- slug: proficiencies
+  name: Proficiencies
+  summary: >-
+    Hit die d6. Saving throws: Intelligence, Wisdom. Weapons: Simple. Armor: none.
+  applies_to: starting_class
+  choices:
+  - slug: skills
+    name: Skill Proficiencies
+    kind: skill
+    count: 2
+    criteria:
+      from:
+      - arcana
+      - history
+      - insight
+      - investigation
+      - medicine
+      - nature
+      - religion
+- slug: spellcasting
+  name: Spellcasting
+  summary: You cast wizard spells with Intelligence, learned from your spellbook.
+  choices:
+  - slug: cantrips
+    name: Cantrips
+    kind: spell
+    count: 3
+    criteria:
+      class: wizard
+      level: 0
+  - slug: spellbook
+    name: Spellbook
+    kind: spell
+    count: 6
+    criteria:
+      class: wizard
+      level: 1
+- slug: ritual-adept
+  name: Ritual Adept
+  summary: >-
+    Cast any Ritual spell in your spellbook as a ritual, even if it isn't prepared.
+- slug: subclass
+  name: Wizard Subclass
+  summary: Specialize in a school of magic.
+  level: 3
+  choices:
+  - slug: subclass
+    name: Wizard Subclass
+    kind: subclass
+- slug: arcane-recovery
+  name: Arcane Recovery
+  summary: >-
+    After a Short Rest, regain spell slots totaling up to half your wizard level (rounded
+    up), none of level 6+. Once per Long Rest.

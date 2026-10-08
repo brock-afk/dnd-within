@@ -8,28 +8,34 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.content.models import ContentMixin
 from app.core.db import Base
 
 
-class CharacterClass(Base):
+class CharacterClass(ContentMixin, Base):
     """A class definition, like Wizard."""
 
     __tablename__ = "classes"
-    __table_args__ = (CheckConstraint("hit_die IN (6, 8, 10, 12)", name="hit_die_values"),)
+    __table_args__ = (
+        UniqueConstraint("source_id", "slug"),
+        CheckConstraint("hit_die IN (6, 8, 10, 12)", name="hit_die_values"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    slug: Mapped[str] = mapped_column(String(50), unique=True)
+    slug: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(50))
     summary: Mapped[str] = mapped_column(String(255))
     hit_die: Mapped[int] = mapped_column(SmallInteger, default=8, server_default="8")
 
 
-class Subclass(Base):
-    """A subclass of one class, like the Wizard's Evoker."""
+class Subclass(ContentMixin, Base):
+    """A subclass of one class, like the Wizard's Evoker. Its source can differ from its
+    class's: a third-party book can add a subclass to a PHB class."""
 
     __tablename__ = "subclasses"
     __table_args__ = (
-        UniqueConstraint("class_id", "slug"),
+        # class_id first: this index also serves the class_id foreign key.
+        UniqueConstraint("class_id", "source_id", "slug"),
         # Lets character_classes point at (subclass, class) together, so the database can
         # check that a character's subclass belongs to that row's class.
         UniqueConstraint("id", "class_id"),

@@ -1,0 +1,19 @@
+slug: abjurer
+name: Abjurer
+class: wizard
+summary: Shields allies and shuts down hostile magic.
+features:
+- slug: savant
+  name: Abjuration Savant
+  summary: >-
+    Add two Abjuration spells of level 2 or lower to your spellbook for free, and one more
+    whenever you gain access to a new level of spell slots. (Picking them arrives with the
+    spellbook update.)
+  level: 3
+- slug: arcane-ward
+  name: Arcane Ward
+  summary: >-
+    Casting an Abjuration spell with a slot can create a ward that absorbs damage for you:
+    2 × Wizard level + INT modifier HP. Abjuration spells, or spending a slot as a Bonus Action,
+    recharge it.
+  level: 3

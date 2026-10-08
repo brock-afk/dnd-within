@@ -1,0 +1,488 @@
+# Level 1 spells from the 2024 Player's Handbook (so far: those on the Wizard's list).
+# Summaries are short reminders in our own words, not the book's rules text.
+# `classes` lists every class whose spell list includes the spell.
+
+- slug: alarm
+  name: Alarm
+  level: 1
+  school: abjuration
+  classes: [ranger, wizard]
+  casting_time: {unit: minute, amount: 1}
+  ritual: true
+  range: {kind: distance, feet: 30}
+  area: {shape: cube, feet: 20}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a bell and silver wire}
+  duration: {kind: timed, amount: 8, unit: hour}
+  summary: Warns you when a creature enters a warded area.
+
+- slug: burning-hands
+  name: Burning Hands
+  level: 1
+  school: evocation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  area: {shape: cone, feet: 15}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  save: {ability: DEX, on_success: half}
+  damage:
+    - {dice: 3d6, type: fire}
+  higher_slots: {damage_per_level: 1d6}
+  summary: 15-ft cone of fire; Dex save, 3d6 fire (half on a success).
+
+- slug: charm-person
+  name: Charm Person
+  level: 1
+  school: enchantment
+  classes: [bard, druid, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 30}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: hour}
+  save: {ability: WIS, on_success: none}
+  higher_slots: {note: One additional creature per slot level above 1.}
+  note: The target has advantage on the save if you or your allies are fighting it.
+  summary: Wis save or a humanoid regards you as a friend.
+
+- slug: chromatic-orb
+  name: Chromatic Orb
+  level: 1
+  school: evocation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 90}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a diamond worth 50+ GP, cost_gp: 50}
+  duration: {kind: instantaneous}
+  attack: {kind: ranged}
+  damage:
+    - dice: 3d8
+      type_choice: [acid, cold, fire, lightning, poison, thunder]
+  higher_slots: {damage_per_level: 1d8}
+  note: >-
+    If two or more damage dice roll the same number, the orb can leap to another creature
+    within 30 feet (a new attack roll), up to once per slot level.
+  summary: Ranged spell attack for 3d8 of a damage type you pick; can leap to another target.
+
+- slug: color-spray
+  name: Color Spray
+  level: 1
+  school: illusion
+  classes: [bard, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  area: {shape: cone, feet: 15}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a pinch of colorful sand}
+  duration: {kind: instantaneous}
+  save: {ability: CON, on_success: none}
+  note: On a failed save, a creature is Blinded until the end of your next turn.
+  summary: 15-ft cone; Con save or Blinded until the end of your next turn.
+
+- slug: comprehend-languages
+  name: Comprehend Languages
+  level: 1
+  school: divination
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  ritual: true
+  range: {kind: self}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a pinch of soot and salt}
+  duration: {kind: timed, amount: 1, unit: hour}
+  summary: Understand any spoken or written language.
+
+- slug: detect-magic
+  name: Detect Magic
+  level: 1
+  school: divination
+  classes: [bard, cleric, druid, paladin, ranger, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  ritual: true
+  range: {kind: self}
+  area: {shape: emanation, feet: 30}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 10, unit: minute}
+  concentration: true
+  summary: Sense magic within 30 ft.
+
+- slug: disguise-self
+  name: Disguise Self
+  level: 1
+  school: illusion
+  classes: [bard, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: hour}
+  summary: Change how you look, including clothes and gear.
+
+- slug: expeditious-retreat
+  name: Expeditious Retreat
+  level: 1
+  school: transmutation
+  classes: [sorcerer, warlock, wizard]
+  casting_time: {unit: bonus_action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 10, unit: minute}
+  concentration: true
+  summary: Dash as a bonus action each turn.
+
+- slug: false-life
+  name: False Life
+  level: 1
+  school: necromancy
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a drop of alcohol}
+  duration: {kind: instantaneous}
+  healing: {dice: 2d4+4, temporary: true}
+  higher_slots: {healing_per_level: "5"}
+  summary: Gain 2d4 + 4 temporary hit points.
+
+- slug: feather-fall
+  name: Feather Fall
+  level: 1
+  school: transmutation
+  classes: [bard, sorcerer, wizard]
+  casting_time:
+    unit: reaction
+    trigger: when you or a creature you can see within 60 feet of you falls
+  range: {kind: distance, feet: 60}
+  components:
+    verbal: true
+    material: {text: a small feather or piece of down}
+  duration: {kind: timed, amount: 1, unit: minute}
+  summary: Up to five falling creatures drift down safely.
+
+- slug: find-familiar
+  name: Find Familiar
+  level: 1
+  school: conjuration
+  classes: [wizard]
+  casting_time: {unit: hour, amount: 1}
+  ritual: true
+  range: {kind: distance, feet: 10}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: burning incense worth 10+ GP, cost_gp: 10, consumed: true}
+  duration: {kind: instantaneous}
+  summary: Summon a spirit companion in animal form.
+
+- slug: fog-cloud
+  name: Fog Cloud
+  level: 1
+  school: conjuration
+  classes: [druid, ranger, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 120}
+  area: {shape: sphere, feet: 20}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: hour}
+  concentration: true
+  higher_slots: {note: The radius grows by 20 feet per slot level above 1.}
+  summary: 20-ft sphere of fog that heavily obscures the area.
+
+- slug: grease
+  name: Grease
+  level: 1
+  school: conjuration
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  area: {shape: square, feet: 10}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a bit of pork rind or butter}
+  duration: {kind: timed, amount: 1, unit: minute}
+  save: {ability: DEX, on_success: none}
+  note: The area is Difficult Terrain; a failed save means falling Prone.
+  summary: Slick 10-ft square; Dex save or fall Prone.
+
+- slug: ice-knife
+  name: Ice Knife
+  level: 1
+  school: conjuration
+  classes: [druid, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  area: {shape: sphere, feet: 5}
+  components:
+    somatic: true
+    material: {text: a drop of water or a piece of ice}
+  duration: {kind: instantaneous}
+  attack: {kind: ranged}
+  save: {ability: DEX, on_success: none}
+  damage:
+    - {dice: 1d10, type: piercing, note: on a hit}
+    - {dice: 2d6, type: cold, note: the shard explodes; target and creatures within 5 ft save}
+  higher_slots: {damage_per_level: 1d6, note: Applies to the cold damage.}
+  summary: Ranged attack for 1d10 piercing, then it explodes for 2d6 cold (Dex save).
+
+- slug: identify
+  name: Identify
+  level: 1
+  school: divination
+  classes: [bard, wizard]
+  casting_time: {unit: minute, amount: 1}
+  ritual: true
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a pearl worth 100+ GP, cost_gp: 100}
+  duration: {kind: instantaneous}
+  summary: Learn a magic item's properties and how to use it.
+
+- slug: illusory-script
+  name: Illusory Script
+  level: 1
+  school: illusion
+  classes: [bard, warlock, wizard]
+  casting_time: {unit: minute, amount: 1}
+  ritual: true
+  range: {kind: touch}
+  components:
+    somatic: true
+    material: {text: ink worth 10+ GP, cost_gp: 10, consumed: true}
+  duration: {kind: timed, amount: 10, unit: day}
+  summary: Write a message only chosen readers can understand.
+
+- slug: jump
+  name: Jump
+  level: 1
+  school: transmutation
+  classes: [druid, ranger, sorcerer, wizard]
+  casting_time: {unit: bonus_action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a grasshopper's hind leg}
+  duration: {kind: timed, amount: 1, unit: minute}
+  higher_slots: {note: One additional creature per slot level above 1.}
+  summary: A creature can leap much farther than normal.
+
+- slug: longstrider
+  name: Longstrider
+  level: 1
+  school: transmutation
+  classes: [bard, druid, ranger, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a pinch of dirt}
+  duration: {kind: timed, amount: 1, unit: hour}
+  higher_slots: {note: One additional creature per slot level above 1.}
+  summary: A creature's speed increases by 10 ft.
+
+- slug: mage-armor
+  name: Mage Armor
+  level: 1
+  school: abjuration
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a piece of cured leather}
+  duration: {kind: timed, amount: 8, unit: hour}
+  summary: Unarmored creature's AC becomes 13 + Dex modifier.
+
+- slug: magic-missile
+  name: Magic Missile
+  level: 1
+  school: evocation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 120}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  damage:
+    - {dice: 1d4+1, type: force, note: "per dart; three darts, each hits automatically"}
+  higher_slots: {note: One more dart per slot level above 1.}
+  summary: Three darts that always hit, 1d4 + 1 force each.
+
+- slug: protection-from-evil-and-good
+  name: Protection from Evil and Good
+  level: 1
+  school: abjuration
+  classes: [cleric, druid, paladin, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a flask of Holy Water worth 25+ GP, cost_gp: 25, consumed: true}
+  duration: {kind: timed, amount: 10, unit: minute}
+  concentration: true
+  summary: Wards a creature against aberrations, celestials, elementals, fey, fiends, and undead.
+
+- slug: ray-of-sickness
+  name: Ray of Sickness
+  level: 1
+  school: necromancy
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  attack: {kind: ranged}
+  damage:
+    - {dice: 2d8, type: poison}
+  higher_slots: {damage_per_level: 1d8}
+  note: On a hit, the target also has the Poisoned condition until the end of your next turn.
+  summary: Ranged spell attack for 2d8 poison, and the target is Poisoned.
+
+- slug: shield
+  name: Shield
+  level: 1
+  school: abjuration
+  classes: [sorcerer, wizard]
+  casting_time:
+    unit: reaction
+    trigger: when you're hit by an attack roll or targeted by Magic Missile
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: round}
+  summary: +5 AC until your next turn starts, and no damage from Magic Missile.
+
+- slug: silent-image
+  name: Silent Image
+  level: 1
+  school: illusion
+  classes: [bard, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  area: {shape: cube, feet: 15}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a bit of fleece}
+  duration: {kind: timed, amount: 10, unit: minute}
+  concentration: true
+  summary: Create a visual illusion up to a 15-ft cube that you can move.
+
+- slug: sleep
+  name: Sleep
+  level: 1
+  school: enchantment
+  classes: [bard, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  area: {shape: sphere, feet: 5}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a pinch of sand or rose petals}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: WIS, on_success: none}
+  note: >-
+    Failed save: Incapacitated until the end of its next turn, then a second save or
+    Unconscious for the duration.
+  summary: Creatures in a 5-ft sphere make Wis saves or become Incapacitated, then Unconscious.
+
+- slug: tashas-hideous-laughter
+  name: Tasha's Hideous Laughter
+  level: 1
+  school: enchantment
+  classes: [bard, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 30}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a tart and a feather}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  save: {ability: WIS, on_success: none}
+  higher_slots: {note: One additional creature per slot level above 1.}
+  summary: Wis save or the target falls Prone, laughing and Incapacitated.
+
+- slug: tensers-floating-disk
+  name: Tenser's Floating Disk
+  level: 1
+  school: conjuration
+  classes: [wizard]
+  casting_time: {unit: action}
+  ritual: true
+  range: {kind: distance, feet: 30}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a drop of mercury}
+  duration: {kind: timed, amount: 1, unit: hour}
+  summary: A floating disk that carries up to 500 lb and follows you.
+
+- slug: thunderwave
+  name: Thunderwave
+  level: 1
+  school: evocation
+  classes: [bard, druid, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  area: {shape: cube, feet: 15}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  save: {ability: CON, on_success: half}
+  damage:
+    - {dice: 2d8, type: thunder}
+  higher_slots: {damage_per_level: 1d8}
+  note: A failed save also pushes the creature 10 feet away from you.
+  summary: 15-ft cube of thunder; Con save, 2d8 thunder and pushed 10 ft.
+
+- slug: unseen-servant
+  name: Unseen Servant
+  level: 1
+  school: conjuration
+  classes: [bard, warlock, wizard]
+  casting_time: {unit: action}
+  ritual: true
+  range: {kind: distance, feet: 60}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a bit of string and of wood}
+  duration: {kind: timed, amount: 1, unit: hour}
+  summary: An invisible force that performs simple tasks.
+
+- slug: witch-bolt
+  name: Witch Bolt
+  level: 1
+  school: evocation
+  classes: [sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a twig struck by lightning}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  attack: {kind: ranged}
+  damage:
+    - {dice: 2d12, type: lightning}
+    - {dice: 1d12, type: lightning, note: "each later turn, as a Bonus Action, while the bolt holds"}
+  higher_slots: {damage_per_level: 1d12, note: Applies to the initial damage.}
+  summary: Ranged spell attack for 2d12 lightning, then 1d12 each turn as a bonus action.

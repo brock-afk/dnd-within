@@ -1,0 +1,18 @@
+slug: evoker
+name: Evoker
+class: wizard
+summary: Wields raw, destructive elemental magic.
+features:
+- slug: savant
+  name: Evocation Savant
+  summary: >-
+    Add two Evocation spells of level 2 or lower to your spellbook for free, and one more
+    whenever you gain access to a new level of spell slots. (Picking them arrives with the
+    spellbook update.)
+  level: 3
+- slug: potent-cantrip
+  name: Potent Cantrip
+  summary: >-
+    When your damaging cantrip misses or the target succeeds on its save, it still takes half
+    the damage (but no other effects).
+  level: 3

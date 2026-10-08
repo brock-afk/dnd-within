@@ -111,19 +111,22 @@ class OptionKind(ChoiceKind):
 
 
 class SkillKind(ChoiceKind):
-    """Skill proficiencies. criteria: {"from": [skill slugs]}"""
+    """Skill proficiencies. criteria: {"skill_ids": [...]}, resolved from slugs on import."""
 
     target, pick, target_fk = Skill, CharacterSkill, "skill_id"
 
     def options_query(self, choice):
-        return select(Skill).where(Skill.slug.in_(choice.criteria["from"])).order_by(Skill.name)
+        return (
+            select(Skill).where(Skill.id.in_(choice.criteria["skill_ids"])).order_by(Skill.name)
+        )
 
     def view(self, skill):
         return OptionView(skill.slug, skill.name, detail=skill.ability)
 
 
 class SpellKind(ChoiceKind):
-    """Spells from a class's spell list. criteria: {"class": class slug, "level": spell level}"""
+    """Spells from a class's spell list. criteria: {"class_id": ..., "level": spell level},
+    with the class resolved from its slug on import."""
 
     target, pick, target_fk = Spell, CharacterSpell, "spell_id"
 
@@ -132,7 +135,7 @@ class SpellKind(ChoiceKind):
             select(Spell)
             .join(Spell.classes)
             .where(
-                CharacterClass.slug == choice.criteria["class"],
+                CharacterClass.id == choice.criteria["class_id"],
                 Spell.level == choice.criteria["level"],
             )
             .order_by(Spell.name)

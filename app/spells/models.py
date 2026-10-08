@@ -1,7 +1,19 @@
-from sqlalchemy import Column, ForeignKey, String, Table, UniqueConstraint
+from typing import Any
+
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Column,
+    ForeignKey,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.classes.models import CharacterClass
+from app.content.models import ContentMixin
 from app.core.db import Base
 
 # Which classes have a spell on their spell list.
@@ -13,33 +25,65 @@ class_spells = Table(
 )
 
 
-class Spell(Base):
+class Spell(ContentMixin, Base):
+    """A spell. Fields used for filtering and sorting are columns; the rest of the structured
+    rules (range, area, components, damage, scaling, ...) live in `details`, validated against
+    app/content/schema.py:SpellDef when imported."""
+
     __tablename__ = "spells"
+    __table_args__ = (
+        UniqueConstraint("source_id", "slug"),
+        CheckConstraint("level BETWEEN 0 AND 9", name="level_range"),
+        CheckConstraint(
+            "casting_unit IN ('action', 'bonus_action', 'reaction', 'minute', 'hour')",
+            name="casting_unit_values",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    slug: Mapped[str] = mapped_column(String(80), unique=True)
+    slug: Mapped[str] = mapped_column(String(80))
     name: Mapped[str] = mapped_column(String(80))
     level: Mapped[int]  # 0 = cantrip
     school: Mapped[str] = mapped_column(String(20))
-    casting_time: Mapped[str] = mapped_column(String(40))
-    range: Mapped[str] = mapped_column(String(40))
-    components: Mapped[str] = mapped_column(String(20))
-    duration: Mapped[str] = mapped_column(String(40))
+    casting_unit: Mapped[str] = mapped_column(String(20))
     concentration: Mapped[bool] = mapped_column(default=False)
     ritual: Mapped[bool] = mapped_column(default=False)
     summary: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)  # full text, private packs only
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
     classes: Mapped[list[CharacterClass]] = relationship(secondary=class_spells)
 
     @property
     def detail(self) -> str:
         """One-line stat summary, e.g. "Evocation · Action · 120 ft · Concentration"."""
-        parts = [self.school, self.casting_time, self.range]
+        parts = [self.school.title(), _casting_label(self.details.get("casting_time", {}))]
+        parts.append(_range_label(self.details.get("range", {}), self.details.get("area")))
         if self.ritual:
             parts.append("Ritual")
         if self.concentration:
             parts.append("Concentration")
-        return " · ".join(parts)
+        return " · ".join(p for p in parts if p)
+
+
+def _casting_label(casting: dict) -> str:
+    unit, amount = casting.get("unit"), casting.get("amount", 1)
+    if unit in ("minute", "hour"):
+        return f"{amount} {unit}{'s' if amount != 1 else ''}"
+    return {"action": "Action", "bonus_action": "Bonus Action", "reaction": "Reaction"}.get(
+        unit, ""
+    )
+
+
+def _range_label(rng: dict, area: dict | None) -> str:
+    kind = rng.get("kind")
+    if kind == "distance":
+        label = f"{rng['feet']} ft" if rng.get("feet") else f"{rng.get('miles')} miles"
+    else:
+        label = (kind or "").title()
+    if area and kind == "self":
+        label += f" ({area['feet']}-ft {area['shape']})"
+    return label
 
 
 class CharacterSpell(Base):

@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     db_user: str = "dnd"
     db_password: str = "dndpassword"
 
+    # Folders holding content packs, separated by ":". Committed packs live in content/;
+    # third-party packs go in content-private/, which is never committed or built into the image.
+    content_paths: str = "content:content-private"
+
     secret_key: str = "change-me"
     session_https_only: bool = False
 

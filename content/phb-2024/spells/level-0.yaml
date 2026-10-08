@@ -1,0 +1,261 @@
+# Cantrips (level 0) from the 2024 Player's Handbook.
+# Summaries are short reminders in our own words, not the book's rules text.
+# `classes` lists every class whose spell list includes the spell.
+
+- slug: acid-splash
+  name: Acid Splash
+  level: 0
+  school: evocation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  area: {shape: sphere, feet: 5}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  save: {ability: DEX, on_success: none}
+  damage:
+    - {dice: 1d6, type: acid}
+  cantrip_scaling: {5: 2d6, 11: 3d6, 17: 4d6}
+  summary: Acid bursts in a 5-ft sphere; Dex save or 1d6 acid.
+
+- slug: blade-ward
+  name: Blade Ward
+  level: 0
+  school: abjuration
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  summary: Attackers subtract 1d4 from attack rolls against you.
+
+- slug: chill-touch
+  name: Chill Touch
+  level: 0
+  school: necromancy
+  classes: [sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  attack: {kind: melee}
+  damage:
+    - {dice: 1d10, type: necrotic}
+  cantrip_scaling: {5: 2d10, 11: 3d10, 17: 4d10}
+  note: The target can't regain hit points until the end of your next turn.
+  summary: Melee spell attack for 1d10 necrotic; target can't regain HP until your next turn ends.
+
+- slug: dancing-lights
+  name: Dancing Lights
+  level: 0
+  school: illusion
+  classes: [bard, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 120}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: a bit of phosphorus}
+  duration: {kind: timed, amount: 1, unit: minute}
+  concentration: true
+  summary: Up to four floating lights you can move around.
+
+- slug: elementalism
+  name: Elementalism
+  level: 0
+  school: transmutation
+  classes: [druid, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 30}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  summary: Minor effects with air, earth, fire, or water.
+
+- slug: fire-bolt
+  name: Fire Bolt
+  level: 0
+  school: evocation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 120}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  attack: {kind: ranged}
+  damage:
+    - {dice: 1d10, type: fire}
+  cantrip_scaling: {5: 2d10, 11: 3d10, 17: 4d10}
+  note: Ignites flammable objects that aren't being worn or carried.
+  summary: Ranged spell attack for 1d10 fire; ignites flammable objects.
+
+- slug: light
+  name: Light
+  level: 0
+  school: evocation
+  classes: [bard, cleric, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components:
+    verbal: true
+    material: {text: a firefly or phosphorescent moss}
+  duration: {kind: timed, amount: 1, unit: hour}
+  summary: An object sheds bright light in a 20-ft radius.
+
+- slug: mage-hand
+  name: Mage Hand
+  level: 0
+  school: conjuration
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 30}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: minute}
+  summary: A spectral hand that can manipulate light objects.
+
+- slug: mending
+  name: Mending
+  level: 0
+  school: transmutation
+  classes: [bard, cleric, druid, sorcerer, wizard]
+  casting_time: {unit: minute, amount: 1}
+  range: {kind: touch}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: two lodestones}
+  duration: {kind: instantaneous}
+  summary: Repairs a single break or tear in an object.
+
+- slug: message
+  name: Message
+  level: 0
+  school: transmutation
+  classes: [bard, druid, sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 120}
+  components:
+    somatic: true
+    material: {text: a copper wire}
+  duration: {kind: timed, amount: 1, unit: round}
+  summary: Whisper a message to a creature, which can whisper back.
+
+- slug: minor-illusion
+  name: Minor Illusion
+  level: 0
+  school: illusion
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 30}
+  components:
+    somatic: true
+    material: {text: a bit of fleece}
+  duration: {kind: timed, amount: 1, unit: minute}
+  summary: Create a sound or a small still image.
+
+- slug: poison-spray
+  name: Poison Spray
+  level: 0
+  school: necromancy
+  classes: [druid, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 30}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  attack: {kind: ranged}
+  damage:
+    - {dice: 1d12, type: poison}
+  cantrip_scaling: {5: 2d12, 11: 3d12, 17: 4d12}
+  summary: Ranged spell attack for 1d12 poison.
+
+- slug: prestidigitation
+  name: Prestidigitation
+  level: 0
+  school: transmutation
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 10}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 1, unit: hour, note: up to 1 hour}
+  summary: Small magical tricks; clean, flavor, light, mark, and so on.
+
+- slug: ray-of-frost
+  name: Ray of Frost
+  level: 0
+  school: evocation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  attack: {kind: ranged}
+  damage:
+    - {dice: 1d8, type: cold}
+  cantrip_scaling: {5: 2d8, 11: 3d8, 17: 4d8}
+  note: The target's Speed drops by 10 feet until the start of your next turn.
+  summary: Ranged spell attack for 1d8 cold; target's speed drops by 10 ft.
+
+- slug: shocking-grasp
+  name: Shocking Grasp
+  level: 0
+  school: evocation
+  classes: [sorcerer, wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  attack: {kind: melee}
+  damage:
+    - {dice: 1d8, type: lightning}
+  cantrip_scaling: {5: 2d8, 11: 3d8, 17: 4d8}
+  note: The target can't make Opportunity Attacks until the start of its next turn.
+  summary: Melee spell attack for 1d8 lightning; target can't make opportunity attacks.
+
+- slug: thunderclap
+  name: Thunderclap
+  level: 0
+  school: evocation
+  classes: [bard, druid, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  area: {shape: emanation, feet: 5}
+  components: {somatic: true}
+  duration: {kind: instantaneous}
+  save: {ability: CON, on_success: none}
+  damage:
+    - {dice: 1d6, type: thunder}
+  cantrip_scaling: {5: 2d6, 11: 3d6, 17: 4d6}
+  summary: Creatures within 5 ft make a Con save or take 1d6 thunder.
+
+- slug: toll-the-dead
+  name: Toll the Dead
+  level: 0
+  school: necromancy
+  classes: [cleric, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  save: {ability: WIS, on_success: none}
+  damage:
+    - {dice: 1d8, type: necrotic, note: d12s instead of d8s if the target is missing any HP}
+  cantrip_scaling: {5: 2d8, 11: 3d8, 17: 4d8}
+  summary: Wis save or 1d8 necrotic, 1d12 if the target is already hurt.
+
+- slug: true-strike
+  name: True Strike
+  level: 0
+  school: divination
+  classes: [bard, sorcerer, warlock, wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components:
+    somatic: true
+    material: {text: a weapon you're proficient with that's worth 1+ CP}
+  duration: {kind: instantaneous}
+  # The extra radiant damage only starts at level 5, so there's no base damage entry.
+  cantrip_scaling: {5: 1d6, 11: 2d6, 17: 3d6}
+  note: >-
+    Make one attack with the weapon, using your spellcasting ability for the attack and
+    damage rolls. It can deal radiant damage instead of its normal type. The scaling dice are
+    extra radiant damage.
+  summary: Attack with a weapon using your spellcasting ability; can deal radiant damage.

@@ -2,3 +2,5 @@
 __pycache__/
 *.pyc
 .env
+# Third-party content packs: copyrighted, never committed or built into the image.
+content-private/

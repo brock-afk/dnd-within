@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, ForeignKey, String, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -40,6 +41,7 @@ class Feature(Base):
     # apply only to a character's first class, "multiclass" ones only to classes added later.
     applies_to: Mapped[str] = mapped_column(String(20), default="all", server_default="all")
     position: Mapped[int] = mapped_column(default=0)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 
     choices: Mapped[list["Choice"]] = relationship(
         back_populates="feature", order_by="Choice.position", lazy="selectin"
@@ -61,6 +63,7 @@ class Choice(Base):
     count: Mapped[int] = mapped_column(default=1)
     criteria: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     position: Mapped[int] = mapped_column(default=0)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 
     feature: Mapped[Feature] = relationship(back_populates="choices", lazy="joined")
     options: Mapped[list["ChoiceOption"]] = relationship(
@@ -80,6 +83,7 @@ class ChoiceOption(Base):
     name: Mapped[str] = mapped_column(String(80))
     summary: Mapped[str] = mapped_column(String(255))
     position: Mapped[int] = mapped_column(default=0)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 
 
 class CharacterChoicePick(Base):

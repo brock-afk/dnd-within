@@ -1,0 +1,51 @@
+slug: goliath
+name: Goliath
+summary: Towering folk with the gifts of giant ancestors.
+features:
+- slug: size-speed
+  name: Size and Speed
+  summary: Medium. Speed 35 ft.
+- slug: giant-ancestry
+  name: Giant Ancestry
+  summary: >-
+    A boon from your giant ancestors. Uses equal your Proficiency Bonus, regained on a Long
+    Rest.
+  choices:
+  - slug: giant-ancestry
+    name: Giant Ancestry
+    kind: option
+    options:
+    - slug: cloud
+      name: Cloud's Jaunt (Cloud Giant)
+      summary: 'Bonus Action: teleport up to 30 ft to a space you can see.'
+    - slug: fire
+      name: Fire's Burn (Fire Giant)
+      summary: When you hit with an attack, deal an extra 1d10 fire.
+    - slug: frost
+      name: Frost's Chill (Frost Giant)
+      summary: >-
+        When you hit, deal an extra 1d6 cold and cut the target's speed by 10 ft until your
+        next turn.
+    - slug: hill
+      name: Hill's Tumble (Hill Giant)
+      summary: When you hit a Large or smaller creature, knock it Prone.
+    - slug: stone
+      name: Stone's Endurance (Stone Giant)
+      summary: >-
+        Reaction when you take damage: roll 1d12 + Con modifier and reduce the damage by that
+        much.
+    - slug: storm
+      name: Storm's Thunder (Storm Giant)
+      summary: >-
+        Reaction when a creature within 60 ft damages you: deal 1d8 thunder to it.
+- slug: large-form
+  name: Large Form
+  summary: >-
+    Bonus Action: become Large for 10 minutes, with advantage on Strength checks and +10 ft
+    speed. Once per Long Rest.
+  level: 5
+- slug: powerful-build
+  name: Powerful Build
+  summary: >-
+    Advantage on checks to end the Grappled condition, and you count as one size larger for
+    carrying capacity.

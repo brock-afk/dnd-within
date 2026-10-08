@@ -18,6 +18,8 @@ RUN uv sync --locked --no-dev --no-install-project
 
 COPY alembic.ini ./
 COPY migrations ./migrations
+# Official content packs. Third-party packs (content-private/) are mounted at deploy, never built in.
+COPY content ./content
 COPY app ./app
 
 EXPOSE 8000

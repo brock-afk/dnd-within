@@ -1,0 +1,18 @@
+slug: diviner
+name: Diviner
+class: wizard
+summary: Glimpses the future and bends fate.
+features:
+- slug: savant
+  name: Divination Savant
+  summary: >-
+    Add two Divination spells of level 2 or lower to your spellbook for free, and one more
+    whenever you gain access to a new level of spell slots. (Picking them arrives with the
+    spellbook update.)
+  level: 3
+- slug: portent
+  name: Portent
+  summary: >-
+    After a Long Rest, roll two d20s. Use each once to replace an attack roll, saving throw,
+    or ability check made by you or a creature you can see.
+  level: 3

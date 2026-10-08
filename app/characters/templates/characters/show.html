@@ -13,10 +13,16 @@
     {% include "characters/partials/name_heading.html" %}
     <p class="subtitle">
       {{ character.species.name }} {{ character.class_summary }} · Level {{ character.level }}
+      {% if hit_points %}· <strong title="{{ hit_points.breakdown }}">HP {{ hit_points.maximum }}</strong>{% endif %}
+      {% if character.level < 20 %}
+      <button type="button" class="link-button level-up-button"
+              hx-get="/characters/{{ character.id }}/level-up" hx-target="#level-up-slot">Level up</button>
+      {% endif %}
     </p>
   </div>
   <a href="/characters">All characters</a>
 </div>
+<div id="level-up-slot"></div>
 
 {% if pending or not abilities %}
 <section class="sheet-section">
@@ -128,6 +134,21 @@
   {% endif %}
   {% endfor %}
 </section>
+{% endif %}
+
+{% if character.level > 1 %}
+<details class="danger-zone">
+  <summary>Remove level {{ character.level }}</summary>
+  <div class="remove-level">
+    <p>
+      Undo the last level up. Its hit points and any choices made for features from that
+      level are removed.
+    </p>
+    <button type="button" class="danger-button" hx-post="/characters/{{ character.id }}/level-down">
+      Remove level {{ character.level }}
+    </button>
+  </div>
+</details>
 {% endif %}
 
 <details class="danger-zone">

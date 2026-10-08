@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.abilities.rules import ABILITIES
 from app.classes.models import CharacterClassLevel
 from app.core.db import Base
+from app.leveling.models import CharacterLevel
 from app.species.models import Species
 
 _SCORE_COLUMNS = [a.column for a in ABILITIES]
@@ -47,7 +48,15 @@ class Character(Base):
 
     species: Mapped[Species] = relationship(lazy="joined")
     classes: Mapped[list[CharacterClassLevel]] = relationship(
+        back_populates="character",
         order_by=CharacterClassLevel.position,
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    # Level history, one row per level gained (see app/leveling).
+    levels: Mapped[list[CharacterLevel]] = relationship(
+        order_by=CharacterLevel.character_level,
         lazy="selectin",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -55,8 +64,11 @@ class Character(Base):
 
     @property
     def level(self) -> int:
-        """Character level: the total of all class levels."""
-        return sum(cc.level for cc in self.classes)
+        """Character level: how many levels the character has gained, across all classes."""
+        return len(self.levels)
+
+    def class_level(self, class_id: int) -> int:
+        return sum(1 for lv in self.levels if lv.class_id == class_id)
 
     @property
     def class_summary(self) -> str:

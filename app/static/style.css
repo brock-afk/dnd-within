@@ -237,3 +237,19 @@ a { color: var(--accent); }
   .ability-row { grid-template-columns: 1fr auto 2.5rem; }
   .row-cost { grid-column: 2 / -1; text-align: right; margin-top: -0.35rem; }
 }
+
+/* Leveling */
+.level-up-button { margin-left: 0.5rem; }
+#level-up-slot:not(:empty) { margin-bottom: 2rem; }
+.level-up-panel { display: grid; gap: 0.75rem; max-width: 36rem; }
+.level-up-panel p { margin: 0; }
+.level-up-form { display: grid; gap: 0.75rem; }
+.level-up-form .section-title { margin: 0; }
+.hp-options { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.hp-roll { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.hp-roll label { margin: 0; }
+.hp-roll input { width: 3.5rem; text-align: center; padding: 0.5rem; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }
+.hp-roll.has-error input { border-color: var(--error); }
+.remove-level { margin-top: 0.75rem; max-width: 32rem; }
+.remove-level p { margin: 0 0 0.75rem; }
+.danger-zone + .danger-zone { margin-top: 1rem; padding-top: 0; border-top: 0; }

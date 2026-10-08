@@ -17,6 +17,7 @@ from app.core.reference_data import sync_reference_rows
 from app.core.templates import APP_DIR
 from app.features.router import router as features_router
 from app.features.sync import sync_features
+from app.leveling.router import router as leveling_router
 from app.skills.data import SKILLS
 from app.skills.models import Skill
 from app.species.data import SPECIES, SPECIES_FEATURES
@@ -52,3 +53,4 @@ app.include_router(auth_router)
 app.include_router(characters_router)
 app.include_router(features_router)
 app.include_router(abilities_router)
+app.include_router(leveling_router)

@@ -12,6 +12,8 @@ from app.classes.models import CharacterClass, CharacterClassLevel
 from app.core.db import DbSession
 from app.core.templates import hx_redirect, templates
 from app.features.service import feature_groups
+from app.leveling.models import CharacterLevel
+from app.leveling.service import hit_points
 from app.skills.queries import character_skills
 from app.species.models import Species
 from app.spells.queries import character_spells
@@ -93,7 +95,8 @@ def create_character(
         user_id=user.id,
         name=name,
         species_id=species_id,
-        classes=[CharacterClassLevel(class_id=class_id, level=1, position=0)],
+        classes=[CharacterClassLevel(class_id=class_id, position=0)],
+        levels=[CharacterLevel(character_level=1, class_id=class_id, hp_method="max")],
     )
     db.add(character)
     db.commit()
@@ -111,6 +114,7 @@ def show_character(request: Request, db: DbSession, user: CurrentUser, character
             "user": user,
             "character": character,
             "abilities": ability_views(db, character),
+            "hit_points": hit_points(db, character),
             "feature_groups": groups,
             "pending": pending,
             "skills": character_skills(db, character.id),

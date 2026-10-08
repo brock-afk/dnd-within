@@ -1,0 +1,29 @@
+{% macro signed(n) %}{{ "+" if n >= 0 else "−" }}{{ n | abs }}{% endmacro %}
+<div id="level-up-panel" class="card level-up-panel">
+  {% if at_max %}
+  <p>Level 20 is the maximum.</p>
+  <a href="/characters/{{ character.id }}">Close</a>
+  {% elif con_mod is none %}
+  <p>Set ability scores first: hit points depend on Constitution.</p>
+  <a href="/characters/{{ character.id }}">Close</a>
+  {% else %}
+  <form hx-post="/characters/{{ character.id }}/level-up" hx-target="#level-up-panel" hx-swap="outerHTML"
+        novalidate class="level-up-form">
+    <h3 class="section-title">Level {{ next_level }} {{ class_name }}</h3>
+    <p class="muted">Hit points: d{{ hit_die }} {{ signed(con_mod) }} CON. Take the fixed value or roll.</p>
+
+    <div class="hp-options">
+      <button type="submit" name="hp_method" value="fixed">Take {{ fixed }} (+{{ fixed_gain }} HP)</button>
+      <span class="muted">or</span>
+      <div class="hp-roll{% if error and 'roll' in error %} has-error{% endif %}">
+        <label for="hp-roll">d{{ hit_die }} roll</label>
+        <input id="hp-roll" name="hp_roll" type="text" inputmode="numeric" maxlength="2" value="{{ roll }}">
+        <button type="submit" name="hp_method" value="rolled">Use roll</button>
+      </div>
+    </div>
+
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <a href="/characters/{{ character.id }}">Cancel</a>
+  </form>
+  {% endif %}
+</div>

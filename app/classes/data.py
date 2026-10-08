@@ -3,18 +3,18 @@
 from app.features.schema import ChoiceDef, FeatureDef
 
 CLASSES = [
-    {"slug": "barbarian", "name": "Barbarian", "summary": "A fierce warrior fueled by primal rage."},
-    {"slug": "bard", "name": "Bard", "summary": "A performer whose music and words weave magic."},
-    {"slug": "cleric", "name": "Cleric", "summary": "A priestly champion wielding divine magic."},
-    {"slug": "druid", "name": "Druid", "summary": "A keeper of nature who shapeshifts and calls on the wild."},
-    {"slug": "fighter", "name": "Fighter", "summary": "A master of weapons, armor, and battlefield tactics."},
-    {"slug": "monk", "name": "Monk", "summary": "A martial artist who channels inner focus."},
-    {"slug": "paladin", "name": "Paladin", "summary": "A holy warrior bound by a sacred oath."},
-    {"slug": "ranger", "name": "Ranger", "summary": "A wilderness hunter blending skill and nature magic."},
-    {"slug": "rogue", "name": "Rogue", "summary": "A stealthy expert who strikes where it hurts."},
-    {"slug": "sorcerer", "name": "Sorcerer", "summary": "A caster with raw magic in their blood."},
-    {"slug": "warlock", "name": "Warlock", "summary": "A caster empowered by a pact with an otherworldly patron."},
-    {"slug": "wizard", "name": "Wizard", "summary": "A scholar who masters magic through study."},
+    {"slug": "barbarian", "name": "Barbarian", "summary": "A fierce warrior fueled by primal rage.", "hit_die": 12},
+    {"slug": "bard", "name": "Bard", "summary": "A performer whose music and words weave magic.", "hit_die": 8},
+    {"slug": "cleric", "name": "Cleric", "summary": "A priestly champion wielding divine magic.", "hit_die": 8},
+    {"slug": "druid", "name": "Druid", "summary": "A keeper of nature who shapeshifts and calls on the wild.", "hit_die": 8},
+    {"slug": "fighter", "name": "Fighter", "summary": "A master of weapons, armor, and battlefield tactics.", "hit_die": 10},
+    {"slug": "monk", "name": "Monk", "summary": "A martial artist who channels inner focus.", "hit_die": 8},
+    {"slug": "paladin", "name": "Paladin", "summary": "A holy warrior bound by a sacred oath.", "hit_die": 10},
+    {"slug": "ranger", "name": "Ranger", "summary": "A wilderness hunter blending skill and nature magic.", "hit_die": 10},
+    {"slug": "rogue", "name": "Rogue", "summary": "A stealthy expert who strikes where it hurts.", "hit_die": 8},
+    {"slug": "sorcerer", "name": "Sorcerer", "summary": "A caster with raw magic in their blood.", "hit_die": 6},
+    {"slug": "warlock", "name": "Warlock", "summary": "A caster empowered by a pact with an otherworldly patron.", "hit_die": 8},
+    {"slug": "wizard", "name": "Wizard", "summary": "A scholar who masters magic through study.", "hit_die": 6},
 ]
 
 # Features per class. Only Wizard so far; the others show "not available yet".

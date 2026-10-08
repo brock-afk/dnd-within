@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.abilities.models import CharacterAbilityBonus
 from app.characters.models import Character
 from app.classes.models import CharacterClassLevel
 from app.features.kinds import KINDS, OptionView
@@ -82,3 +83,25 @@ def applicable_choice(db: Session, character: Character, choice_id: int) -> Choi
             ok = feature.level <= cc.level and _applies(feature.applies_to, cc)
             return choice if ok else None
     return None
+
+
+def remove_inapplicable_picks(db: Session, character: Character) -> None:
+    """Delete picks for choices the character no longer has, e.g. after losing a level.
+
+    Works across every choice kind and ability bonuses, so subclasses and multiclassing can
+    reuse it. Doesn't commit; the caller does, together with whatever made picks stale.
+    """
+    pick_tables = [kind.pick for kind in KINDS.values()] + [CharacterAbilityBonus]
+    picked = set()
+    for table in pick_tables:
+        query = select(table.choice_id).where(table.character_id == character.id)
+        picked |= set(db.scalars(query))
+    stale = [
+        cid for cid in picked if cid is not None and not applicable_choice(db, character, cid)
+    ]
+    if not stale:
+        return
+    for table in pick_tables:
+        db.execute(
+            delete(table).where(table.character_id == character.id, table.choice_id.in_(stale))
+        )

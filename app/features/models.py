@@ -9,27 +9,32 @@ from app.core.db import Base
 class Feature(Base):
     """A trait or class feature, like Giant Ancestry or Spellcasting.
 
-    Belongs to exactly one source. Subclasses, backgrounds and feats will get
-    their own nullable column here, covered by the same check.
+    Belongs to exactly one source: a class, a species, or a subclass. Backgrounds and feats
+    will get their own nullable column here, added to the same check.
     """
 
     __tablename__ = "features"
     __table_args__ = (
-        CheckConstraint("(class_id IS NULL) <> (species_id IS NULL)", name="one_source"),
+        CheckConstraint(
+            "(class_id IS NOT NULL) + (species_id IS NOT NULL) + (subclass_id IS NOT NULL) = 1",
+            name="one_source",
+        ),
         CheckConstraint(
             "applies_to IN ('all', 'starting_class', 'multiclass')", name="applies_to_values"
         ),
         UniqueConstraint("class_id", "slug"),
         UniqueConstraint("species_id", "slug"),
+        UniqueConstraint("subclass_id", "slug"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     class_id: Mapped[int | None] = mapped_column(ForeignKey("classes.id"))
     species_id: Mapped[int | None] = mapped_column(ForeignKey("species.id"))
+    subclass_id: Mapped[int | None] = mapped_column(ForeignKey("subclasses.id"))
     slug: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(80))
     summary: Mapped[str] = mapped_column(String(500))
-    # Gained at this class level (class features) or character level (species features).
+    # Gained at this class level (class and subclass features) or character level (species).
     level: Mapped[int] = mapped_column(default=1)
     # Class features only: "starting_class" features (like the full starting proficiencies)
     # apply only to a character's first class, "multiclass" ones only to classes added later.

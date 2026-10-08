@@ -90,7 +90,7 @@
           <span>{{ cv.choice.name }}: <strong>{{ cv.picked | map(attribute="name") | join(", ") }}</strong></span>
         {% endif %}
         {{ choose_button(cv.choice, "Change") }}
-        {% if cv.choice.kind == "option" %}
+        {% if cv.choice.kind in ("option", "subclass") %}
         <span class="muted feature-choice-summary">{{ cv.picked[0].summary }}</span>
         {% endif %}
       </div>

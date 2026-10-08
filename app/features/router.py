@@ -10,7 +10,7 @@ from app.core.db import DbSession
 from app.core.templates import hx_redirect, templates
 from app.features.kinds import KINDS
 from app.features.models import Choice
-from app.features.service import applicable_choice
+from app.features.service import applicable_choice, remove_inapplicable_picks
 
 router = APIRouter(tags=["features"])
 
@@ -63,4 +63,7 @@ def save_choice(
 
     if error:
         return _render_form(request, db, character, choice, picks, error, status_code=400)
+    # A new pick can make others stale, e.g. switching subclass drops the old one's picks.
+    remove_inapplicable_picks(db, character)
+    db.commit()
     return hx_redirect(f"/characters/{character.id}")

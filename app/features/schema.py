@@ -17,7 +17,7 @@ class OptionDef(BaseModel):
 class ChoiceDef(BaseModel):
     slug: str
     name: str
-    kind: Literal["option", "skill", "spell"]
+    kind: Literal["option", "skill", "spell", "subclass"]
     count: int = Field(default=1, ge=1)
     criteria: dict[str, Any] = {}
     options: list[OptionDef] = []

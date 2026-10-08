@@ -6,17 +6,15 @@ from app.features.schema import FeatureDef
 
 
 def sync_features(
-    db: Session, parent_model, fk_column: str, features_by_parent: dict[str, list[FeatureDef]]
+    db: Session, fk_column: str, features_by_parent_id: dict[int, list[FeatureDef]]
 ) -> None:
-    """Insert or update features (and their choices and options) for each parent slug.
+    """Insert or update features (and their choices and options) for each parent.
 
-    `parent_model` is e.g. CharacterClass and `fk_column` the matching Feature column
-    ("class_id"). Like sync_reference_rows, nothing is ever deleted, because characters
+    `fk_column` is the Feature column naming the parent ("class_id", "species_id",
+    "subclass_id"). Like sync_reference_rows, nothing is ever deleted, because characters
     may have picks that point at it.
     """
-    parents = {p.slug: p for p in db.scalars(select(parent_model))}
-    for parent_slug, feature_defs in features_by_parent.items():
-        parent_id = parents[parent_slug].id
+    for parent_id, feature_defs in features_by_parent_id.items():
         existing = {
             f.slug: f
             for f in db.scalars(select(Feature).where(getattr(Feature, fk_column) == parent_id))

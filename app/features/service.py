@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.abilities.models import CharacterAbilityBonus
 from app.characters.models import Character
-from app.classes.models import CharacterClassLevel
+from app.classes.models import CharacterClassLevel, Subclass
 from app.features.kinds import KINDS, OptionView
 from app.features.models import Choice, Feature
 
@@ -50,7 +50,8 @@ def _views(db: Session, character: Character, features) -> list[FeatureView]:
 
 
 def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
-    """The species' features (by character level), then each class's (by that class's level)."""
+    """The species' features (by character level), then for each class its features and its
+    subclass's features (both by that class's level)."""
     species_features = db.scalars(
         select(Feature)
         .where(Feature.species_id == character.species_id, Feature.level <= character.level)
@@ -66,6 +67,15 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
         ).all()
         applicable = [f for f in class_features if _applies(f.applies_to, cc)]
         groups.append(FeatureGroup(cc.character_class.name, _views(db, character, applicable)))
+
+        if cc.subclass_id is not None:
+            subclass_features = db.scalars(
+                select(Feature)
+                .where(Feature.subclass_id == cc.subclass_id, Feature.level <= cc.level)
+                .order_by(Feature.position)
+            ).all()
+            name = db.get(Subclass, cc.subclass_id).name
+            groups.append(FeatureGroup(name, _views(db, character, subclass_features)))
     return groups
 
 
@@ -79,29 +89,52 @@ def applicable_choice(db: Session, character: Character, choice_id: int) -> Choi
         ok = feature.species_id == character.species_id and feature.level <= character.level
         return choice if ok else None
     for cc in character.classes:
-        if cc.class_id == feature.class_id:
+        if feature.class_id is not None and cc.class_id == feature.class_id:
             ok = feature.level <= cc.level and _applies(feature.applies_to, cc)
             return choice if ok else None
+        if feature.subclass_id is not None and cc.subclass_id == feature.subclass_id:
+            return choice if feature.level <= cc.level else None
     return None
 
 
-def remove_inapplicable_picks(db: Session, character: Character) -> None:
-    """Delete picks for choices the character no longer has, e.g. after losing a level.
+class _AbilityBonusPicks:
+    """Ability bonuses aren't a choice kind of their own yet, but are cleaned up the same way."""
 
-    Works across every choice kind and ability bonuses, so subclasses and multiclassing can
-    reuse it. Doesn't commit; the caller does, together with whatever made picks stale.
-    """
-    pick_tables = [kind.pick for kind in KINDS.values()] + [CharacterAbilityBonus]
-    picked = set()
-    for table in pick_tables:
-        query = select(table.choice_id).where(table.character_id == character.id)
-        picked |= set(db.scalars(query))
-    stale = [
-        cid for cid in picked if cid is not None and not applicable_choice(db, character, cid)
-    ]
-    if not stale:
-        return
-    for table in pick_tables:
-        db.execute(
-            delete(table).where(table.character_id == character.id, table.choice_id.in_(stale))
+    def picked_choice_ids(self, db: Session, character_id: int) -> set[int]:
+        query = select(CharacterAbilityBonus.choice_id).where(
+            CharacterAbilityBonus.character_id == character_id
         )
+        return set(db.scalars(query))
+
+    def clear(self, db: Session, choice_ids: list[int], character_id: int) -> None:
+        db.execute(
+            delete(CharacterAbilityBonus).where(
+                CharacterAbilityBonus.character_id == character_id,
+                CharacterAbilityBonus.choice_id.in_(choice_ids),
+            )
+        )
+
+
+def remove_inapplicable_picks(db: Session, character: Character) -> None:
+    """Delete picks for choices the character no longer has, e.g. after losing a level or
+    switching subclass.
+
+    Repeats until nothing changes, because clearing one pick can make others stale: clearing
+    a subclass removes its features, so their picks go too. Doesn't commit; the caller does,
+    together with whatever made the picks stale.
+    """
+    pick_sources = [*KINDS.values(), _AbilityBonusPicks()]
+    while True:
+        changed = False
+        for source in pick_sources:
+            stale = [
+                cid
+                for cid in source.picked_choice_ids(db, character.id)
+                if not applicable_choice(db, character, cid)
+            ]
+            if stale:
+                source.clear(db, stale, character.id)
+                changed = True
+        if not changed:
+            return
+        db.flush()

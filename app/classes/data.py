@@ -53,10 +53,85 @@ CLASS_FEATURES: dict[str, list[FeatureDef]] = {
             summary="Cast any Ritual spell in your spellbook as a ritual, even if it isn't prepared.",
         ),
         FeatureDef(
+            slug="subclass",
+            name="Wizard Subclass",
+            level=3,
+            summary="Specialize in a school of magic.",
+            choices=[ChoiceDef(slug="subclass", name="Wizard Subclass", kind="subclass")],
+        ),
+        FeatureDef(
             slug="arcane-recovery",
             name="Arcane Recovery",
             summary="After a Short Rest, regain spell slots totaling up to half your wizard level "
             "(rounded up), none of level 6+. Once per Long Rest.",
+        ),
+    ],
+}
+
+# Subclasses per class slug. Synced into the `subclasses` table on startup.
+SUBCLASSES: dict[str, list[dict]] = {
+    "wizard": [
+        {"slug": "abjurer", "name": "Abjurer", "summary": "Shields allies and shuts down hostile magic."},
+        {"slug": "diviner", "name": "Diviner", "summary": "Glimpses the future and bends fate."},
+        {"slug": "evoker", "name": "Evoker", "summary": "Wields raw, destructive elemental magic."},
+        {"slug": "illusionist", "name": "Illusionist", "summary": "Weaves sights and sounds that fool the senses."},
+    ],
+}
+
+
+def _savant(school: str) -> FeatureDef:
+    return FeatureDef(
+        slug="savant",
+        name=f"{school} Savant",
+        level=3,
+        summary=f"Add two {school} spells of level 2 or lower to your spellbook for free, and one "
+        "more whenever you gain access to a new level of spell slots. (Picking them arrives "
+        "with the spellbook update.)",
+    )
+
+
+# Subclass features keyed by (class slug, subclass slug). Level 3 only so far.
+SUBCLASS_FEATURES: dict[tuple[str, str], list[FeatureDef]] = {
+    ("wizard", "abjurer"): [
+        _savant("Abjuration"),
+        FeatureDef(
+            slug="arcane-ward",
+            name="Arcane Ward",
+            level=3,
+            summary="Casting an Abjuration spell with a slot can create a ward that absorbs damage "
+            "for you: 2 × Wizard level + INT modifier HP. Abjuration spells, or spending a slot as "
+            "a Bonus Action, recharge it.",
+        ),
+    ],
+    ("wizard", "diviner"): [
+        _savant("Divination"),
+        FeatureDef(
+            slug="portent",
+            name="Portent",
+            level=3,
+            summary="After a Long Rest, roll two d20s. Use each once to replace an attack roll, "
+            "saving throw, or ability check made by you or a creature you can see.",
+        ),
+    ],
+    ("wizard", "evoker"): [
+        _savant("Evocation"),
+        FeatureDef(
+            slug="potent-cantrip",
+            name="Potent Cantrip",
+            level=3,
+            summary="When your damaging cantrip misses or the target succeeds on its save, it still "
+            "takes half the damage (but no other effects).",
+        ),
+    ],
+    ("wizard", "illusionist"): [
+        _savant("Illusion"),
+        FeatureDef(
+            slug="improved-illusions",
+            name="Improved Illusions",
+            level=3,
+            summary="Cast Illusion spells without Verbal components, with +60 ft range when it's 10 ft "
+            "or more. You know Minor Illusion (or another cantrip if you already do), can make sound "
+            "and image together, and can cast it as a Bonus Action.",
         ),
     ],
 }

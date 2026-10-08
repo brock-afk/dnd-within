@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Welcome, {{ user.username }}</h1>
+  <p class="subtitle">Your characters will live here.</p>
+  <form hx-post="/logout">
+    <button type="submit">Log out</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Log in · DnD Within{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>DnD Within</h1>
+  <p class="subtitle">Log in to your character tracker</p>
+
+  <form hx-post="/login" hx-target="#form-error">
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+    <div id="form-error" aria-live="polite"></div>
+
+    <button type="submit">Log in</button>
+  </form>
+
+  <p class="switch">New adventurer? <a href="/register">Create an account</a></p>
+</div>
+{% endblock %}

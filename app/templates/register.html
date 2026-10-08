@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Create account · DnD Within{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>DnD Within</h1>
+  <p class="subtitle">Create an account</p>
+
+  <form hx-post="/register" hx-target="#form-error">
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" autocomplete="username"
+           minlength="3" maxlength="50" required autofocus>
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="new-password"
+           minlength="8" required>
+
+    <label for="confirm_password">Confirm password</label>
+    <input id="confirm_password" name="confirm_password" type="password"
+           autocomplete="new-password" minlength="8" required>
+
+    <div id="form-error" aria-live="polite"></div>
+
+    <button type="submit">Create account</button>
+  </form>
+
+  <p class="switch">Already have an account? <a href="/login">Log in</a></p>
+</div>
+{% endblock %}

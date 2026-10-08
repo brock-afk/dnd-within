@@ -136,3 +136,29 @@ a { color: var(--accent); }
 .has-error .section-title { color: var(--error); }
 .has-error input[type="text"] { border-color: var(--error); }
 .has-error .choice { border-color: color-mix(in srgb, var(--error) 45%, var(--border)); }
+
+/* Character page */
+.page-header .subtitle { margin: 0.25rem 0 0; }
+.sheet-section { margin-bottom: 2.25rem; }
+.sheet-section h2 { margin: 0 0 0.75rem; font-size: 1.2rem; }
+.group-title { margin: 1.25rem 0 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+
+.pending-choice { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; border-color: var(--accent); }
+.pending-choice:has(form) { display: block; }
+
+.feature-list li, .spell-list li { display: grid; gap: 0.15rem; }
+.feature-name { font-weight: 600; }
+.feature-choice { margin-top: 0.35rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; }
+.feature-choice:has(form) { display: block; margin-top: 0.75rem; }
+.feature-choice-summary { flex-basis: 100%; font-size: 0.9rem; }
+
+.tag-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.tag-list li { padding: 0.35rem 0.7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
+
+/* Choice forms loaded into the page */
+.choice-form { display: grid; gap: 0.75rem; }
+.choice-form-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.75rem; }
+.choice-form-header .section-title { margin: 0; }
+.choice-form .field-error { margin: 0; }
+.choice-detail { display: block; margin-top: 0.15rem; font-size: 0.8rem; color: var(--accent); }

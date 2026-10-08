@@ -1,5 +1,7 @@
 """Classes from the 2024 Player's Handbook. Synced into the `classes` table on startup."""
 
+from app.features.schema import ChoiceDef, FeatureDef
+
 CLASSES = [
     {"slug": "barbarian", "name": "Barbarian", "summary": "A fierce warrior fueled by primal rage."},
     {"slug": "bard", "name": "Bard", "summary": "A performer whose music and words weave magic."},
@@ -14,3 +16,46 @@ CLASSES = [
     {"slug": "warlock", "name": "Warlock", "summary": "A caster empowered by a pact with an otherworldly patron."},
     {"slug": "wizard", "name": "Wizard", "summary": "A scholar who masters magic through study."},
 ]
+
+# Features per class. Only Wizard so far; the others show "not available yet".
+CLASS_FEATURES: dict[str, list[FeatureDef]] = {
+    "wizard": [
+        FeatureDef(
+            slug="proficiencies",
+            name="Proficiencies",
+            summary="Hit die d6. Saving throws: Intelligence, Wisdom. Weapons: Simple. Armor: none.",
+            choices=[
+                ChoiceDef(
+                    slug="skills",
+                    name="Skill Proficiencies",
+                    kind="skill",
+                    count=2,
+                    criteria={"from": ["arcana", "history", "insight", "investigation",
+                                       "medicine", "nature", "religion"]},
+                )
+            ],
+        ),
+        FeatureDef(
+            slug="spellcasting",
+            name="Spellcasting",
+            summary="You cast wizard spells with Intelligence, learned from your spellbook.",
+            choices=[
+                ChoiceDef(slug="cantrips", name="Cantrips", kind="spell", count=3,
+                          criteria={"class": "wizard", "level": 0}),
+                ChoiceDef(slug="spellbook", name="Spellbook", kind="spell", count=6,
+                          criteria={"class": "wizard", "level": 1}),
+            ],
+        ),
+        FeatureDef(
+            slug="ritual-adept",
+            name="Ritual Adept",
+            summary="Cast any Ritual spell in your spellbook as a ritual, even if it isn't prepared.",
+        ),
+        FeatureDef(
+            slug="arcane-recovery",
+            name="Arcane Recovery",
+            summary="After a Short Rest, regain spell slots totaling up to half your wizard level "
+            "(rounded up), none of level 6+. Once per Long Rest.",
+        ),
+    ],
+}

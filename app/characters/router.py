@@ -5,11 +5,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 
 from app.auth.dependencies import CurrentUser
+from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
 from app.classes.models import CharacterClass
 from app.core.db import DbSession
 from app.core.templates import hx_redirect, templates
+from app.features.service import class_features, species_features
+from app.skills.queries import character_skills
 from app.species.models import Species
+from app.spells.queries import character_spells
 
 router = APIRouter(tags=["characters"])
 
@@ -77,6 +81,27 @@ def create_character(
             status_code=400,
         )
 
-    db.add(Character(user_id=user.id, name=name, class_id=class_id, species_id=species_id))
+    character = Character(user_id=user.id, name=name, class_id=class_id, species_id=species_id)
+    db.add(character)
     db.commit()
-    return hx_redirect("/characters")
+    return hx_redirect(f"/characters/{character.id}")
+
+
+@router.get("/characters/{character_id}", response_class=HTMLResponse)
+def show_character(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
+    species_feats = species_features(db, character)
+    class_feats = class_features(db, character)
+    pending = [cv for fv in species_feats + class_feats for cv in fv.choices if not cv.done]
+    return templates.TemplateResponse(
+        request,
+        "characters/show.html",
+        {
+            "user": user,
+            "character": character,
+            "species_features": species_feats,
+            "class_features": class_feats,
+            "pending": pending,
+            "skills": character_skills(db, character.id),
+            "spells": character_spells(db, character.id),
+        },
+    )

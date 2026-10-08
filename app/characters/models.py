@@ -20,3 +20,8 @@ class Character(Base):
 
     character_class: Mapped[CharacterClass] = relationship(lazy="joined")
     species: Mapped[Species] = relationship(lazy="joined")
+
+    @property
+    def level(self) -> int:
+        # Every character is level 1 until leveling is added; this becomes a column then.
+        return 1

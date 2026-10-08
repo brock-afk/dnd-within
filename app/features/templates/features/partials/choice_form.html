@@ -1,0 +1,16 @@
+{% from "partials/choices.html" import choice_grid %}
+<form hx-post="/characters/{{ character.id }}/choices/{{ choice.id }}" hx-swap="outerHTML" novalidate
+      class="choice-form{% if error %} has-error{% endif %}">
+  <div class="choice-form-header">
+    <h3 class="section-title">{{ choice.name }}</h3>
+    <span class="muted">Choose {{ choice.count }}</span>
+  </div>
+  {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}
+
+  {{ choice_grid("picks", options, selected=selected, multiple=choice.count > 1, value_key="slug") }}
+
+  <div class="form-actions">
+    <button type="submit">Save</button>
+    <a href="/characters/{{ character.id }}">Cancel</a>
+  </div>
+</form>

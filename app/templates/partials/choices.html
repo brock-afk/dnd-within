@@ -1,0 +1,15 @@
+{# A grid of selectable cards. Radio buttons for a single pick, checkboxes for several.
+   `options` need .name, plus optional .summary / .detail; `value_key` picks the value attribute. #}
+{% macro choice_grid(field, options, selected=[], multiple=false, value_key="id") %}
+<div class="choices">
+  {% for option in options %}
+  <label class="choice">
+    <input type="{{ 'checkbox' if multiple else 'radio' }}" name="{{ field }}" value="{{ option[value_key] }}"
+           {% if option[value_key] in selected %}checked{% endif %}>
+    <span class="choice-name">{{ option.name }}</span>
+    {% if option.detail %}<span class="choice-detail">{{ option.detail }}</span>{% endif %}
+    {% if option.summary %}<span class="choice-summary">{{ option.summary }}</span>{% endif %}
+  </label>
+  {% endfor %}
+</div>
+{% endmacro %}

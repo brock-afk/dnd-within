@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ character.name }} · DnD Within{% endblock %}
+
+{% macro choose_button(choice, label) %}
+<button type="button" class="{{ 'link-button' if label == 'Change' }}"
+        hx-get="/characters/{{ character.id }}/choices/{{ choice.id }}"
+        hx-target="#choice-{{ choice.id }}">{{ label }}</button>
+{% endmacro %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ character.name }}</h1>
+    <p class="subtitle">
+      {{ character.species.name }} {{ character.character_class.name }} · Level {{ character.level }}
+    </p>
+  </div>
+  <a href="/characters">All characters</a>
+</div>
+
+{% if pending %}
+<section class="sheet-section">
+  <h2>Choices to make</h2>
+  <ul class="plain-list">
+    {% for cv in pending %}
+    <li class="card pending-choice" id="choice-{{ cv.choice.id }}">
+      <div>
+        <span class="character-name">{{ cv.choice.name }}</span>
+        <span class="muted">· choose {{ cv.choice.count }}</span>
+      </div>
+      {{ choose_button(cv.choice, "Choose") }}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="sheet-section">
+  <h2>Traits &amp; features</h2>
+  {% for source, features in [(character.species.name, species_features),
+                               (character.character_class.name, class_features)] %}
+  <h3 class="group-title">{{ source }}</h3>
+  {% if features %}
+  <ul class="plain-list feature-list">
+    {% for fv in features %}
+    <li>
+      <span class="feature-name">{{ fv.feature.name }}</span>
+      <span class="muted">{{ fv.feature.summary }}</span>
+      {% for cv in fv.choices if cv.done %}
+      <div class="feature-choice" id="choice-{{ cv.choice.id }}">
+        {% if cv.choice.kind == "spell" %}
+          <span>{{ cv.choice.name }}: {{ cv.picked | length }} chosen</span>
+        {% else %}
+          <span>{{ cv.choice.name }}: <strong>{{ cv.picked | map(attribute="name") | join(", ") }}</strong></span>
+        {% endif %}
+        {{ choose_button(cv.choice, "Change") }}
+        {% if cv.choice.kind == "option" %}
+        <span class="muted feature-choice-summary">{{ cv.picked[0].summary }}</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">{{ source }} options aren't available yet.</p>
+  {% endif %}
+  {% endfor %}
+</section>
+
+{% if skills %}
+<section class="sheet-section">
+  <h2>Skills</h2>
+  <ul class="tag-list">
+    {% for cs in skills %}
+    <li>{{ cs.skill.name }} <span class="muted">{{ cs.skill.ability }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if spells %}
+<section class="sheet-section">
+  <h2>Spells</h2>
+  {% for level, label in [(0, "Cantrips"), (1, "Level 1 · Spellbook")] %}
+  {% set at_level = spells | selectattr("spell.level", "equalto", level) | list %}
+  {% if at_level %}
+  <h3 class="group-title">{{ label }}</h3>
+  <ul class="plain-list spell-list">
+    {% for cs in at_level %}
+    <li>
+      <span class="feature-name">{{ cs.spell.name }}</span>
+      <span class="choice-detail">{{ cs.spell.detail }}</span>
+      <span class="muted">{{ cs.spell.summary }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

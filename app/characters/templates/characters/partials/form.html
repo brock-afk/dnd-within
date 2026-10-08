@@ -1,22 +1,10 @@
 {# Rendered on first load and re-rendered with `errors` + submitted `values` when validation fails. #}
 {% set errors = errors or {} %}
 {% set values = values or {} %}
+{% from "partials/choices.html" import choice_grid %}
 
 {% macro field_error(field) %}
   {% if errors[field] %}<p class="error field-error" id="{{ field }}-error">{{ errors[field] }}</p>{% endif %}
-{% endmacro %}
-
-{% macro choice_grid(field, options) %}
-<div class="choices">
-  {% for option in options %}
-  <label class="choice">
-    <input type="radio" name="{{ field }}" value="{{ option.id }}"
-           {% if values[field] == option.id %}checked{% endif %}>
-    <span class="choice-name">{{ option.name }}</span>
-    <span class="choice-summary">{{ option.summary }}</span>
-  </label>
-  {% endfor %}
-</div>
 {% endmacro %}
 
 <form hx-post="/characters" hx-swap="outerHTML" novalidate class="character-form">
@@ -31,13 +19,13 @@
   <fieldset {% if errors.class_id %}class="has-error" aria-describedby="class_id-error"{% endif %}>
     <legend class="section-title">Class</legend>
     {{ field_error("class_id") }}
-    {{ choice_grid("class_id", classes) }}
+    {{ choice_grid("class_id", classes, selected=[values.class_id]) }}
   </fieldset>
 
   <fieldset {% if errors.species_id %}class="has-error" aria-describedby="species_id-error"{% endif %}>
     <legend class="section-title">Species</legend>
     {{ field_error("species_id") }}
-    {{ choice_grid("species_id", species) }}
+    {{ choice_grid("species_id", species, selected=[values.species_id]) }}
   </fieldset>
 
   <div class="form-actions">

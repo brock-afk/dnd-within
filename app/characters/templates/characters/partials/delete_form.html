@@ -1,0 +1,14 @@
+<form hx-post="/characters/{{ character.id }}/delete" hx-swap="outerHTML" novalidate
+      class="delete-form{% if error %} has-error{% endif %}">
+  <p>
+    To delete <strong>{{ character.name }}</strong> and all their choices, skills, and spells,
+    type <strong>delete</strong> below. This can't be undone.
+  </p>
+  <label for="delete-confirm" class="visually-hidden">Type delete to confirm</label>
+  <div class="delete-form-row">
+    <input id="delete-confirm" name="confirm" type="text" autocomplete="off" value="{{ value or '' }}"
+           {% if error %}aria-invalid="true" aria-describedby="delete-error"{% endif %}>
+    <button type="submit" class="danger-button">Delete permanently</button>
+  </div>
+  {% if error %}<p class="error" id="delete-error" role="alert">{{ error }}</p>{% endif %}
+</form>

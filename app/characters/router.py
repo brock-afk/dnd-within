@@ -152,3 +152,20 @@ def rename_character(
     character.name = name
     db.commit()
     return _name_heading(request, character)
+
+
+@router.post("/characters/{character_id}/delete")
+def delete_character(
+    request: Request, db: DbSession, character: OwnedCharacter, confirm: Annotated[str, Form()] = ""
+):
+    if confirm.strip().lower() != "delete":
+        return templates.TemplateResponse(
+            request,
+            "characters/partials/delete_form.html",
+            {"character": character, "value": confirm, "error": "Type delete to confirm."},
+            status_code=400,
+        )
+    # Classes, skills, spells and choice picks are removed by ON DELETE CASCADE.
+    db.delete(character)
+    db.commit()
+    return hx_redirect("/characters")

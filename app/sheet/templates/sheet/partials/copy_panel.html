@@ -1,0 +1,24 @@
+{# Copy a spell into the spellbook from a scroll or another book: search by name, pick one,
+   confirm. Any spell is allowed; ones that break the usual rules get a marker. #}
+{% from "partials/refresh.html" import refresh_button %}
+<div class="card copy-panel{% if errors.copy_spell %} has-error{% endif %}">
+  <div class="choice-form-header">
+    <h3 class="section-title">Copy a spell into your spellbook</h3>
+    {{ refresh_button(character, page="play") }}
+  </div>
+  <div id="copy-step">
+    {% if copy_confirm %}
+    {% include "sheet/partials/copy_confirm.html" %}
+    {% else %}
+    {% if errors.copy_spell %}<p class="error field-error" role="alert">{{ errors.copy_spell }}</p>{% endif %}
+    <form role="search" class="hp-form copy-search" novalidate
+          hx-get="/characters/{{ character.id }}/sheet/spellbook/copy/search"
+          hx-target="#copy-results" hx-trigger="input delay:250ms, submit">
+      <label for="copy-search">Spell name</label>
+      <input id="copy-search" name="q" type="search" value="{{ copy.query }}"
+             autocomplete="off" autofocus placeholder="The spell on your scroll or in the book">
+    </form>
+    <div id="copy-results" aria-live="polite">{% include "sheet/partials/copy_results.html" %}</div>
+    {% endif %}
+  </div>
+</div>

@@ -26,6 +26,8 @@ class OptionView:
     group: str = ""  # options with groups are shown in collapsible sections, e.g. spell levels
     school: str = ""  # spells only: enables the school/ritual/name filters
     ritual: bool = False
+    warnings: tuple[str, ...] = ()  # rule markers, e.g. "Not on the Wizard list"
+    note: str = ""  # e.g. "Copied to spellbook · scroll from the crypt"
 
 
 class ChoiceKind:

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
 from app.abilities.rules import modifier
@@ -91,15 +91,21 @@ def track_max_change(db: Session, character: Character, old_max: int | None, hea
 # --- Spells -------------------------------------------------------------------------------
 
 
-def _spellcasting(character: Character) -> tuple[int, dict] | None:
-    """(class level, spellcasting rules) of the character's spellcasting class.
+def _spellcasting_class(character: Character):
+    """The character's spellcasting class row (CharacterClassLevel), or None.
 
-    Only one spellcasting class until multiclassing; None if they have none.
+    Only one spellcasting class until multiclassing.
     """
     for cc in character.classes:
         if cc.character_class.spellcasting and cc.level >= 1:
-            return cc.level, cc.character_class.spellcasting
+            return cc
     return None
+
+
+def _spellcasting(character: Character) -> tuple[int, dict] | None:
+    """(class level, spellcasting rules) of the character's spellcasting class, or None."""
+    cc = _spellcasting_class(character)
+    return (cc.level, cc.character_class.spellcasting) if cc else None
 
 
 def prepared_limit(character: Character) -> int | None:
@@ -206,9 +212,74 @@ def prepared_spell_ids(db: Session, character: Character) -> set[int]:
     return set(db.scalars(query))
 
 
-
 def ability_modifier(db: Session, character: Character, abbr: str) -> int:
     """Final modifier for an ability (base + bonuses); 0 if scores aren't set."""
     abilities = ability_views(db, character) or []
     found = next((a for a in abilities if a.abbr == abbr), None)
     return modifier(found.total) if found else 0
+
+
+def _rule_warnings(cc, highest_slot: int, spell: Spell) -> list[str]:
+    found = []
+    if cc.class_id not in {c.id for c in spell.classes}:
+        found.append(f"Not on the {cc.character_class.name} list")
+    if spell.level > highest_slot:
+        found.append("Above your slot level")
+    return found
+
+
+def spell_warnings(db: Session, character: Character) -> dict[int, list[str]]:
+    """{spell id: warnings} for spellbook spells that break the usual rules. Any spell can be
+    copied into a spellbook, but these get a marker. Calculated, never stored, so they clear
+    on their own (e.g. a high-level spell once the character gains the slots)."""
+    return {
+        spell.id: found
+        for spell, found in copy_warnings(
+            db, character, [entry.spell for entry in spellbook(db, character.id)]
+        ).items()
+        if found
+    }
+
+
+def copy_warnings(db: Session, character: Character, spells: list[Spell]) -> dict:
+    """{spell: warnings} the spells would get in this character's spellbook."""
+    cc = _spellcasting_class(character)
+    if cc is None:
+        return {spell: [] for spell in spells}
+    highest_slot = max(spell_slots(db, character), default=0)
+    return {spell: _rule_warnings(cc, highest_slot, spell) for spell in spells}
+
+
+def spellbook_notes(db: Session, character: Character) -> dict[int, str]:
+    """{spell id: note} for copied spellbook spells, e.g. "Copied to spellbook · scroll from
+    the crypt"."""
+    return {
+        entry.spell_id: " · ".join(filter(None, ["Copied to spellbook", entry.source_note]))
+        for entry in spellbook(db, character.id)
+        if entry.acquired_via == "copied"
+    }
+
+
+COPY_SEARCH_MIN = 2  # characters typed before searching
+COPY_SEARCH_LIMIT = 8
+
+
+def search_copyable(db: Session, query: str) -> list[Spell]:
+    """Level 1+ spells (cantrips aren't written in spellbooks) whose name contains `query`:
+    names starting with it first, then by name."""
+    query = query.strip()
+    if len(query) < COPY_SEARCH_MIN:
+        return []
+    starts = case((Spell.name.istartswith(query, autoescape=True), 0), else_=1)
+    return list(
+        db.scalars(
+            select(Spell)
+            .where(
+                Spell.level >= 1,
+                Spell.retired_at.is_(None),
+                Spell.name.icontains(query, autoescape=True),
+            )
+            .order_by(starts, Spell.name)
+            .limit(COPY_SEARCH_LIMIT)
+        )
+    )

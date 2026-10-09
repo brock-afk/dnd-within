@@ -8,8 +8,9 @@
      .in_ritual_section  listed under Rituals: cast as a ritual, never with a slot
      .prepared           (ritual rows) whether it's prepared or only in the spellbook
      .uses_slots         cast with a spell slot
-   With `slots` ({level: SlotLevel}) and `cast_url`, slot spells get a Cast menu. #}
-{% macro spell_groups(rows, scope, slots=none, cast_url="") %}
+   With `slots` ({level: SlotLevel}) and `cast_url`, slot spells get a Cast menu.
+   `warnings` ({spell id: [text]}) and `notes` ({spell id: text}) add rule markers and notes. #}
+{% macro spell_groups(rows, scope, slots=none, cast_url="", warnings={}, notes={}) %}
 {% set ns = namespace(pairs=[], labels=[]) %}
 {% for row in rows %}
   {% set label = row.group if row.group is defined
@@ -45,11 +46,13 @@
             <span class="spell-tag">Ritual</span>
           {% endif %}
           {% if spell.concentration %}<span class="spell-tag">Concentration</span>{% endif %}
+          {% for w in warnings.get(spell.id, []) %}<span class="spell-tag warning">{{ w }}</span>{% endfor %}
           {% if slots is not none and row.uses_slots is defined and row.uses_slots %}
             {{ _cast_menu(spell, slots, cast_url) }}
           {% endif %}
         </span>
         <span class="choice-detail">{{ spell.stat_line }}</span>
+        {% if notes.get(spell.id) %}<span class="muted spell-note">{{ notes[spell.id] }}</span>{% endif %}
         <span class="muted">{{ spell.summary }}</span>
       </li>
       {% endfor %}

@@ -275,7 +275,7 @@ a { color: var(--accent); }
 /* Option filters (spells) */
 [hidden] { display: none !important; }
 .option-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
-.option-filters input[type="search"], .option-filters select {
+.option-filters input[type="search"], .option-filters select, .copy-search input[type="search"] {
   padding: 0.45rem 0.6rem; border: 1px solid var(--border-strong); border-radius: 6px;
   background: var(--bg); color: inherit; font: inherit; font-size: 0.95rem;
 }
@@ -392,3 +392,27 @@ a { color: var(--accent); }
 .damage-prompt .section-title { margin: 0; }
 .reaction-form { display: grid; gap: 0.35rem; }
 .reaction-form p { margin: 0; }
+
+/* Copying spells, rule markers */
+.copy-panel { margin-bottom: 1.25rem; border-color: var(--accent); }
+.copy-rules { margin: 0; font-size: 0.9rem; }
+.spell-tag.warning { color: var(--error); border-color: var(--error); }
+.choice .spell-tag.warning { display: inline-block; margin-top: 0.3rem; }
+.spell-note { font-size: 0.8rem; font-style: italic; }
+.choice .spell-note { display: block; margin-top: 0.3rem; }
+.copy-search { margin-top: 0.75rem; }
+.copy-search input[type="search"] { flex: 1 1 14rem; min-width: 0; }
+.copy-results { list-style: none; margin: 0.75rem 0 0; padding: 0; }
+.copy-result { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.5rem 0; border-top: 1px solid var(--border); }
+.copy-result > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.6rem; }
+.copy-result .choice-known { margin: 0; white-space: nowrap; }
+.copy-result .secondary-button { padding: 0.35rem 0.9rem; }
+.copy-pick { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.6rem; }
+.copy-pick .choice-summary { flex-basis: 100%; margin: 0; }
+/* The confirm step: spell, cost, note and buttons, evenly spaced. */
+.copy-confirm { display: flex; flex-direction: column; gap: 1.1rem; margin-top: 1rem; }
+.copy-confirm > p { margin: 0; }
+.copy-confirm .form-actions { margin-top: 0.25rem; }
+.copy-confirm .hp-form input[name="note"] { width: auto; flex: 1 1 14rem; }
+.copy-panel .choice-form-header { justify-content: space-between; }

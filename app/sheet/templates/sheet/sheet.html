@@ -149,9 +149,16 @@
 </section>
 {% endif %}
 
-{% if castable or has_spellbook %}
+{% if castable or has_spellbook or prepared_limit is not none %}
 <section class="sheet-section">
-  <h2>Spells</h2>
+  <div class="section-heading">
+    <h2>Spells</h2>
+    {% if prepared_limit is not none and not copying %}
+    <button type="button" class="link-button"
+            hx-get="/characters/{{ character.id }}/sheet/spellbook/copy">Copy a spell</button>
+    {% endif %}
+  </div>
+  {% if copying %}{% include "sheet/partials/copy_panel.html" %}{% endif %}
   <div id="prepared-section">
     {% if prepared_limit is not none %}
     <div class="section-heading">
@@ -189,7 +196,8 @@
     {% endif %}
     {% if castable %}
     {{ spell_groups(castable, "sheet-spells", slots=slots,
-                   cast_url="/characters/%d/sheet/cast" % character.id) }}
+                   cast_url="/characters/%d/sheet/cast" % character.id, warnings=spell_warnings,
+                   notes=spell_notes) }}
     {% else %}
     <p class="muted">No spells prepared yet.</p>
     {% endif %}

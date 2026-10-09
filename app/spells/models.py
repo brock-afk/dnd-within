@@ -129,5 +129,7 @@ class SpellbookEntry(Base):
     acquired_via: Mapped[str] = mapped_column(String(20))
     # The level-up or feature choice that added it; NULL for copied spells.
     choice_id: Mapped[int | None] = mapped_column(ForeignKey("choices.id"))
+    # Where a copied spell came from, e.g. "Scroll from the crypt". Optional.
+    source_note: Mapped[str | None] = mapped_column(String(120))
 
     spell: Mapped[Spell] = relationship(lazy="joined")

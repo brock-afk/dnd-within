@@ -1,0 +1,24 @@
+{# The confirm step for one spell: its cost, rule markers and an optional note. #}
+{% set c = copy_confirm %}
+<form hx-post="/characters/{{ character.id }}/sheet/spellbook/copy" novalidate class="copy-confirm">
+  <input type="hidden" name="spell" value="{{ c.spell.slug }}">
+  <input type="hidden" name="q" value="{{ c.query }}">
+  <div class="copy-pick">
+    <span class="choice-name">{{ c.spell.name }}</span>
+    <span class="muted">Level {{ c.spell.level }} · {{ c.spell.stat_line }}</span>
+    {% for w in c.warnings %}<span class="spell-tag warning">{{ w }}</span>{% endfor %}
+    {% if c.spell.summary %}<p class="choice-summary">{{ c.spell.summary }}</p>{% endif %}
+  </div>
+  <p class="copy-rules">Copying takes <strong>{{ c.cost }}</strong> (2024 rules). Track the gold yourself.</p>
+  {% if errors.copy_spell %}<p class="error field-error" role="alert">{{ errors.copy_spell }}</p>{% endif %}
+  <div class="hp-form">
+    <label for="copy-note">Note</label>
+    <input id="copy-note" name="note" type="text" maxlength="120" autocomplete="off"
+           placeholder="Optional, e.g. scroll from the crypt">
+  </div>
+  <div class="form-actions">
+    <button type="submit">Copy to spellbook</button>
+    <button type="button" class="link-button"
+            hx-get="/characters/{{ character.id }}/sheet/spellbook/copy?{{ {'q': c.query} | urlencode }}">Back to search</button>
+  </div>
+</form>

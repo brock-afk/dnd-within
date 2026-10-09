@@ -15,6 +15,7 @@ from app.characters.models import Character
 from app.core.templates import morph_in_place, templates
 from app.features.service import feature_groups
 from app.leveling.service import hit_points
+from app.sheet.service import spell_warnings, spellbook_notes
 from app.skills.queries import character_skills
 from app.spells.queries import character_spells, spellbook
 
@@ -40,6 +41,8 @@ def render_character_page(
             "skills": character_skills(db, character.id),
             "spells": character_spells(db, character.id),
             "spellbook": spellbook(db, character.id),
+            "spell_warnings": spell_warnings(db, character),
+            "spell_notes": spellbook_notes(db, character),
         },
     )
 

@@ -32,8 +32,10 @@
            {% if option[value_key] in selected %}checked{% endif %} {% if is_known %}disabled{% endif %}>
     <span class="choice-name">{{ option.name }}</span>
     {% if is_known %}<span class="choice-known">{{ known_label }}</span>{% endif %}
+    {% if option.warnings is defined %}{% for w in option.warnings %}<span class="spell-tag warning">{{ w }}</span>{% endfor %}{% endif %}
     {% if option.detail %}<span class="choice-detail">{{ option.detail }}</span>{% endif %}
     {% if option.summary %}<span class="choice-summary">{{ option.summary }}</span>{% endif %}
+    {% if option.note is defined and option.note %}<span class="muted spell-note">{{ option.note }}</span>{% endif %}
   </label>
   {% endfor %}
 </div>

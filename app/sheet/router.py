@@ -1,9 +1,10 @@
+from dataclasses import dataclass, replace
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from app.auth.dependencies import CurrentUser
 from app.auth.models import User
@@ -26,17 +27,23 @@ from app.sheet.rests import (
 )
 from app.sheet.rules import heal, hit_die_healing, set_temp_hp, take_damage
 from app.sheet.service import (
+    COPY_SEARCH_MIN,
     ability_modifier,
     castable_spells,
+    copy_warnings,
     hp_view,
     max_hp,
     play_state,
     prepared_limit,
     prepared_spell_ids,
+    search_copyable,
     set_slots_remaining,
     spell_slots,
+    spell_warnings,
+    spellbook_notes,
     track_max_change,
 )
+from app.spells.models import Spell, SpellbookEntry
 from app.spells.queries import spellbook
 
 router = APIRouter(tags=["sheet"])
@@ -53,6 +60,7 @@ def render_sheet(
     status_code=200,
     resting=False,
     pending_damage: int | None = None,
+    copying: "CopyPanel | None" = None,
 ):
     """The sheet. `resting` shows the Short rest panel, which holds every short-rest action
     (hit dice, Arcane Recovery) so they stay off the main sheet."""
@@ -71,7 +79,12 @@ def render_sheet(
         "resting": resting,
         "errors": errors or {},
         "pending_damage": pending_damage,
+        "spell_warnings": spell_warnings(db, character),
+        "spell_notes": spellbook_notes(db, character),
+        "copying": copying,
     }
+    if copying:
+        context.update(_copy_context(db, character, copying))
     if pending_damage is not None:
         # Damage is waiting on "use a reaction or take it all"; each reduce reaction shows the
         # ability modifier it adds to its roll.
@@ -96,11 +109,12 @@ def refresh_sheet(
     status_code=200,
     resting=False,
     pending_damage=None,
+    copying=None,
 ):
     """Re-render the sheet and morph it into place (see app/core/templates.py)."""
     db.expire_all()  # sessions don't expire on commit; reload what just changed
     response = render_sheet(
-        request, db, user, character, errors, status_code, resting, pending_damage
+        request, db, user, character, errors, status_code, resting, pending_damage, copying
     )
     return morph_in_place(response, SHEET_SELECTOR)
 
@@ -244,7 +258,16 @@ def end_hp_effect(
 
 
 def _render_prepared_editor(request, db, character, selected, error=None, status_code=200):
-    options = [KINDS["spell"].view(entry.spell) for entry in spellbook(db, character.id)]
+    warnings = spell_warnings(db, character)
+    notes = spellbook_notes(db, character)
+    options = [
+        replace(
+            KINDS["spell"].view(entry.spell),
+            warnings=tuple(warnings.get(entry.spell_id, [])),
+            note=notes.get(entry.spell_id, ""),
+        )
+        for entry in spellbook(db, character.id)
+    ]
     return templates.TemplateResponse(
         request,
         "sheet/partials/prepared_editor.html",
@@ -493,5 +516,130 @@ def short_rest_finish(
 @router.post("/characters/{character_id}/sheet/long-rest", response_class=HTMLResponse)
 def take_long_rest(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
     long_rest(db, character)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+# --- Copying spells into the spellbook ----------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CopyPanel:
+    """What the copy panel shows: the search (with `query` typed), or the confirm step for
+    `spell`."""
+
+    query: str = ""
+    spell: Spell | None = None
+
+
+def _copy_cost(spell: Spell) -> str:
+    """2024 rules: 2 hours and 50 GP per spell level."""
+    return f"{2 * spell.level} hours and {50 * spell.level} GP"
+
+
+def _copy_results(db, character, query: str) -> dict:
+    spells = search_copyable(db, query)
+    in_book = {entry.spell_id for entry in spellbook(db, character.id)}
+    return {
+        "query": query.strip(),
+        "min_length": COPY_SEARCH_MIN,
+        "results": [
+            (spell, spell.id in in_book, found)
+            for spell, found in copy_warnings(db, character, spells).items()
+        ],
+    }
+
+
+def _copy_context(db, character, panel: CopyPanel) -> dict:
+    if panel.spell is not None:
+        return _confirm_context(db, character, panel.spell, panel.query)
+    return {"copy": _copy_results(db, character, panel.query)}
+
+
+def _confirm_context(db, character, spell: Spell, query: str) -> dict:
+    return {
+        "copy_confirm": {
+            "spell": spell,
+            "query": query,
+            "cost": _copy_cost(spell),
+            "warnings": copy_warnings(db, character, [spell])[spell],
+        }
+    }
+
+
+def _copyable(db, slug: str) -> Spell | None:
+    found = db.scalar(select(Spell).where(Spell.slug == slug, Spell.retired_at.is_(None)))
+    return found if found is not None and found.level >= 1 else None
+
+
+@router.get("/characters/{character_id}/sheet/spellbook/copy", response_class=HTMLResponse)
+def open_copy_panel(
+    request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, q: str = ""
+):
+    """The copy panel's search step; `q` refills it when coming back from the confirm step."""
+    return refresh_sheet(request, db, user, character, copying=CopyPanel(query=q))
+
+
+@router.get("/characters/{character_id}/sheet/spellbook/copy/search", response_class=HTMLResponse)
+def search_copy(request: Request, db: DbSession, character: OwnedCharacter, q: str = ""):
+    """Spells matching the typed name, swapped into the panel's result list."""
+    return templates.TemplateResponse(
+        request,
+        "sheet/partials/copy_results.html",
+        {"character": character, "copy": _copy_results(db, character, q)},
+    )
+
+
+@router.get("/characters/{character_id}/sheet/spellbook/copy/confirm", response_class=HTMLResponse)
+def confirm_copy(
+    request: Request,
+    db: DbSession,
+    character: OwnedCharacter,
+    spell: str = "",
+    q: str = "",
+):
+    """The confirm step for one spell: its cost, rule markers and an optional note."""
+    found = _copyable(db, spell)
+    if found is None:
+        raise HTTPException(status_code=404)
+    return templates.TemplateResponse(
+        request,
+        "sheet/partials/copy_confirm.html",
+        {"character": character, "errors": {}, **_confirm_context(db, character, found, q)},
+    )
+
+
+@router.post("/characters/{character_id}/sheet/spellbook/copy", response_class=HTMLResponse)
+def copy_spell(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    spell: Annotated[str, Form()] = "",
+    note: Annotated[str, Form()] = "",
+    q: Annotated[str, Form()] = "",
+):
+    """Copy a spell into the spellbook from a scroll or another book. Any spell is allowed
+    (rule-breaking ones get a marker); the gold and time are the player's to track."""
+    found = _copyable(db, spell)
+    in_book = {entry.spell_id for entry in spellbook(db, character.id)}
+    error = None
+    if found is None:
+        error = "Choose a spell of level 1 or higher to copy."
+    elif found.id in in_book:
+        error = f"{found.name} is already in your spellbook."
+    if error:
+        panel = CopyPanel(query=q, spell=found if found and found.id not in in_book else None)
+        return refresh_sheet(
+            request, db, user, character, {"copy_spell": error}, status_code=400, copying=panel
+        )
+    db.add(
+        SpellbookEntry(
+            character_id=character.id,
+            spell_id=found.id,
+            acquired_via="copied",
+            source_note=note.strip()[:120] or None,
+        )
+    )
     db.commit()
     return refresh_sheet(request, db, user, character)

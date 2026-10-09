@@ -123,7 +123,7 @@
 <section class="sheet-section">
   <h2>Spells</h2>
   {{ spell_groups((spells + spellbook) | sort(attribute="spell.name") | sort(attribute="spell.level"),
-                 "build-spells") }}
+                 "build-spells", warnings=spell_warnings, notes=spell_notes) }}
 </section>
 {% endif %}
 

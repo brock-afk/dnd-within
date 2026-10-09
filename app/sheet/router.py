@@ -257,7 +257,11 @@ def end_hp_effect(
 # --- Prepared spells ----------------------------------------------------------------------
 
 
-def _render_prepared_editor(request, db, character, selected, error=None, status_code=200):
+def _render_prepared_editor(
+    request, db, character, selected, error=None, status_code=200, asking=""
+):
+    """The prepared editor. `asking` is the copied spell whose "Remove from your spellbook?"
+    question is showing."""
     warnings = spell_warnings(db, character)
     notes = spellbook_notes(db, character)
     options = [
@@ -265,6 +269,8 @@ def _render_prepared_editor(request, db, character, selected, error=None, status
             KINDS["spell"].view(entry.spell),
             warnings=tuple(warnings.get(entry.spell_id, [])),
             note=notes.get(entry.spell_id, ""),
+            # Only copied spells: level-up and feature spells change through their choice.
+            removable=entry.acquired_via == "copied",
         )
         for entry in spellbook(db, character.id)
     ]
@@ -278,6 +284,7 @@ def _render_prepared_editor(request, db, character, selected, error=None, status
             "limit": prepared_limit(character),
             "filter_schools": sorted({o.school for o in options}),
             "error": error,
+            "asking": asking,
         },
         status_code=status_code,
     )
@@ -320,6 +327,39 @@ def save_prepared(
     )
     db.commit()
     return refresh_sheet(request, db, user, character)
+
+
+@router.post("/characters/{character_id}/sheet/prepared/edit", response_class=HTMLResponse)
+def ask_remove(
+    request: Request,
+    db: DbSession,
+    character: OwnedCharacter,
+    picks: Annotated[list[str], Form()] = [],
+    asking: Annotated[str, Form()] = "",
+):
+    """Show (or with no `asking`, hide) "Remove X from your spellbook?" in the editor, keeping
+    the unsaved picks."""
+    return _render_prepared_editor(request, db, character, picks, asking=asking)
+
+
+@router.post("/characters/{character_id}/sheet/spellbook/remove", response_class=HTMLResponse)
+def remove_copied_spell(
+    request: Request,
+    db: DbSession,
+    character: OwnedCharacter,
+    picks: Annotated[list[str], Form()] = [],
+    remove: Annotated[str, Form()] = "",
+):
+    """Remove a copied spell from the spellbook (added by mistake). Preparing it is undone by
+    the database (character_prepared_spells cascades from spellbook_entries)."""
+    entry = next((e for e in spellbook(db, character.id) if e.spell.slug == remove), None)
+    if entry is None or entry.acquired_via != "copied":
+        error = "Only copied spells can be removed here. Change level-up spells on the Build page."
+        return _render_prepared_editor(request, db, character, picks, error, status_code=400)
+    db.delete(entry)
+    db.commit()
+    db.expire_all()
+    return _render_prepared_editor(request, db, character, [p for p in picks if p != remove])
 
 
 # --- Spell slots ----------------------------------------------------------------------------

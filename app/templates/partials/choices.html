@@ -1,9 +1,12 @@
 {% from "partials/option_filters.html" import filter_attrs %}
 {# A grid of selectable cards. Radio buttons for a single pick, checkboxes for several.
    `options` need .name, plus optional .summary / .detail; `value_key` picks the value attribute.
-   Options whose value is in `known` are shown with `known_label` and can't be picked. #}
+   Options whose value is in `known` are shown with `known_label` and can't be picked.
+   `removal` puts a two-step Remove link on options with .removable: a dict with `ask_url`
+   (asks "Remove X?"), `url` (removes), `target`, `asking` (the value being asked about) and
+   `from_label` (e.g. "your spellbook"). Both requests post the enclosing form. #}
 {% macro choice_grid(field, options, selected=[], multiple=false, value_key="id", known=[], known_label="",
-                     noun=("option", "options")) %}
+                     noun=("option", "options"), removal=none) %}
 {#- Options with a `group` (e.g. spell level) get one collapsible section per group, in the
     order they come in. A single group needs no section. -#}
 {% set groups = options | map(attribute="group") | unique | list if options and options[0].group is defined else [] %}
@@ -13,15 +16,15 @@
   <details class="choice-group" data-filter-group="{{ group }}" open>
     <summary><span class="choice-group-name">{{ group }}</span>
       <span class="muted">{{ in_group | length }} {{ noun[0] if in_group | length == 1 else noun[1] }}</span></summary>
-    {{ _cards(field, in_group, selected, multiple, value_key, known, known_label) }}
+    {{ _cards(field, in_group, selected, multiple, value_key, known, known_label, removal) }}
   </details>
   {% endfor %}
 {% else %}
-  {{ _cards(field, options, selected, multiple, value_key, known, known_label) }}
+  {{ _cards(field, options, selected, multiple, value_key, known, known_label, removal) }}
 {% endif %}
 {% endmacro %}
 
-{% macro _cards(field, options, selected, multiple, value_key, known, known_label) %}
+{% macro _cards(field, options, selected, multiple, value_key, known, known_label, removal) %}
 <div class="choices">
   {% for option in options %}
   {% set is_known = option[value_key] in known %}
@@ -36,6 +39,21 @@
     {% if option.detail %}<span class="choice-detail">{{ option.detail }}</span>{% endif %}
     {% if option.summary %}<span class="choice-summary">{{ option.summary }}</span>{% endif %}
     {% if option.note is defined and option.note %}<span class="muted spell-note">{{ option.note }}</span>{% endif %}
+    {% if removal and option.removable is defined and option.removable %}
+    {% set value = option[value_key] %}
+    <span class="card-remove">
+      {% if removal.asking == value %}
+      <span>Remove {{ option.name }} from {{ removal.from_label }}?</span>
+      <button type="button" class="danger-button small-button" hx-post="{{ removal.url }}"
+              hx-vals='{{ {"remove": value} | tojson }}' hx-target="{{ removal.target }}" hx-swap="outerHTML">Remove</button>
+      <button type="button" class="link-button" hx-post="{{ removal.ask_url }}"
+              hx-target="{{ removal.target }}" hx-swap="outerHTML">Keep</button>
+      {% else %}
+      <button type="button" class="link-button" hx-post="{{ removal.ask_url }}"
+              hx-vals='{{ {"asking": value} | tojson }}' hx-target="{{ removal.target }}" hx-swap="outerHTML">Remove from {{ removal.from_label }}</button>
+      {% endif %}
+    </span>
+    {% endif %}
   </label>
   {% endfor %}
 </div>

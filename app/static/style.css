@@ -416,3 +416,8 @@ a { color: var(--accent); }
 .copy-confirm .form-actions { margin-top: 0.25rem; }
 .copy-confirm .hp-form input[name="note"] { width: auto; flex: 1 1 14rem; }
 .copy-panel .choice-form-header { justify-content: space-between; }
+/* Removing a copied spell from the prepared editor's cards */
+.card-remove { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem;
+  margin-top: 0.5rem; font-size: 0.85rem; }
+.card-remove .link-button { font-size: 0.85rem; }
+.small-button { padding: 0.3rem 0.75rem; font-size: 0.85rem; }

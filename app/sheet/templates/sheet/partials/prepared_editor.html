@@ -2,7 +2,7 @@
 {% from "partials/choices.html" import choice_grid %}
 {% from "partials/refresh.html" import refresh_button %}
 {% set noun = ("spell", "spells") %}
-<form hx-post="/characters/{{ character.id }}/sheet/prepared" hx-swap="outerHTML" novalidate data-filter-scope="prepare-spells"
+<form id="prepared-editor" hx-post="/characters/{{ character.id }}/sheet/prepared" hx-swap="outerHTML" novalidate data-filter-scope="prepare-spells"
       class="choice-form{% if error %} has-error{% endif %}">
   <div class="choice-form-header">
     <h3 class="section-title">Prepare spells</h3>
@@ -11,7 +11,13 @@
   {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}
 
   {{ filter_bar(filter_schools, noun) }}
-  {{ choice_grid("picks", options, selected=selected, multiple=true, value_key="slug", noun=noun) }}
+  {# Copied spells can be removed from the book (a spell added by mistake). Unsaved picks are
+     posted along and kept. #}
+  {{ choice_grid("picks", options, selected=selected, multiple=true, value_key="slug", noun=noun,
+                 removal={"ask_url": "/characters/%d/sheet/prepared/edit" % character.id,
+                          "url": "/characters/%d/sheet/spellbook/remove" % character.id,
+                          "target": "#prepared-editor", "asking": asking,
+                          "from_label": "your spellbook"}) }}
 
   <div class="form-actions">
     <button type="submit">Save</button>

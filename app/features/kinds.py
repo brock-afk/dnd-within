@@ -28,6 +28,7 @@ class OptionView:
     ritual: bool = False
     warnings: tuple[str, ...] = ()  # rule markers, e.g. "Not on the Wizard list"
     note: str = ""  # e.g. "Copied to spellbook · scroll from the crypt"
+    removable: bool = False  # shows a Remove link when the grid is given `removal`
 
 
 class ChoiceKind:

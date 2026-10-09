@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 from fastapi import Request
@@ -12,6 +13,24 @@ APP_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(
     directory=[APP_DIR / "templates", *sorted(APP_DIR.glob("*/templates"))]
 )
+
+_static_versions: dict[str, tuple[float, str]] = {}
+
+
+def static_url(path: str) -> str:
+    """/static/<path>?v=<content hash>. The URL changes whenever the file does, so browsers
+    never keep running a stale cached script or stylesheet. Hashes are cached per file and
+    recomputed only when its modification time changes."""
+    file = APP_DIR / "static" / path
+    mtime = file.stat().st_mtime
+    cached = _static_versions.get(path)
+    if cached is None or cached[0] != mtime:
+        cached = (mtime, hashlib.sha256(file.read_bytes()).hexdigest()[:10])
+        _static_versions[path] = cached
+    return f"/static/{path}?v={cached[1]}"
+
+
+templates.env.globals["static_url"] = static_url
 
 
 def form_error(request: Request, message: str, status_code: int = 400) -> HTMLResponse:

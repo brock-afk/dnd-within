@@ -67,6 +67,8 @@ class Spellcasting(Strict):
     # Which ritual spells you can cast as rituals: only prepared ones (the general rule), or any
     # in your spellbook without preparing them (the Wizard's Ritual Adept).
     ritual_casting: Literal["prepared", "spellbook"] = "prepared"
+    # Spell slot progression; the tables themselves live in app/sheet/slots.py.
+    slots: Literal["full"] = "full"
 
 
 class ClassDef(Strict):

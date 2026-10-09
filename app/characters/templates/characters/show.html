@@ -122,7 +122,8 @@
 {% if spells or spellbook %}
 <section class="sheet-section">
   <h2>Spells</h2>
-  {{ spell_groups((spells + spellbook) | sort(attribute="spell.name") | sort(attribute="spell.level")) }}
+  {{ spell_groups((spells + spellbook) | sort(attribute="spell.name") | sort(attribute="spell.level"),
+                 "build-spells") }}
 </section>
 {% endif %}
 

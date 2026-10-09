@@ -95,8 +95,33 @@
       {% endif %}
     </div>
     {% endif %}
+    {% if slots %}
+    <div class="slot-tracker">
+      <span class="group-title">Spell slots</span>
+      {% for s in slots.values() %}
+      <div class="slot-row">
+        <span class="slot-label">Level {{ s.level }}</span>
+        <span class="slot-pips">
+          {% for i in range(1, s.maximum + 1) %}
+          {# Filled = available. Clicking sets how many remain; the last filled pip spends one. #}
+          {% set target = i - 1 if i == s.remaining else i %}
+          <button type="button" class="pip{% if i <= s.remaining %} filled{% endif %}"
+                  hx-post="/characters/{{ character.id }}/sheet/slots/{{ s.level }}"
+                  hx-vals='{"remaining": "{{ target }}"}'
+                  aria-label="Set level {{ s.level }} slots remaining to {{ target }}"
+                  title="{{ target }} left"></button>
+          {% endfor %}
+        </span>
+        <span class="muted">{{ s.remaining }} of {{ s.maximum }}</span>
+      </div>
+      {% endfor %}
+      {% if errors.slots %}<p class="error" role="alert">{{ errors.slots }}</p>{% endif %}
+      {% if errors.cast %}<p class="error" role="alert">{{ errors.cast }}</p>{% endif %}
+    </div>
+    {% endif %}
     {% if castable %}
-    {{ spell_groups(castable) }}
+    {{ spell_groups(castable, "sheet-spells", slots=slots,
+                   cast_url="/characters/%d/sheet/cast" % character.id) }}
     {% else %}
     <p class="muted">No spells prepared yet.</p>
     {% endif %}

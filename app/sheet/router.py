@@ -20,6 +20,8 @@ from app.sheet.service import (
     play_state,
     prepared_limit,
     prepared_spell_ids,
+    set_slots_remaining,
+    spell_slots,
     track_max_change,
 )
 from app.spells.queries import spellbook
@@ -38,6 +40,7 @@ def render_sheet(request, db, user: User, character: Character, errors=None, sta
             "character": character,
             "hp": hp_view(db, character),
             "castable": castable_spells(db, character),
+            "slots": spell_slots(db, character),
             "prepared_count": len(prepared_spell_ids(db, character)),
             "prepared_limit": prepared_limit(character),
             "has_spellbook": bool(spellbook(db, character.id)),
@@ -202,5 +205,59 @@ def save_prepared(
     db.add_all(
         CharacterPreparedSpell(character_id=character.id, spell_id=book[slug]) for slug in picks
     )
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+# --- Spell slots ----------------------------------------------------------------------------
+
+
+@router.post("/characters/{character_id}/sheet/slots/{level}", response_class=HTMLResponse)
+def set_slots(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    level: int,
+    remaining: Annotated[str, Form()] = "",
+):
+    slot = spell_slots(db, character).get(level)
+    value = _amount(remaining, 0, slot.maximum) if slot else None
+    if value is None:
+        errors = {"slots": "That isn't a valid number of slots."}
+        return refresh_sheet(request, db, user, character, errors, status_code=400)
+    set_slots_remaining(db, character, level, value)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post("/characters/{character_id}/sheet/cast", response_class=HTMLResponse)
+def cast_spell(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    spell: Annotated[str, Form()] = "",
+    slot_level: Annotated[str, Form()] = "",
+):
+    """Spend a slot to cast a prepared spell, at its level or higher."""
+    # A prepared ritual is listed twice (as a ritual and at its level); casting uses the slot row.
+    row = next(
+        (r for r in castable_spells(db, character) if r.spell.slug == spell and r.uses_slots), None
+    )
+    slots = spell_slots(db, character)
+    level = _amount(slot_level, 1, 9)
+
+    error = None
+    if row is None or not row.uses_slots:
+        error = "Only prepared spells of level 1 or higher are cast with a slot."
+    elif level is None or level < row.spell.level:
+        error = f"{row.spell.name} needs a slot of level {row.spell.level} or higher."
+    elif level not in slots or slots[level].remaining == 0:
+        error = f"You have no level {level} slots left."
+    if error:
+        return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
+
+    set_slots_remaining(db, character, level, slots[level].remaining - 1)
     db.commit()
     return refresh_sheet(request, db, user, character)

@@ -10,7 +10,7 @@
 {% if groups | length > 1 %}
   {% for group in groups %}
   {% set in_group = options | selectattr("group", "equalto", group) | list %}
-  <details class="choice-group" data-filter-group open>
+  <details class="choice-group" data-filter-group="{{ group }}" open>
     <summary><span class="choice-group-name">{{ group }}</span>
       <span class="muted">{{ in_group | length }} {{ noun[0] if in_group | length == 1 else noun[1] }}</span></summary>
     {{ _cards(field, in_group, selected, multiple, value_key, known, known_label) }}

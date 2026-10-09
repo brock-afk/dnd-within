@@ -324,3 +324,34 @@ a { color: var(--accent); }
 }
 .spell-tag.ritual-only { color: var(--accent); border-color: var(--accent); }
 #prepared-section .section-heading .group-title { margin: 0; }
+
+/* Spell slots */
+.slot-tracker { display: grid; gap: 0.4rem; margin: 0.25rem 0 1rem; }
+.slot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.slot-label { width: 4.5rem; font-size: 0.9rem; }
+.slot-pips { display: inline-flex; gap: 0.35rem; }
+.pip {
+  width: 1.1rem; height: 1.1rem; padding: 0; border-radius: 50%;
+  background: transparent; border: 2px solid var(--accent);
+}
+.pip.filled { background: var(--accent); }
+.pip:hover { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.pip:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+/* Casting */
+.spell-tag.ritual { color: var(--accent); border-color: var(--accent); }
+.spell-level-note { font-size: 0.8rem; }
+.cast-menu { position: relative; margin-left: auto; }
+.cast-button {
+  list-style: none; cursor: pointer; padding: 0.2rem 0.75rem; border-radius: 6px;
+  background: var(--action); color: #fff; font-size: 0.85rem; font-weight: 600;
+}
+.cast-button::-webkit-details-marker { display: none; }
+.cast-button:hover { background: var(--action-hover); }
+.cast-options {
+  position: absolute; right: 0; z-index: 5; margin-top: 0.3rem; display: grid; gap: 0.3rem;
+  padding: 0.5rem; background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 8px; min-width: 11rem;
+}
+.cast-options button { width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem; text-align: left; }
+.cast-none { margin-left: auto; font-size: 0.8rem; }

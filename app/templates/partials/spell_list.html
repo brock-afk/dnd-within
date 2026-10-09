@@ -1,28 +1,53 @@
 {% from "partials/option_filters.html" import filter_bar, filter_attrs %}
 
-{# Spells grouped by level in collapsible sections, with name/school/ritual filters.
-   `rows` need .spell, and optionally .ritual_only (a ritual castable without being prepared). #}
-{% macro spell_groups(rows) %}
-<div class="spell-groups" data-filter-scope>
+{# Spells grouped into collapsible sections, with name/school/ritual filters.
+
+   `scope` names the list, so its filters and collapsed sections are remembered.
+   `rows` need .spell, and may have:
+     .group              section label (default: "Cantrips" or "Level N" from the spell's level)
+     .in_ritual_section  listed under Rituals: cast as a ritual, never with a slot
+     .prepared           (ritual rows) whether it's prepared or only in the spellbook
+     .uses_slots         cast with a spell slot
+   With `slots` ({level: SlotLevel}) and `cast_url`, slot spells get a Cast menu. #}
+{% macro spell_groups(rows, scope, slots=none, cast_url="") %}
+{% set ns = namespace(pairs=[], labels=[]) %}
+{% for row in rows %}
+  {% set label = row.group if row.group is defined
+                 else ("Cantrips" if row.spell.level == 0 else "Level %d" % row.spell.level) %}
+  {% set ns.pairs = ns.pairs + [(label, row)] %}
+  {% if label not in ns.labels %}{% set ns.labels = ns.labels + [label] %}{% endif %}
+{% endfor %}
+
+<div class="spell-groups" data-filter-scope="{{ scope }}">
   {{ filter_bar(rows | map(attribute="spell.school") | unique | sort | list) }}
-  {% for level, in_level in rows | groupby("spell.level") %}
-  <details class="choice-group" data-filter-group open>
+  {% for label in ns.labels %}
+  {% set in_group = ns.pairs | selectattr(0, "equalto", label) | map(attribute=1) | list %}
+  <details class="choice-group" data-filter-group="{{ label }}" open>
     <summary>
-      <span class="choice-group-name">{{ "Cantrips" if level == 0 else "Level %d" % level }}</span>
-      <span class="muted">{{ in_level | length }} {{ "spell" if in_level | length == 1 else "spells" }}</span>
+      <span class="choice-group-name">{{ label }}</span>
+      <span class="muted">{{ in_group | length }} {{ "spell" if in_group | length == 1 else "spells" }}</span>
     </summary>
     <ul class="plain-list spell-list">
-      {% for row in in_level %}
+      {% for row in in_group %}
       {% set spell = row.spell %}
+      {% set as_ritual = row.in_ritual_section is defined and row.in_ritual_section %}
       <li {{ filter_attrs(spell.name, spell.school, spell.ritual) }}>
         <span class="spell-name-line">
           <span class="feature-name">{{ spell.name }}</span>
-          {% if row.ritual_only is defined and row.ritual_only %}
-          <span class="spell-tag ritual-only">Ritual only · not prepared</span>
+          {% if as_ritual %}
+            <span class="muted spell-level-note">Level {{ spell.level }}</span>
+            {% if row.prepared %}
+            <span class="spell-tag ritual">Prepared</span>
+            {% else %}
+            <span class="spell-tag">In spellbook · not prepared</span>
+            {% endif %}
           {% elif spell.ritual %}
-          <span class="spell-tag">Ritual</span>
+            <span class="spell-tag">Ritual</span>
           {% endif %}
           {% if spell.concentration %}<span class="spell-tag">Concentration</span>{% endif %}
+          {% if slots is not none and row.uses_slots is defined and row.uses_slots %}
+            {{ _cast_menu(spell, slots, cast_url) }}
+          {% endif %}
         </span>
         <span class="choice-detail">{{ spell.stat_line }}</span>
         <span class="muted">{{ spell.summary }}</span>
@@ -32,4 +57,25 @@
   </details>
   {% endfor %}
 </div>
+{% endmacro %}
+
+{# A dropdown of the slot levels this spell can be cast with (its level or higher, with a slot
+   left). Picking one spends that slot. #}
+{% macro _cast_menu(spell, slots, cast_url) %}
+{% set usable = slots.values() | selectattr("level", "ge", spell.level) | selectattr("remaining", "gt", 0) | list %}
+{% if usable %}
+<details class="cast-menu">
+  <summary class="cast-button">Cast</summary>
+  <form hx-post="{{ cast_url }}" class="cast-options">
+    <input type="hidden" name="spell" value="{{ spell.slug }}">
+    {% for s in usable %}
+    <button type="submit" name="slot_level" value="{{ s.level }}" class="secondary-button">
+      Level {{ s.level }} · {{ s.remaining }} left
+    </button>
+    {% endfor %}
+  </form>
+</details>
+{% else %}
+<span class="cast-none muted">No slots left</span>
+{% endif %}
 {% endmacro %}

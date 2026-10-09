@@ -2,7 +2,7 @@
 {% from "partials/choices.html" import choice_grid %}
 {% from "partials/refresh.html" import refresh_button %}
 {% set noun = ("spell", "spells") %}
-<form hx-post="/characters/{{ character.id }}/sheet/prepared" hx-swap="outerHTML" novalidate data-filter-scope
+<form hx-post="/characters/{{ character.id }}/sheet/prepared" hx-swap="outerHTML" novalidate data-filter-scope="prepare-spells"
       class="choice-form{% if error %} has-error{% endif %}">
   <div class="choice-form-header">
     <h3 class="section-title">Prepare spells</h3>

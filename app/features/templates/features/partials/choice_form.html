@@ -1,7 +1,7 @@
 {% from "partials/option_filters.html" import filter_bar %}
 {% from "partials/refresh.html" import refresh_button %}
 {% from "partials/choices.html" import choice_grid %}
-<form hx-post="/characters/{{ character.id }}/choices/{{ choice.id }}" hx-swap="outerHTML" novalidate data-filter-scope
+<form hx-post="/characters/{{ character.id }}/choices/{{ choice.id }}" hx-swap="outerHTML" novalidate data-filter-scope="choice-{{ choice.id }}"
       class="choice-form{% if error %} has-error{% endif %}">
   <div class="choice-form-header">
     <h3 class="section-title">{{ choice.name }}</h3>

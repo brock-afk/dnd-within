@@ -72,3 +72,21 @@ class CharacterPreparedSpell(Base):
 
     character_id: Mapped[int] = mapped_column(primary_key=True)
     spell_id: Mapped[int] = mapped_column(primary_key=True)
+
+
+class CharacterSpellSlot(Base):
+    """Spell slots used at one slot level. The maximum is calculated from class levels
+    (app/sheet/slots.py), so this stores slots *used*: gaining a level adds slots that are
+    available right away."""
+
+    __tablename__ = "character_spell_slots"
+    __table_args__ = (
+        CheckConstraint("slot_level BETWEEN 1 AND 9", name="slot_level_range"),
+        CheckConstraint("expended >= 0", name="expended_non_negative"),
+    )
+
+    character_id: Mapped[int] = mapped_column(
+        ForeignKey("characters.id", ondelete="CASCADE"), primary_key=True
+    )
+    slot_level: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    expended: Mapped[int] = mapped_column(SmallInteger, default=0)

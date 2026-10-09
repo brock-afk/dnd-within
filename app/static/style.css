@@ -355,3 +355,20 @@ a { color: var(--accent); }
 }
 .cast-options button { width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem; text-align: left; }
 .cast-none { margin-left: auto; font-size: 0.8rem; }
+
+/* Rests and resources */
+.rest-bar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.6rem; margin: -0.75rem 0 1.5rem; }
+.rest-bar .secondary-button { padding: 0.45rem 0.9rem; font-size: 0.9rem; }
+.long-rest > summary { list-style: none; cursor: pointer; display: inline-block; border-radius: 6px; }
+.long-rest > summary::-webkit-details-marker { display: none; }
+.long-rest-confirm { margin-top: 0.5rem; max-width: 26rem; display: grid; gap: 0.5rem; }
+.long-rest-confirm p, .long-rest-confirm ul { margin: 0; }
+.long-rest-confirm ul { padding-left: 1.2rem; }
+.short-rest-panel { display: grid; gap: 1rem; margin-bottom: 2rem; border-color: var(--accent); }
+.short-rest-panel h2 { margin: 0; }
+.rest-block p { margin: 0.25rem 0 0.5rem; }
+.rest-block .group-title { margin: 0; }
+.recovery-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem 1rem; }
+.recovery-row { display: grid; gap: 0.25rem; margin: 0; font-size: 0.9rem; }
+.recovery-row input { width: 4rem; padding: 0.4rem; text-align: center; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }
+.resource-label { min-width: 8rem; font-size: 0.95rem; font-weight: 600; }

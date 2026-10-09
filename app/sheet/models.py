@@ -90,3 +90,32 @@ class CharacterSpellSlot(Base):
     )
     slot_level: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     expended: Mapped[int] = mapped_column(SmallInteger, default=0)
+
+
+class CharacterFeatureUse(Base):
+    """Uses spent of a limited-use feature (Giant Ancestry, Arcane Recovery...). The maximum
+    comes from the feature's content (a number or the proficiency bonus), so this stores uses
+    *spent*; rests reset it."""
+
+    __tablename__ = "character_feature_uses"
+    __table_args__ = (CheckConstraint("expended >= 0", name="expended_non_negative"),)
+
+    character_id: Mapped[int] = mapped_column(
+        ForeignKey("characters.id", ondelete="CASCADE"), primary_key=True
+    )
+    feature_id: Mapped[int] = mapped_column(ForeignKey("features.id"), primary_key=True)
+    expended: Mapped[int] = mapped_column(SmallInteger, default=0)
+
+
+class CharacterHitDice(Base):
+    """Hit dice spent, per class (each class has its own die). A character has one hit die
+    per class level; long rests give spent dice back."""
+
+    __tablename__ = "character_hit_dice"
+    __table_args__ = (CheckConstraint("spent >= 0", name="spent_non_negative"),)
+
+    character_id: Mapped[int] = mapped_column(
+        ForeignKey("characters.id", ondelete="CASCADE"), primary_key=True
+    )
+    class_id: Mapped[int] = mapped_column(ForeignKey("classes.id"), primary_key=True)
+    spent: Mapped[int] = mapped_column(SmallInteger, default=0)

@@ -45,6 +45,24 @@ class ChoiceDef(BaseModel):
         return self
 
 
+class UsesDef(BaseModel):
+    """A feature you can use a limited number of times between rests."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max: int | Literal["proficiency_bonus"]
+    recharge: Literal["short_rest", "long_rest"]
+
+
+class SlotRecoveryDef(BaseModel):
+    """Recover expended spell slots during a short rest (the Wizard's Arcane Recovery)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    budget: Literal["half_class_level"]  # total slot levels: half the class level, rounded up
+    max_slot_level: int = Field(ge=1, le=9)
+
+
 class FeatureDef(BaseModel):
     model_config = ConfigDict(extra="forbid")  # typos are errors, not ignored
 
@@ -53,4 +71,6 @@ class FeatureDef(BaseModel):
     summary: str
     level: int = Field(default=1, ge=1, le=20)
     applies_to: Literal["all", "starting_class", "multiclass"] = "all"
+    uses: UsesDef | None = None
+    slot_recovery: SlotRecoveryDef | None = None
     choices: list[ChoiceDef] = []

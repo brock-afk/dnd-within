@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 from sqlalchemy import delete
 
 from app.auth.dependencies import CurrentUser
@@ -11,8 +12,18 @@ from app.characters.models import Character
 from app.core.db import DbSession
 from app.core.templates import morph_in_place, templates
 from app.features.kinds import KINDS
+from app.leveling.service import constitution_modifier
 from app.sheet.models import CharacterHpEffect, CharacterPreparedSpell
-from app.sheet.rules import heal, set_temp_hp, take_damage
+from app.sheet.rests import (
+    feature_uses,
+    finish_short_rest,
+    hit_dice,
+    long_rest,
+    recovery_budget,
+    set_uses_remaining,
+    spend_hit_die,
+)
+from app.sheet.rules import heal, hit_die_healing, set_temp_hp, take_damage
 from app.sheet.service import (
     castable_spells,
     hp_view,
@@ -31,29 +42,38 @@ router = APIRouter(tags=["sheet"])
 SHEET_SELECTOR = "#sheet-page"
 
 
-def render_sheet(request, db, user: User, character: Character, errors=None, status_code=200):
-    return templates.TemplateResponse(
-        request,
-        "sheet/sheet.html",
-        {
-            "user": user,
-            "character": character,
-            "hp": hp_view(db, character),
-            "castable": castable_spells(db, character),
-            "slots": spell_slots(db, character),
-            "prepared_count": len(prepared_spell_ids(db, character)),
-            "prepared_limit": prepared_limit(character),
-            "has_spellbook": bool(spellbook(db, character.id)),
-            "errors": errors or {},
-        },
-        status_code=status_code,
-    )
+def render_sheet(
+    request, db, user: User, character: Character, errors=None, status_code=200, resting=False
+):
+    """The sheet. `resting` shows the Short rest panel, which holds every short-rest action
+    (hit dice, Arcane Recovery) so they stay off the main sheet."""
+    uses = feature_uses(db, character)
+    context = {
+        "user": user,
+        "character": character,
+        "hp": hp_view(db, character),
+        # Rest-only features (like Arcane Recovery) appear only in the Short rest panel.
+        "resources": [u for u in uses if not u.rest_only],
+        "castable": castable_spells(db, character),
+        "slots": spell_slots(db, character),
+        "prepared_count": len(prepared_spell_ids(db, character)),
+        "prepared_limit": prepared_limit(character),
+        "has_spellbook": bool(spellbook(db, character.id)),
+        "resting": resting,
+        "errors": errors or {},
+    }
+    if resting:
+        context["hit_dice"] = hit_dice(db, character)
+        context["recoveries"] = [
+            (u, recovery_budget(u)) for u in uses if u.feature.slot_recovery is not None
+        ]
+    return templates.TemplateResponse(request, "sheet/sheet.html", context, status_code=status_code)
 
 
-def refresh_sheet(request, db, user, character, errors=None, status_code=200):
+def refresh_sheet(request, db, user, character, errors=None, status_code=200, resting=False):
     """Re-render the sheet and morph it into place (see app/core/templates.py)."""
     db.expire_all()  # sessions don't expire on commit; reload what just changed
-    response = render_sheet(request, db, user, character, errors, status_code)
+    response = render_sheet(request, db, user, character, errors, status_code, resting)
     return morph_in_place(response, SHEET_SELECTOR)
 
 
@@ -259,5 +279,149 @@ def cast_spell(
         return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
 
     set_slots_remaining(db, character, level, slots[level].remaining - 1)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+# --- Limited-use features -----------------------------------------------------------------
+
+
+@router.post("/characters/{character_id}/sheet/uses/{feature_id}", response_class=HTMLResponse)
+def set_uses(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    feature_id: int,
+    remaining: Annotated[str, Form()] = "",
+):
+    uses = next((u for u in feature_uses(db, character) if u.feature.id == feature_id), None)
+    if uses is None or uses.rest_only:
+        raise HTTPException(status_code=404)
+    value = _amount(remaining, 0, uses.maximum)
+    if value is None:
+        errors = {"uses": "That isn't a valid number of uses."}
+        return refresh_sheet(request, db, user, character, errors, status_code=400)
+    set_uses_remaining(db, character, uses, value)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+# --- Rests --------------------------------------------------------------------------------
+
+
+@router.get("/characters/{character_id}/sheet/short-rest", response_class=HTMLResponse)
+def open_short_rest(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
+    return refresh_sheet(request, db, user, character, resting=True)
+
+
+@router.post("/characters/{character_id}/sheet/short-rest/hit-die", response_class=HTMLResponse)
+def short_rest_hit_die(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    class_id: Annotated[str, Form()] = "",
+    roll: Annotated[str, Form()] = "",
+):
+    dice = next((d for d in hit_dice(db, character) if str(d.character_class.id) == class_id), None)
+    maximum = max_hp(db, character)
+    con_mod = constitution_modifier(db, character)
+
+    error = None
+    if dice is None or maximum is None or con_mod is None:
+        error = "Set ability scores first: hit dice heal using Constitution."
+    elif dice.available == 0:
+        error = "You have no hit dice left. They come back on a long rest."
+    elif _amount(roll, 1, dice.die) is None:
+        error = f"Enter your d{dice.die} roll, from 1 to {dice.die}."
+    if error:
+        return refresh_sheet(
+            request, db, user, character, {"hit_die": error}, status_code=400, resting=True
+        )
+
+    spend_hit_die(db, character, dice.character_class.id)
+    heal(play_state(db, character), hit_die_healing(int(roll), con_mod), maximum)
+    db.commit()
+    return refresh_sheet(request, db, user, character, resting=True)
+
+
+class RecoveryForm(BaseModel):
+    """How many slots of each level to recover; blank means none."""
+
+    level_1: str = ""
+    level_2: str = ""
+    level_3: str = ""
+    level_4: str = ""
+    level_5: str = ""
+    level_6: str = ""
+    level_7: str = ""
+    level_8: str = ""
+    level_9: str = ""
+
+
+@router.post(
+    "/characters/{character_id}/sheet/short-rest/recover/{feature_id}", response_class=HTMLResponse
+)
+def short_rest_recover(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    feature_id: int,
+    form: Annotated[RecoveryForm, Form()],
+):
+    """Recover expended spell slots with a feature like Arcane Recovery."""
+    uses = next((u for u in feature_uses(db, character) if u.feature.id == feature_id), None)
+    if uses is None or uses.feature.slot_recovery is None:
+        raise HTTPException(status_code=404)
+    slots = spell_slots(db, character)
+    budget = recovery_budget(uses)
+    max_level = uses.feature.slot_recovery["max_slot_level"]
+
+    counts, error = {}, None
+    for level, slot in slots.items():
+        raw = getattr(form, f"level_{level}").strip() or "0"
+        count = _amount(raw, 0, 99)
+        if count is None:
+            error = "Enter how many slots of each level to recover."
+            break
+        if count:
+            counts[level] = count
+            if level > max_level:
+                error = f"{uses.feature.name} can't recover slots above level {max_level}."
+            elif count > slot.maximum - slot.remaining:
+                error = f"You only have {slot.maximum - slot.remaining} level {level} slots spent."
+    if error is None:
+        if uses.remaining == 0:
+            error = f"{uses.feature.name} is used. It comes back on a long rest."
+        elif not counts:
+            error = "Choose at least one slot to recover."
+        elif sum(level * n for level, n in counts.items()) > budget:
+            error = f"{uses.feature.name} recovers at most {budget} total slot levels."
+    if error:
+        return refresh_sheet(
+            request, db, user, character, {"recovery": error}, status_code=400, resting=True
+        )
+
+    for level, n in counts.items():
+        set_slots_remaining(db, character, level, slots[level].remaining + n)
+    set_uses_remaining(db, character, uses, uses.remaining - 1)
+    db.commit()
+    return refresh_sheet(request, db, user, character, resting=True)
+
+
+@router.post("/characters/{character_id}/sheet/short-rest/finish", response_class=HTMLResponse)
+def short_rest_finish(
+    request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter
+):
+    finish_short_rest(db, character)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post("/characters/{character_id}/sheet/long-rest", response_class=HTMLResponse)
+def take_long_rest(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
+    long_rest(db, character)
     db.commit()
     return refresh_sheet(request, db, user, character)

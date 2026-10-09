@@ -63,3 +63,13 @@ def set_temp_hp(state: CharacterPlayState, amount: int, source: str | None) -> N
     """Temporary hit points don't stack: the player keeps one amount, replacing the pool."""
     state.temp_hp = amount
     state.temp_hp_source = (source or None) if amount > 0 else None
+
+
+def proficiency_bonus(character_level: int) -> int:
+    """+2 at levels 1-4, +3 at 5-8, ... +6 at 17-20."""
+    return 2 + (character_level - 1) // 4
+
+
+def hit_die_healing(roll: int, con_mod: int) -> int:
+    """HP regained from one spent hit die: the roll plus Constitution modifier, at least 1."""
+    return max(roll + con_mod, 1)

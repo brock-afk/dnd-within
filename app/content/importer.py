@@ -104,6 +104,8 @@ class _Importer:
             feature.summary = fdef.summary
             feature.level = fdef.level
             feature.applies_to = fdef.applies_to
+            feature.uses = fdef.uses.model_dump() if fdef.uses else None
+            feature.slot_recovery = fdef.slot_recovery.model_dump() if fdef.slot_recovery else None
             feature.position = position
             feature.retired_at = None
             self._sync_choices(feature, fdef)

@@ -7,6 +7,7 @@ features:
   summary: Medium. Speed 35 ft.
 - slug: giant-ancestry
   name: Giant Ancestry
+  uses: {max: proficiency_bonus, recharge: long_rest}
   summary: >-
     A boon from your giant ancestors. Uses equal your Proficiency Bonus, regained on a Long
     Rest.
@@ -40,6 +41,7 @@ features:
         Reaction when a creature within 60 ft damages you: deal 1d8 thunder to it.
 - slug: large-form
   name: Large Form
+  uses: {max: 1, recharge: long_rest}
   summary: >-
     Bonus Action: become Large for 10 minutes, with advantage on Strength checks and +10 ft
     speed. Once per Long Rest.

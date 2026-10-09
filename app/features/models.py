@@ -48,6 +48,10 @@ class Feature(Base):
     # Class features only: "starting_class" features (like the full starting proficiencies)
     # apply only to a character's first class, "multiclass" ones only to classes added later.
     applies_to: Mapped[str] = mapped_column(String(20), default="all", server_default="all")
+    # Limited uses: {"max": 2 | "proficiency_bonus", "recharge": "short_rest" | "long_rest"}.
+    uses: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    # Slot recovery on a short rest: {"budget": "half_class_level", "max_slot_level": 5}.
+    slot_recovery: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     position: Mapped[int] = mapped_column(default=0)
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 

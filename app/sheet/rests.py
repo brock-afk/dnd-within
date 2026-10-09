@@ -1,0 +1,165 @@
+"""Limited-use features, hit dice, and short and long rests (2024 rules).
+
+Generic: any feature whose content declares `uses` gets tracked, and any feature declaring
+`slot_recovery` can be used during a short rest. Nothing here knows about a specific class.
+"""
+
+import math
+from dataclasses import dataclass
+
+from sqlalchemy import delete, select
+from sqlalchemy.orm import Session
+
+from app.characters.models import Character
+from app.classes.models import CharacterClass
+from app.features.models import Feature
+from app.features.service import feature_groups
+from app.sheet.models import (
+    CharacterFeatureUse,
+    CharacterHitDice,
+    CharacterSpellSlot,
+)
+from app.sheet.rules import proficiency_bonus
+from app.sheet.service import play_state
+
+
+# --- Limited-use features -----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FeatureUses:
+    feature: Feature
+    maximum: int
+    expended: int
+    class_level: int  # the owning class's level (character level for species features)
+
+    @property
+    def remaining(self) -> int:
+        return self.maximum - min(self.expended, self.maximum)
+
+    @property
+    def recharge(self) -> str:
+        return self.feature.uses["recharge"]
+
+    @property
+    def rest_only(self) -> bool:
+        """Used only during a rest (like Arcane Recovery), so it lives in the rest panel."""
+        return self.feature.slot_recovery is not None
+
+
+def _class_level(character: Character, feature: Feature) -> int:
+    if feature.class_id is not None:
+        return character.class_level(feature.class_id)
+    if feature.subclass_id is not None:
+        for cc in character.classes:
+            if cc.subclass_id == feature.subclass_id:
+                return cc.level
+    return character.level
+
+
+def feature_uses(db: Session, character: Character) -> list[FeatureUses]:
+    """Every limited-use feature the character has (respecting level, class, subclass and
+    species, exactly like the character page)."""
+    spent = {
+        row.feature_id: row.expended
+        for row in db.scalars(
+            select(CharacterFeatureUse).where(CharacterFeatureUse.character_id == character.id)
+        )
+    }
+    result = []
+    for group in feature_groups(db, character):
+        for fv in group.features:
+            feature = fv.feature
+            if not feature.uses:
+                continue
+            maximum = feature.uses["max"]
+            if maximum == "proficiency_bonus":
+                maximum = proficiency_bonus(character.level)
+            level = _class_level(character, feature)
+            result.append(FeatureUses(feature, maximum, spent.get(feature.id, 0), level))
+    return result
+
+
+def set_uses_remaining(
+    db: Session, character: Character, uses: FeatureUses, remaining: int
+) -> None:
+    row = db.get(CharacterFeatureUse, (character.id, uses.feature.id))
+    if row is None:
+        row = CharacterFeatureUse(
+            character_id=character.id, feature_id=uses.feature.id, expended=0
+        )
+        db.add(row)
+    row.expended = uses.maximum - remaining
+
+
+# --- Hit dice -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class HitDice:
+    character_class: CharacterClass
+    total: int  # one per class level
+    spent: int
+
+    @property
+    def available(self) -> int:
+        return max(0, self.total - self.spent)
+
+    @property
+    def die(self) -> int:
+        return self.character_class.hit_die
+
+
+def hit_dice(db: Session, character: Character) -> list[HitDice]:
+    spent = {
+        row.class_id: row.spent
+        for row in db.scalars(
+            select(CharacterHitDice).where(CharacterHitDice.character_id == character.id)
+        )
+    }
+    return [
+        HitDice(cc.character_class, cc.level, spent.get(cc.class_id, 0))
+        for cc in character.classes
+    ]
+
+
+def spend_hit_die(db: Session, character: Character, class_id: int) -> None:
+    row = db.get(CharacterHitDice, (character.id, class_id))
+    if row is None:
+        row = CharacterHitDice(character_id=character.id, class_id=class_id, spent=0)
+        db.add(row)
+    row.spent += 1
+
+
+# --- Slot recovery (Arcane Recovery) ------------------------------------------------------
+
+
+def recovery_budget(uses: FeatureUses) -> int:
+    """Total slot levels the feature can recover: half the class level, rounded up."""
+    return math.ceil(uses.class_level / 2)
+
+
+# --- Rests --------------------------------------------------------------------------------
+
+
+def finish_short_rest(db: Session, character: Character) -> None:
+    """Restore every use that recharges on a short rest."""
+    for uses in feature_uses(db, character):
+        if uses.recharge == "short_rest":
+            db.execute(
+                delete(CharacterFeatureUse).where(
+                    CharacterFeatureUse.character_id == character.id,
+                    CharacterFeatureUse.feature_id == uses.feature.id,
+                )
+            )
+
+
+def long_rest(db: Session, character: Character) -> None:
+    """Full HP, no temporary HP, every hit die back (2024 rules), all spell slots and every
+    feature use restored. Max HP effects aren't ended: their durations aren't tracked yet."""
+    state = play_state(db, character)
+    state.current_hp = None  # at full
+    state.temp_hp = 0
+    state.temp_hp_source = None
+    for model in (CharacterHitDice, CharacterSpellSlot, CharacterFeatureUse):
+        db.execute(delete(model).where(model.character_id == character.id))

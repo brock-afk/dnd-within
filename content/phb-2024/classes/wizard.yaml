@@ -191,6 +191,8 @@ features:
     kind: subclass
 - slug: arcane-recovery
   name: Arcane Recovery
+  uses: {max: 1, recharge: long_rest}
+  slot_recovery: {budget: half_class_level, max_slot_level: 5}
   summary: >-
     After a Short Rest, regain spell slots totaling up to half your wizard level (rounded
     up), none of level 6+. Once per Long Rest.

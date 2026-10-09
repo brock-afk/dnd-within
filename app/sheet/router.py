@@ -31,6 +31,8 @@ from app.sheet.service import (
     COPY_SEARCH_MIN,
     ability_modifier,
     ability_rows,
+    ac_spells,
+    apply_ac_spell,
     armor_class,
     castable_spells,
     copy_warnings,
@@ -74,6 +76,7 @@ def render_sheet(
         "hp": hp_view(db, character),
         "abilities": ability_rows(db, character),
         "ac": armor_class(db, character),
+        "ac_spells": ac_spells(db, character),
         # Rest-only features (like Arcane Recovery) appear only in the Short rest panel.
         "resources": [u for u in uses if not u.rest_only],
         "castable": castable_spells(db, character),
@@ -264,6 +267,28 @@ def end_hp_effect(
 # --- Armor Class effects ------------------------------------------------------------------
 
 
+@router.post("/characters/{character_id}/sheet/ac-effects/cast", response_class=HTMLResponse)
+def cast_ac_spell(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    spell: Annotated[str, Form()] = "",
+    slot_level: Annotated[str, Form()] = "",
+):
+    """Cast a prepared AC spell on yourself (Mage Armor, Barkskin): spend the slot and
+    apply its effect. Casting from the spell list doesn't, since the target may be someone else."""
+    if spell not in {a.spell.slug for a in ac_spells(db, character)}:
+        found, error = None, "Only prepared spells that change your AC can be cast here."
+    else:
+        found, error = _spend_slot(db, character, spell, slot_level)
+    if error:
+        return refresh_sheet(request, db, user, character, {"ac_effect": error}, status_code=400)
+    apply_ac_spell(db, character, found)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
 @router.post("/characters/{character_id}/sheet/ac-effects", response_class=HTMLResponse)
 def add_ac_effect(
     request: Request,
@@ -274,15 +299,18 @@ def add_ac_effect(
     kind: Annotated[str, Form()] = "",
     value: Annotated[str, Form()] = "",
 ):
-    """Mage Armor: base 13 (+ DEX). Shield: bonus +5."""
+    """By hand: Mage Armor base 13 (+ DEX), Shield of Faith bonus +2, Barkskin minimum 17."""
     label = label.strip()[:80]
     if kind == "base":
         amount = _amount(value, 10, 30)
         problem = "a base AC from 10 to 30 (e.g. Mage Armor, 13)"
+    elif kind == "minimum":
+        amount = _amount(value, 10, 30)
+        problem = "a minimum AC from 10 to 30 (e.g. Barkskin, 17)"
     else:
         kind = "bonus"
         amount = _amount(value, -20, 20)
-        problem = "a non-zero bonus (e.g. Shield, +5)"
+        problem = "a non-zero bonus (e.g. Shield of Faith, +2)"
     if not label or not amount:
         errors = {"ac_effect": f"Give the effect a name and {problem}."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
@@ -445,26 +473,31 @@ def cast_spell(
     slot_level: Annotated[str, Form()] = "",
 ):
     """Spend a slot to cast a prepared spell, at its level or higher."""
+    found, error = _spend_slot(db, character, spell, slot_level)
+    if error:
+        return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+def _spend_slot(db, character, spell_slug: str, slot_level: str) -> tuple[Spell | None, str | None]:
+    """Spend the slot for casting a prepared spell at `slot_level` (its level or higher).
+    Returns (the spell, None), or (None, what's wrong) without spending anything."""
     # A prepared ritual is listed twice (as a ritual and at its level); casting uses the slot row.
     row = next(
-        (r for r in castable_spells(db, character) if r.spell.slug == spell and r.uses_slots), None
+        (r for r in castable_spells(db, character) if r.spell.slug == spell_slug and r.uses_slots),
+        None,
     )
     slots = spell_slots(db, character)
     level = _amount(slot_level, 1, 9)
-
-    error = None
-    if row is None or not row.uses_slots:
-        error = "Only prepared spells of level 1 or higher are cast with a slot."
-    elif level is None or level < row.spell.level:
-        error = f"{row.spell.name} needs a slot of level {row.spell.level} or higher."
-    elif level not in slots or slots[level].remaining == 0:
-        error = f"You have no level {level} slots left."
-    if error:
-        return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
-
+    if row is None:
+        return None, "Only prepared spells of level 1 or higher are cast with a slot."
+    if level is None or level < row.spell.level:
+        return None, f"{row.spell.name} needs a slot of level {row.spell.level} or higher."
+    if level not in slots or slots[level].remaining == 0:
+        return None, f"You have no level {level} slots left."
     set_slots_remaining(db, character, level, slots[level].remaining - 1)
-    db.commit()
-    return refresh_sheet(request, db, user, character)
+    return row.spell, None
 
 
 # --- Limited-use features -----------------------------------------------------------------

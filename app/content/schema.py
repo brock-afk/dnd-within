@@ -191,6 +191,25 @@ class HigherSlots(Strict):
         return _check_dice(value) if value is not None else None
 
 
+class AcEffectDef(Strict):
+    """What the spell does to your AC when you cast it on yourself from the AC card. Only for
+    spells lasting a minute or more.
+    base:    AC becomes value + DEX modifier (Mage Armor 13)
+    bonus:   added to AC
+    minimum: AC can't be lower than value (Barkskin 17)"""
+
+    kind: Literal["base", "bonus", "minimum"]
+    value: int
+
+    @model_validator(mode="after")
+    def check(self):
+        if self.kind == "bonus" and self.value == 0:
+            raise ValueError("an AC bonus can't be 0")
+        if self.kind != "bonus" and not 10 <= self.value <= 30:
+            raise ValueError(f"a {self.kind} AC is from 10 to 30")
+        return self
+
+
 class SpellDef(Strict):
     slug: str
     name: str
@@ -210,6 +229,7 @@ class SpellDef(Strict):
     healing: Healing | None = None
     cantrip_scaling: dict[Literal[5, 11, 17], str] | None = None
     higher_slots: HigherSlots | None = None
+    ac_effect: AcEffectDef | None = None
     note: str | None = None
     summary: str  # required, in our own words
     description: str | None = None  # full rules text: only in private packs (copyright)
@@ -228,6 +248,11 @@ class SpellDef(Strict):
             raise ValueError("cantrips don't use higher_slots")
         if self.concentration and self.duration.kind != "timed":
             raise ValueError("concentration spells need a timed duration")
+        # The sheet tracks AC effects until ended or a long rest. Round-long ones (Shield)
+        # are over before they'd be worth recording.
+        too_short = self.duration.kind == "instantaneous" or self.duration.unit == "round"
+        if self.ac_effect and too_short:
+            raise ValueError("ac_effect is for spells lasting a minute or more")
         return self
 
     def details(self) -> dict:
@@ -237,7 +262,8 @@ class SpellDef(Strict):
             exclude_none=True,
             include={
                 "casting_time", "range", "area", "components", "duration", "save", "attack",
-                "damage", "healing", "cantrip_scaling", "higher_slots", "note", "page",
+                "damage", "healing", "cantrip_scaling", "higher_slots", "ac_effect", "note",
+                "page",
             },
         )
         return {k: v for k, v in data.items() if v != []}

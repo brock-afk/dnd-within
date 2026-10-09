@@ -307,6 +307,7 @@
     somatic: true
     material: {text: a piece of cured leather}
   duration: {kind: timed, amount: 8, unit: hour}
+  ac_effect: {kind: base, value: 13}
   summary: Unarmored creature's AC becomes 13 + Dex modifier.
 
 - slug: magic-missile

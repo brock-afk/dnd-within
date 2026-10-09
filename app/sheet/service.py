@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from sqlalchemy import case, select
+from sqlalchemy import case, delete, select
 from sqlalchemy.orm import Session
 
 from app.abilities.rules import modifier
@@ -127,13 +127,29 @@ class ArmorClassView:
         return [e for e in self.effects if e.kind == "bonus"]
 
     @property
-    def total(self) -> int:
+    def minimum(self) -> CharacterAcEffect | None:
+        """The highest "AC can't be lower than" effect (Barkskin 17)."""
+        return max(
+            (e for e in self.effects if e.kind == "minimum"), key=lambda e: e.value, default=None
+        )
+
+    @property
+    def calculated(self) -> int:
         return self.base + self.dex + sum(e.value for e in self.bonuses)
+
+    @property
+    def minimum_wins(self) -> bool:
+        return self.minimum is not None and self.minimum.value > self.calculated
+
+    @property
+    def total(self) -> int:
+        return self.minimum.value if self.minimum_wins else self.calculated
 
 
 def armor_class(db: Session, character: Character) -> ArmorClassView | None:
-    """AC = base (10, or the highest base effect) + DEX modifier + bonus effects. None until
-    ability scores are set. Worn armor joins this once inventory exists."""
+    """AC = base (10, or the highest base effect) + DEX modifier + bonus effects, raised to the
+    highest minimum effect. None until ability scores are set. Worn armor joins this once
+    inventory exists."""
     abilities = ability_views(db, character)
     if abilities is None:
         return None
@@ -145,11 +161,65 @@ def armor_class(db: Session, character: Character) -> ArmorClassView | None:
             .order_by(CharacterAcEffect.created_at, CharacterAcEffect.id)
         )
     )
-    best = max(
-        (e for e in effects if e.kind == "base"), key=lambda e: e.value, default=None
+    best = max((e for e in effects if e.kind == "base"), key=lambda e: e.value, default=None)
+    return ArmorClassView(best.value if best else 10, best.label if best else "", dex, effects)
+
+
+@dataclass(frozen=True)
+class AcSpell:
+    """A prepared spell that changes AC (its content declares `ac_effect`), offered on the AC
+    card to cast on yourself."""
+
+    spell: Spell
+    slots: list["SlotLevel"]  # the slot levels it can be cast with right now
+
+    @property
+    def effect(self) -> dict:
+        return self.spell.details["ac_effect"]
+
+
+def ac_spells(db: Session, character: Character) -> list[AcSpell]:
+    """Prepared spells with an AC effect, each with its usable slot levels."""
+    slots = spell_slots(db, character)
+    return [
+        AcSpell(
+            row.spell,
+            [s for s in slots.values() if s.level >= row.spell.level and s.remaining > 0],
+        )
+        for row in castable_spells(db, character)
+        if row.uses_slots and row.spell.details.get("ac_effect")
+    ]
+
+
+def _ends_on_long_rest(spell: Spell) -> bool:
+    """Spells lasting 8 hours or less are over by the end of a long rest."""
+    duration = spell.details.get("duration", {})
+    if duration.get("kind") != "timed":
+        return False
+    return duration["unit"] in ("round", "minute") or (
+        duration["unit"] == "hour" and duration["amount"] <= 8
     )
-    return ArmorClassView(
-        best.value if best else 10, best.label if best else "", dex, effects
+
+
+def apply_ac_spell(db: Session, character: Character, spell: Spell) -> None:
+    """Add the spell's AC effect, replacing one from an earlier casting (recasting refreshes,
+    never stacks). The caller spends the slot."""
+    db.execute(
+        delete(CharacterAcEffect).where(
+            CharacterAcEffect.character_id == character.id,
+            CharacterAcEffect.spell_id == spell.id,
+        )
+    )
+    effect = spell.details["ac_effect"]
+    db.add(
+        CharacterAcEffect(
+            character_id=character.id,
+            label=spell.name,
+            kind=effect["kind"],
+            value=effect["value"],
+            spell_id=spell.id,
+            ends_on_long_rest=_ends_on_long_rest(spell),
+        )
     )
 
 

@@ -3,6 +3,9 @@
 {% from "partials/page_tabs.html" import page_tabs %}
 {% from "partials/dice.html" import roll_button %}
 {% macro signed(n) %}{{ "+" if n >= 0 else "−" }}{{ n | abs }}{% endmacro %}
+{% macro ac_effect_text(kind, value) -%}
+{%- if kind == "base" %}AC becomes {{ value }} + DEX{% elif kind == "minimum" %}AC at least {{ value }}{% else %}{{ signed(value) }} AC{% endif -%}
+{%- endmacro %}
 
 {% from "partials/spell_list.html" import spell_groups %}
 
@@ -26,16 +29,20 @@
     <span class="group-title">Armor class</span>
     <span class="ac-total">{{ ac.total }}</span>
     <p class="muted ac-breakdown">
+      {% if ac.minimum_wins %}
+      {{ ac.minimum.value }} · {{ ac.minimum.label }} (minimum)
+      {% else %}
       {{ ac.base }}{% if ac.base_label %} {{ ac.base_label }}{% endif %}
       {{ "+" if ac.dex >= 0 else "−" }} {{ ac.dex | abs }} DEX
       {%- for e in ac.bonuses %} {{ "+" if e.value >= 0 else "−" }} {{ e.value | abs }} {{ e.label }}{% endfor %}
+      {% endif %}
     </p>
     {% if ac.effects %}
     <ul class="plain-list">
       {% for e in ac.effects %}
       <li class="hp-effect">
         <span><strong>{{ e.label }}</strong>
-          <span class="muted">{% if e.kind == "base" %}base {{ e.value }} + DEX{% else %}{{ signed(e.value) }} AC{% endif %}</span></span>
+          <span class="muted">{{ ac_effect_text(e.kind, e.value) }}{% if e.ends_on_long_rest %} · until a long rest{% endif %}</span></span>
         <button type="button" class="link-button"
                 hx-post="/characters/{{ character.id }}/sheet/ac-effects/{{ e.id }}/end">End</button>
       </li>
@@ -44,17 +51,44 @@
     {% endif %}
     <details class="add-effect" {% if errors.ac_effect %}open{% endif %}>
       <summary>Add effect</summary>
+      {% if errors.ac_effect %}<p class="error" role="alert">{{ errors.ac_effect }}</p>{% endif %}
+      {% if ac_spells %}
+      {#- Prepared spells whose content declares an AC effect, cast on yourself: spends the slot
+          and applies the effect. -#}
+      <span class="group-title">Cast on yourself</span>
+      <ul class="plain-list ac-spells">
+        {% for a in ac_spells %}
+        <li>
+          <span><strong>{{ a.spell.name }}</strong>
+            <span class="muted">{{ ac_effect_text(a.effect.kind, a.effect.value) }}</span></span>
+          {% if a.slots %}
+          <form hx-post="/characters/{{ character.id }}/sheet/ac-effects/cast" class="ac-cast-slots">
+            <input type="hidden" name="spell" value="{{ a.spell.slug }}">
+            {% for slot in a.slots %}
+            <button type="submit" name="slot_level" value="{{ slot.level }}" class="secondary-button">
+              Level {{ slot.level }} · {{ slot.remaining }} left
+            </button>
+            {% endfor %}
+          </form>
+          {% else %}
+          <span class="muted">No slots left</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      <span class="group-title">Or add by hand</span>
+      {% endif %}
       <form hx-post="/characters/{{ character.id }}/sheet/ac-effects" novalidate class="hp-form ac-effect-form">
         <input name="label" type="text" maxlength="80" placeholder="Name, e.g. Mage Armor" aria-label="Effect name">
         <select name="kind" aria-label="Kind of effect">
           <option value="base">Sets base AC (+ DEX)</option>
           <option value="bonus">Bonus to AC</option>
+          <option value="minimum">AC can't be lower than</option>
         </select>
-        <input name="value" type="text" inputmode="numeric" maxlength="3" placeholder="13 or +5"
+        <input name="value" type="text" inputmode="numeric" maxlength="3" placeholder="13 or +2"
                aria-label="Value" class="delta-input">
         <button type="submit" class="secondary-button">Add</button>
       </form>
-      {% if errors.ac_effect %}<p class="error" role="alert">{{ errors.ac_effect }}</p>{% endif %}
     </details>
   </div>
 

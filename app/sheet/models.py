@@ -10,6 +10,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -54,14 +55,16 @@ class CharacterHpEffect(Base):
 
 
 class CharacterAcEffect(Base):
-    """An active effect on Armor Class. `base` sets base AC to value + DEX modifier, like Mage
-    Armor (13); the highest base wins. `bonus` adds on top, like Shield (+5)."""
+    """An active effect on Armor Class.
+    base:    base AC becomes value + DEX modifier, like Mage Armor (13); the highest wins
+    bonus:   added on top, like Shield of Faith (+2)
+    minimum: AC can't be lower than value, like Barkskin (17)"""
 
     __tablename__ = "character_ac_effects"
     __table_args__ = (
-        CheckConstraint("kind IN ('base', 'bonus')", name="kind_values"),
+        CheckConstraint("kind IN ('base', 'bonus', 'minimum')", name="kind_values"),
         CheckConstraint(
-            "(kind = 'base' AND value BETWEEN 10 AND 30) OR (kind = 'bonus' AND value <> 0)",
+            "(kind = 'bonus' AND value <> 0) OR (kind <> 'bonus' AND value BETWEEN 10 AND 30)",
             name="value_range",
         ),
     )
@@ -71,8 +74,10 @@ class CharacterAcEffect(Base):
     label: Mapped[str] = mapped_column(String(80))
     kind: Mapped[str] = mapped_column(String(10))
     value: Mapped[int] = mapped_column(SmallInteger)
-    # Where the effect came from, once spells declare their effects (e.g. Mage Armor).
+    # The spell cast from the AC card (Mage Armor); NULL for effects added by hand.
     spell_id: Mapped[int | None] = mapped_column(ForeignKey("spells.id"))
+    # Spell effects lasting 8 hours or less are gone after a long rest.
+    ends_on_long_rest: Mapped[bool] = mapped_column(default=False, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

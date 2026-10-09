@@ -457,3 +457,11 @@ a { color: var(--accent); }
 .play-abilities .roll-result { font-size: 0.75rem; text-align: center; }
 .play-abilities .roll-result:empty { display: none; }
 @media (max-width: 640px) { .play-abilities { grid-template-columns: repeat(3, 1fr); } }
+.ac-block .add-effect[open] { display: grid; gap: 0.5rem; }
+.ac-block .add-effect .group-title { margin: 0.4rem 0 0; }
+.ac-spells { margin: 0; display: grid; }
+.ac-spells li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 0.4rem 0.75rem; padding: 0.55rem 0; border-top: 1px solid var(--border); }
+.ac-spells li:last-child { border-bottom: 1px solid var(--border); }
+.ac-cast-slots { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.ac-spells .secondary-button { padding: 0.3rem 0.7rem; font-size: 0.85rem; }

@@ -15,6 +15,7 @@ from app.classes.models import CharacterClass
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.features.service import feature_groups
 from app.sheet.models import (
+    CharacterAcEffect,
     CharacterFeatureUse,
     CharacterHitDice,
     CharacterSpellSlot,
@@ -170,13 +171,21 @@ def finish_short_rest(db: Session, character: Character) -> None:
 
 def long_rest(db: Session, character: Character) -> None:
     """Full HP, no temporary HP, every hit die back (2024 rules), all spell slots and every
-    feature use restored. Max HP effects aren't ended: their durations aren't tracked yet."""
+    feature use restored, and AC spells cast from the sheet ended. Max HP effects aren't ended:
+    their durations aren't tracked yet."""
     state = play_state(db, character)
     state.current_hp = None  # at full
     state.temp_hp = 0
     state.temp_hp_source = None
     for model in (CharacterHitDice, CharacterSpellSlot, CharacterFeatureUse):
         db.execute(delete(model).where(model.character_id == character.id))
+    # Spells like Mage Armor (8 hours) are over; AC effects added by hand stay.
+    db.execute(
+        delete(CharacterAcEffect).where(
+            CharacterAcEffect.character_id == character.id,
+            CharacterAcEffect.ends_on_long_rest.is_(True),
+        )
+    )
 
 
 # --- Damage reactions ---------------------------------------------------------------------

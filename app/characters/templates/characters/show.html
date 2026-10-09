@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ character.name }} · DnD Within{% endblock %}
 {% from "partials/page_tabs.html" import page_tabs %}
-{% from "partials/spell_list.html" import spell_groups %}
 
 {% macro choose_button(choice, label) %}
 <button type="button" class="{{ 'link-button' if label == 'Change' }}"
@@ -46,7 +45,7 @@
     <li class="card pending-choice" id="choice-{{ cv.choice.id }}">
       <div>
         <span class="character-name">{{ cv.choice.name }}</span>
-        <span class="muted">· choose {{ cv.choice.count }}</span>
+        <span class="muted">{% if cv.level_label %}· {{ cv.level_label }} {% endif %}· choose {{ cv.choice.count }}</span>
       </div>
       {{ choose_button(cv.choice, "Choose") }}
     </li>
@@ -86,19 +85,45 @@
     <li>
       <span class="feature-name">{{ fv.feature.name }}</span>
       <span class="muted">{{ fv.feature.summary }}</span>
-      {% for cv in fv.choices if cv.done %}
+      {% for cv in fv.choices if cv.done and cv.choice.kind not in ("spell", "spellbook") %}
       <div class="feature-choice" id="choice-{{ cv.choice.id }}">
-        {% if cv.choice.kind in ("spell", "spellbook") %}
-          <span>{{ cv.choice.name }}: {{ cv.picked | length }} chosen</span>
-        {% else %}
-          <span>{{ cv.choice.name }}: <strong>{{ cv.picked | map(attribute="name") | join(", ") }}</strong></span>
-        {% endif %}
+        <span>{{ cv.choice.name }}: <strong>{{ cv.picked | map(attribute="name") | join(", ") }}</strong></span>
         {{ choose_button(cv.choice, "Change") }}
         {% if cv.choice.kind in ("option", "subclass") %}
         <span class="muted feature-choice-summary">{{ cv.picked[0].summary }}</span>
         {% endif %}
       </div>
       {% endfor %}
+      {#- Spells by the level they were chosen at: how the character was built. -#}
+      {% set spell_choices = fv.choices | selectattr("done") | selectattr("choice.kind", "in", ["spell", "spellbook"]) | list %}
+      {% set has_book = fv.feature.id == copied_under %}
+      {% if spell_choices or (has_book and copied) %}
+      <div class="spell-levels">
+        {% for level, by_level in spell_choices | groupby("level") %}
+        <span class="spell-level-label">Level {{ level }}</span>
+        <div class="spell-level-choices">
+          {% for cv in by_level %}
+          <div class="feature-choice" id="choice-{{ cv.choice.id }}">
+            <span>{{ cv.choice.name }}:
+              {% for o in cv.picked %}<strong title="{{ o.detail }}">{{ o.name }}</strong>{{ ", " if not loop.last }}{% endfor %}</span>
+            {{ choose_button(cv.choice, "Change") }}
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+        {% if has_book and copied %}
+        <span class="spell-level-label">Copied</span>
+        <div class="spell-level-choices">
+          <div class="feature-choice">
+            <span>{% for entry, warnings in copied %}<strong title="{{ entry.spell.detail }}">{{ entry.spell.name }}</strong>
+              {%- if entry.source_note %} <span class="muted">({{ entry.source_note }})</span>{% endif %}
+              {%- for w in warnings %} <span class="spell-tag warning">{{ w }}</span>{% endfor %}
+              {{- ", " if not loop.last }}{% endfor %}</span>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
@@ -116,14 +141,6 @@
     <li>{{ cs.skill.name }} <span class="muted">{{ cs.skill.ability }}</span></li>
     {% endfor %}
   </ul>
-</section>
-{% endif %}
-
-{% if spells or spellbook %}
-<section class="sheet-section">
-  <h2>Spells</h2>
-  {{ spell_groups((spells + spellbook) | sort(attribute="spell.name") | sort(attribute="spell.level"),
-                 "build-spells", warnings=spell_warnings, notes=spell_notes) }}
 </section>
 {% endif %}
 

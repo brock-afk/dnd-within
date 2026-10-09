@@ -12,7 +12,11 @@ from app.core.db import DbSession
 from app.core.templates import templates
 from app.features.kinds import KINDS
 from app.features.models import Choice
-from app.features.service import applicable_choice, remove_inapplicable_picks
+from app.features.service import (
+    applicable_choice,
+    choice_level_label,
+    remove_inapplicable_picks,
+)
 
 router = APIRouter(tags=["features"])
 
@@ -32,6 +36,7 @@ def _render_form(request, db, character, choice, selected, error=None, status_co
         {
             "character": character,
             "choice": choice,
+            "level_label": choice_level_label(db, choice),
             "options": options,
             # Spell choices get filters; the schools listed are the ones among the options.
             "filter_schools": sorted({o.school for o in options if o.school}),

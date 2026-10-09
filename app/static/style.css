@@ -421,3 +421,13 @@ a { color: var(--accent); }
   margin-top: 0.5rem; font-size: 0.85rem; }
 .card-remove .link-button { font-size: 0.85rem; }
 .small-button { padding: 0.3rem 0.75rem; font-size: 0.85rem; }
+/* Build page: spells by the level they were chosen at */
+.spell-levels { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem;
+  margin-top: 0.5rem; align-items: baseline; }
+.spell-level-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.spell-level-choices .feature-choice:first-child { margin-top: 0; }
+.spell-levels .spell-tag.warning { font-size: 0.7rem; }
+@media (max-width: 480px) {
+  .spell-levels { grid-template-columns: 1fr; gap: 0.15rem; }
+  .spell-level-choices { margin-bottom: 0.4rem; }
+}

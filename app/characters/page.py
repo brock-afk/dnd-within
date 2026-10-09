@@ -15,9 +15,9 @@ from app.characters.models import Character
 from app.core.templates import morph_in_place, templates
 from app.features.service import feature_groups
 from app.leveling.service import hit_points
-from app.sheet.service import spell_warnings, spellbook_notes
+from app.sheet.service import spell_warnings
 from app.skills.queries import character_skills
-from app.spells.queries import character_spells, spellbook
+from app.spells.queries import spellbook
 
 # The element in characters/show.html that a refresh replaces.
 PAGE_SELECTOR = "#character-page"
@@ -28,6 +28,17 @@ def render_character_page(
 ) -> HTMLResponse:
     groups = feature_groups(db, character)
     pending = [cv for g in groups for fv in g.features for cv in fv.choices if not cv.done]
+    warnings = spell_warnings(db, character)
+    # Copied spells are listed under the first feature with spellbook choices (Spellcasting).
+    copied_under = next(
+        (
+            fv.feature.id
+            for g in groups
+            for fv in g.features
+            if any(cv.choice.kind == "spellbook" for cv in fv.choices)
+        ),
+        None,
+    )
     return templates.TemplateResponse(
         request,
         "characters/show.html",
@@ -39,10 +50,13 @@ def render_character_page(
             "feature_groups": groups,
             "pending": pending,
             "skills": character_skills(db, character.id),
-            "spells": character_spells(db, character.id),
-            "spellbook": spellbook(db, character.id),
-            "spell_warnings": spell_warnings(db, character),
-            "spell_notes": spellbook_notes(db, character),
+            "copied_under": copied_under,
+            # Spells copied into the book (not from a level up), with their rule markers.
+            "copied": [
+                (entry, warnings.get(entry.spell_id, []))
+                for entry in spellbook(db, character.id)
+                if entry.acquired_via == "copied"
+            ],
         },
     )
 

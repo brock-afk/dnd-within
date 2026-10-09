@@ -4,7 +4,7 @@
 <form hx-post="/characters/{{ character.id }}/choices/{{ choice.id }}" hx-swap="outerHTML" novalidate data-filter-scope="choice-{{ choice.id }}"
       class="choice-form{% if error %} has-error{% endif %}">
   <div class="choice-form-header">
-    <h3 class="section-title">{{ choice.name }}</h3>
+    <h3 class="section-title">{{ choice.name }}{% if level_label %} · {{ level_label }}{% endif %}</h3>
     <span class="muted">Choose {{ choice.count }}</span>
   </div>
   {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}

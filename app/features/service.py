@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.abilities.models import CharacterAbilityBonus
 from app.characters.models import Character
-from app.classes.models import CharacterClassLevel, Subclass
+from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
 from app.features.kinds import KINDS, OptionView
 from app.features.models import Choice, Feature
 
@@ -14,6 +14,13 @@ from app.features.models import Choice, Feature
 class ChoiceView:
     choice: Choice
     picked: list[OptionView]
+    level: int = 1  # the class level (character level for species) it unlocks at
+    level_name: str = "Level"  # "Wizard" for class and subclass choices, so "Wizard 2"
+
+    @property
+    def level_label(self) -> str:
+        """"Wizard 2", or "" for level 1 choices (no need to say)."""
+        return f"{self.level_name} {self.level}" if self.level > 1 else ""
 
     @property
     def done(self) -> bool:
@@ -42,14 +49,21 @@ def _applies(applies_to: str, cc: CharacterClassLevel) -> bool:
     return True
 
 
-def _views(db: Session, character: Character, features, level: int) -> list[FeatureView]:
+def _views(
+    db: Session, character: Character, features, level: int, level_name: str = "Level"
+) -> list[FeatureView]:
     """Features with the choices unlocked at `level` (the class level, or the character level
-    for species features)."""
+    for species features). `level_name` labels those levels, e.g. "Wizard"."""
     return [
         FeatureView(
             f,
             [
-                ChoiceView(c, KINDS[c.kind].picked(db, c, character.id))
+                ChoiceView(
+                    c,
+                    KINDS[c.kind].picked(db, c, character.id),
+                    level=max(f.level, c.level),
+                    level_name=level_name,
+                )
                 for c in f.choices
                 if c.level <= level
             ],
@@ -81,7 +95,10 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
         ).all()
         applicable = [f for f in class_features if _applies(f.applies_to, cc)]
         groups.append(
-            FeatureGroup(cc.character_class.name, _views(db, character, applicable, cc.level))
+            FeatureGroup(
+                cc.character_class.name,
+                _views(db, character, applicable, cc.level, cc.character_class.name),
+            )
         )
 
         if cc.subclass_id is not None:
@@ -91,8 +108,23 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
                 .order_by(Feature.position)
             ).all()
             name = db.get(Subclass, cc.subclass_id).name
-            groups.append(FeatureGroup(name, _views(db, character, subclass_features, cc.level)))
+            views = _views(
+                db, character, subclass_features, cc.level, cc.character_class.name
+            )
+            groups.append(FeatureGroup(name, views))
     return groups
+
+
+def choice_level_label(db: Session, choice: Choice) -> str:
+    """Like ChoiceView.level_label, for a choice on its own (e.g. its form)."""
+    feature = choice.feature
+    level = max(feature.level, choice.level)
+    if level <= 1:
+        return ""
+    if feature.species_id is not None:
+        return f"Level {level}"
+    class_id = feature.class_id or db.get(Subclass, feature.subclass_id).class_id
+    return f"{db.get(CharacterClass, class_id).name} {level}"
 
 
 def applicable_choice(db: Session, character: Character, choice_id: int) -> Choice | None:

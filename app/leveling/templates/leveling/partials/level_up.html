@@ -1,3 +1,4 @@
+{% from "partials/dice.html" import roll_button %}
 {% from "partials/refresh.html" import refresh_button %}
 {% macro signed(n) %}{{ "+" if n >= 0 else "−" }}{{ n | abs }}{% endmacro %}
 <div id="level-up-panel" class="card level-up-panel">
@@ -19,6 +20,7 @@
       <div class="hp-roll{% if error and 'roll' in error %} has-error{% endif %}">
         <label for="hp-roll">d{{ hit_die }} roll</label>
         <input id="hp-roll" name="hp_roll" type="text" inputmode="numeric" maxlength="2" value="{{ roll }}">
+        {{ roll_button("1d%d" % hit_die, "hp-roll") }}
         <button type="submit" name="hp_method" value="rolled">Use roll</button>
       </div>
     </div>

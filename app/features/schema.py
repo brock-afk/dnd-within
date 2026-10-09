@@ -3,9 +3,35 @@
 Mistakes in content data fail loudly at startup instead of showing up as broken pages.
 """
 
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+DICE = re.compile(r"^\d+d\d+$")
+
+
+class DamageReactionDef(BaseModel):
+    """Something you can do in reaction to taking damage, offered when damage is entered.
+
+    reduce:    lower the damage by `dice` + `ability` modifier (Stone's Endurance)
+    retaliate: hit back for `dice` damage; a reminder, since enemies aren't tracked (Storm's
+               Thunder)
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["reduce", "retaliate"]
+    dice: str
+    ability: Literal["STR", "DEX", "CON", "INT", "WIS", "CHA"] | None = None
+    damage_type: str | None = None  # retaliate only, e.g. "thunder"
+
+    @model_validator(mode="after")
+    def check(self):
+        if not DICE.match(self.dice):
+            raise ValueError(f"{self.dice!r} isn't dice notation like 1d12")
+        return self
 
 
 class OptionDef(BaseModel):
@@ -14,6 +40,8 @@ class OptionDef(BaseModel):
     slug: str
     name: str
     summary: str
+    when: str | None = None  # when it's used, e.g. "Reaction, when you take damage"
+    damage_reaction: DamageReactionDef | None = None
 
 
 class ChoiceDef(BaseModel):

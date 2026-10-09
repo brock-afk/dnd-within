@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ character.name }} · Play · DnD Within{% endblock %}
 {% from "partials/page_tabs.html" import page_tabs %}
+{% from "partials/dice.html" import roll_button %}
 {% macro signed(n) %}{{ "+" if n >= 0 else "−" }}{{ n | abs }}{% endmacro %}
 
 {% from "partials/spell_list.html" import spell_groups %}
@@ -45,6 +46,43 @@
   </form>
   {% if errors.hp %}<p class="error" role="alert">{{ errors.hp }}</p>{% endif %}
 
+  {% if pending_damage is not none %}
+  <div class="damage-prompt card" role="group" aria-labelledby="damage-prompt-title">
+    <h3 id="damage-prompt-title" class="section-title">Taking {{ pending_damage }} damage</h3>
+    {% for r, mod in reactions %}
+    <form hx-post="/characters/{{ character.id }}/sheet/hp/react" novalidate class="reaction-form">
+      <input type="hidden" name="amount" value="{{ pending_damage }}">
+      <input type="hidden" name="option_id" value="{{ r.option.id }}">
+      <p class="reaction-title"><strong>{{ r.option.name }}</strong>
+        <span class="muted">· {{ r.uses.remaining }} of {{ r.uses.maximum }} {{ r.uses.feature.name }} left</span></p>
+      {% if r.kind == "reduce" %}
+      <p class="muted">Reduce the damage by {{ r.dice }}{% if mod %} {{ signed(mod) }}{% endif %}.</p>
+      <div class="hp-form">
+        <label for="reaction-roll-{{ r.option.id }}">{{ r.dice }} roll</label>
+        <input id="reaction-roll-{{ r.option.id }}" name="roll" type="text" inputmode="numeric"
+               maxlength="3" autocomplete="off">
+        {{ roll_button(r.dice, "reaction-roll-%d" % r.option.id) }}
+        <button type="submit">Use it</button>
+      </div>
+      {% else %}
+      <p class="muted">{{ r.option.summary }}</p>
+      <div class="hp-form">
+        {{ roll_button(r.dice) }}
+        <button type="submit">Use it and take {{ pending_damage }}</button>
+      </div>
+      {% endif %}
+    </form>
+    {% endfor %}
+    {% if errors.reaction %}<p class="error" role="alert">{{ errors.reaction }}</p>{% endif %}
+    <form hx-post="/characters/{{ character.id }}/sheet/hp" class="form-actions">
+      <input type="hidden" name="action" value="damage">
+      <input type="hidden" name="amount" value="{{ pending_damage }}">
+      <input type="hidden" name="skip_reactions" value="1">
+      <button type="submit" class="danger-button">Take all {{ pending_damage }}</button>
+    </form>
+  </div>
+  {% endif %}
+
   <form hx-post="/characters/{{ character.id }}/sheet/temp-hp" novalidate class="hp-form">
     <label for="temp-amount">Temp HP</label>
     <input id="temp-amount" name="amount" type="text" inputmode="numeric" maxlength="3"
@@ -86,8 +124,10 @@
 <section class="sheet-section">
   <h2>Resources</h2>
   {% for r in resources %}
+  <div class="resource">
   <div class="slot-row">
-    <span class="resource-label">{{ r.feature.name }}</span>
+    <span class="resource-label">{{ r.feature.name }}{% for o in r.options %}
+      <span class="resource-option">· {{ o.name }}</span>{% endfor %}</span>
     <span class="slot-pips">
       {% for i in range(1, r.maximum + 1) %}
       {% set target = i - 1 if i == r.remaining else i %}
@@ -99,6 +139,10 @@
       {% endfor %}
     </span>
     <span class="muted">{{ r.remaining }} of {{ r.maximum }} · {{ "short rest" if r.recharge == "short_rest" else "long rest" }}</span>
+  </div>
+  {% for o in r.options %}
+  <p class="resource-detail">{% if o.when %}<strong>{{ o.when }}:</strong> {% endif %}{{ o.summary }}</p>
+  {% endfor %}
   </div>
   {% endfor %}
   {% if errors.uses %}<p class="error" role="alert">{{ errors.uses }}</p>{% endif %}

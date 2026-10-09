@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.characters.models import Character
 from app.classes.models import CharacterClass
-from app.features.models import Feature
+from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.features.service import feature_groups
 from app.sheet.models import (
     CharacterFeatureUse,
@@ -32,6 +32,9 @@ class FeatureUses:
     maximum: int
     expended: int
     class_level: int  # the owning class's level (character level for species features)
+    # The options the character picked for this feature's choices (e.g. Stone's Endurance for
+    # Giant Ancestry), which say what a use actually does and when.
+    options: tuple[ChoiceOption, ...] = ()
 
     @property
     def remaining(self) -> int:
@@ -66,6 +69,16 @@ def feature_uses(db: Session, character: Character) -> list[FeatureUses]:
             select(CharacterFeatureUse).where(CharacterFeatureUse.character_id == character.id)
         )
     }
+    picked: dict[int, list[ChoiceOption]] = {}
+    for option, feature_id in db.execute(
+        select(ChoiceOption, Choice.feature_id)
+        .join(CharacterChoicePick, CharacterChoicePick.option_id == ChoiceOption.id)
+        .join(Choice, Choice.id == ChoiceOption.choice_id)
+        .where(CharacterChoicePick.character_id == character.id)
+        .order_by(ChoiceOption.position)
+    ):
+        picked.setdefault(feature_id, []).append(option)
+
     result = []
     for group in feature_groups(db, character):
         for fv in group.features:
@@ -76,7 +89,8 @@ def feature_uses(db: Session, character: Character) -> list[FeatureUses]:
             if maximum == "proficiency_bonus":
                 maximum = proficiency_bonus(character.level)
             level = _class_level(character, feature)
-            result.append(FeatureUses(feature, maximum, spent.get(feature.id, 0), level))
+            options = tuple(picked.get(feature.id, ()))
+            result.append(FeatureUses(feature, maximum, spent.get(feature.id, 0), level, options))
     return result
 
 
@@ -163,3 +177,41 @@ def long_rest(db: Session, character: Character) -> None:
     state.temp_hp_source = None
     for model in (CharacterHitDice, CharacterSpellSlot, CharacterFeatureUse):
         db.execute(delete(model).where(model.character_id == character.id))
+
+
+# --- Damage reactions ---------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DamageReaction:
+    """A picked option the character can use in reaction to taking damage right now."""
+
+    uses: FeatureUses
+    option: ChoiceOption
+
+    @property
+    def kind(self) -> str:
+        return self.option.damage_reaction["kind"]
+
+    @property
+    def dice(self) -> str:
+        return self.option.damage_reaction["dice"]
+
+    @property
+    def die_count(self) -> int:
+        return int(self.dice.split("d")[0])
+
+    @property
+    def die_sides(self) -> int:
+        return int(self.dice.split("d")[1])
+
+
+def damage_reactions(db: Session, character: Character) -> list[DamageReaction]:
+    """Damage reactions with a use left, offered before damage is applied."""
+    return [
+        DamageReaction(uses, option)
+        for uses in feature_uses(db, character)
+        if uses.remaining > 0
+        for option in uses.options
+        if option.damage_reaction
+    ]

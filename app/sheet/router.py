@@ -15,6 +15,7 @@ from app.features.kinds import KINDS
 from app.leveling.service import constitution_modifier
 from app.sheet.models import CharacterHpEffect, CharacterPreparedSpell
 from app.sheet.rests import (
+    damage_reactions,
     feature_uses,
     finish_short_rest,
     hit_dice,
@@ -25,6 +26,7 @@ from app.sheet.rests import (
 )
 from app.sheet.rules import heal, hit_die_healing, set_temp_hp, take_damage
 from app.sheet.service import (
+    ability_modifier,
     castable_spells,
     hp_view,
     max_hp,
@@ -43,7 +45,14 @@ SHEET_SELECTOR = "#sheet-page"
 
 
 def render_sheet(
-    request, db, user: User, character: Character, errors=None, status_code=200, resting=False
+    request,
+    db,
+    user: User,
+    character: Character,
+    errors=None,
+    status_code=200,
+    resting=False,
+    pending_damage: int | None = None,
 ):
     """The sheet. `resting` shows the Short rest panel, which holds every short-rest action
     (hit dice, Arcane Recovery) so they stay off the main sheet."""
@@ -61,7 +70,15 @@ def render_sheet(
         "has_spellbook": bool(spellbook(db, character.id)),
         "resting": resting,
         "errors": errors or {},
+        "pending_damage": pending_damage,
     }
+    if pending_damage is not None:
+        # Damage is waiting on "use a reaction or take it all"; each reduce reaction shows the
+        # ability modifier it adds to its roll.
+        context["reactions"] = [
+            (r, ability_modifier(db, character, r.option.damage_reaction.get("ability", "")))
+            for r in damage_reactions(db, character)
+        ]
     if resting:
         context["hit_dice"] = hit_dice(db, character)
         context["recoveries"] = [
@@ -70,10 +87,21 @@ def render_sheet(
     return templates.TemplateResponse(request, "sheet/sheet.html", context, status_code=status_code)
 
 
-def refresh_sheet(request, db, user, character, errors=None, status_code=200, resting=False):
+def refresh_sheet(
+    request,
+    db,
+    user,
+    character,
+    errors=None,
+    status_code=200,
+    resting=False,
+    pending_damage=None,
+):
     """Re-render the sheet and morph it into place (see app/core/templates.py)."""
     db.expire_all()  # sessions don't expire on commit; reload what just changed
-    response = render_sheet(request, db, user, character, errors, status_code, resting)
+    response = render_sheet(
+        request, db, user, character, errors, status_code, resting, pending_damage
+    )
     return morph_in_place(response, SHEET_SELECTOR)
 
 
@@ -100,14 +128,56 @@ def change_hp(
     character: OwnedCharacter,
     action: Annotated[str, Form()] = "",
     amount: Annotated[str, Form()] = "",
+    skip_reactions: Annotated[str, Form()] = "",
 ):
     maximum = max_hp(db, character)
     value = _amount(amount, 0, 999)
     if maximum is None or action not in ("damage", "heal") or value is None:
         errors = {"hp": "Enter a whole number from 0 to 999."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
+    if action == "damage" and value and not skip_reactions and damage_reactions(db, character):
+        # Offer reactions like Stone's Endurance before the damage lands.
+        return refresh_sheet(request, db, user, character, pending_damage=value)
     state = play_state(db, character)
     (take_damage if action == "damage" else heal)(state, value, maximum)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post("/characters/{character_id}/sheet/hp/react", response_class=HTMLResponse)
+def react_to_damage(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    amount: Annotated[str, Form()] = "",
+    option_id: Annotated[str, Form()] = "",
+    roll: Annotated[str, Form()] = "",
+):
+    """Use a damage reaction (Stone's Endurance, Storm's Thunder...), then take the damage."""
+    maximum = max_hp(db, character)
+    value = _amount(amount, 1, 999)
+    reaction = next(
+        (r for r in damage_reactions(db, character) if str(r.option.id) == option_id), None
+    )
+    if maximum is None or value is None or reaction is None:
+        errors = {"hp": "That reaction isn't available right now."}
+        return refresh_sheet(request, db, user, character, errors, status_code=400)
+
+    if reaction.kind == "reduce":
+        low, high = reaction.die_count, reaction.die_count * reaction.die_sides
+        rolled = _amount(roll, low, high)
+        if rolled is None:
+            errors = {"reaction": f"Enter your {reaction.dice} roll, from {low} to {high}."}
+            return refresh_sheet(
+                request, db, user, character, errors, status_code=400, pending_damage=value
+            )
+        ability = reaction.option.damage_reaction.get("ability")
+        reduction = rolled + (ability_modifier(db, character, ability) if ability else 0)
+        value = max(0, value - reduction)
+
+    set_uses_remaining(db, character, reaction.uses, reaction.uses.remaining - 1)
+    take_damage(play_state(db, character), value, maximum)
     db.commit()
     return refresh_sheet(request, db, user, character)
 

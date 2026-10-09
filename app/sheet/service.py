@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.abilities.rules import modifier
+from app.abilities.service import ability_views
 from app.characters.models import Character
 from app.leveling.service import hit_points
 from app.sheet.models import (
@@ -203,3 +205,10 @@ def prepared_spell_ids(db: Session, character: Character) -> set[int]:
     )
     return set(db.scalars(query))
 
+
+
+def ability_modifier(db: Session, character: Character, abbr: str) -> int:
+    """Final modifier for an ability (base + bonuses); 0 if scores aren't set."""
+    abilities = ability_views(db, character) or []
+    found = next((a for a in abilities if a.abbr == abbr), None)
+    return modifier(found.total) if found else 0

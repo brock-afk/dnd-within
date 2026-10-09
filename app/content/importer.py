@@ -135,6 +135,12 @@ class _Importer:
                     choice.options.append(option)
                 option.name = odef.name
                 option.summary = odef.summary
+                option.when = odef.when
+                option.damage_reaction = (
+                    odef.damage_reaction.model_dump(exclude_none=True)
+                    if odef.damage_reaction
+                    else None
+                )
                 option.position = opt_position
                 option.retired_at = None
             for option in options.values():

@@ -1,0 +1,8 @@
+{# A "Roll" button for dice notation like "1d12". With `target_id`, the roll fills that input.
+   See static/dice.js. #}
+{% macro roll_button(dice, target_id="") %}
+<button type="button" class="roll-button" data-roll="{{ dice }}"
+        {% if target_id %}data-roll-target="#{{ target_id }}"{% endif %}
+        aria-label="Roll {{ dice }}">🎲 Roll {{ dice }}</button>
+<span class="roll-result muted" aria-live="polite"></span>
+{% endmacro %}

@@ -372,3 +372,23 @@ a { color: var(--accent); }
 .recovery-row { display: grid; gap: 0.25rem; margin: 0; font-size: 0.9rem; }
 .recovery-row input { width: 4rem; padding: 0.4rem; text-align: center; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }
 .resource-label { min-width: 8rem; font-size: 0.95rem; font-weight: 600; }
+
+/* Resources: what the picked option does */
+.resource + .resource { margin-top: 0.75rem; }
+.resource-option { font-weight: 400; color: var(--accent); }
+.resource-detail { margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--muted); }
+.resource-detail strong { color: var(--text); font-weight: 600; }
+
+/* Dice */
+.roll-button {
+  padding: 0.4rem 0.7rem; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border-strong); font-weight: 500; font-size: 0.9rem;
+}
+.roll-button:hover { background: var(--border); }
+.roll-result { font-size: 0.85rem; }
+
+/* Damage reactions */
+.damage-prompt { display: grid; gap: 0.75rem; border-color: var(--accent); max-width: 36rem; }
+.damage-prompt .section-title { margin: 0; }
+.reaction-form { display: grid; gap: 0.35rem; }
+.reaction-form p { margin: 0; }

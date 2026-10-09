@@ -1,6 +1,7 @@
 {# Rests. Every short-rest action (hit dice, Arcane Recovery...) lives in the Short rest panel,
    so it stays off the main sheet. #}
 {% from "partials/refresh.html" import refresh_button %}
+{% from "partials/dice.html" import roll_button %}
 <div class="rest-bar">
   {% if not resting %}
   <button type="button" class="secondary-button"
@@ -38,6 +39,7 @@
       <label for="hit-die-roll-{{ dice.character_class.id }}">d{{ dice.die }} roll</label>
       <input id="hit-die-roll-{{ dice.character_class.id }}" name="roll" type="text" inputmode="numeric"
              maxlength="2" autocomplete="off">
+      {{ roll_button("1d%d" % dice.die, "hit-die-roll-%d" % dice.character_class.id) }}
       <button type="submit">Spend a hit die</button>
     </form>
     {% endif %}

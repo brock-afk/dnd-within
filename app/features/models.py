@@ -101,6 +101,11 @@ class ChoiceOption(Base):
     slug: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(80))
     summary: Mapped[str] = mapped_column(String(255))
+    # When it's used, e.g. "Reaction, when you take damage".
+    when: Mapped[str | None] = mapped_column(String(120))
+    # {"kind": "reduce" | "retaliate", "dice": "1d12", "ability": "CON", ...}; see
+    # app/features/schema.py:DamageReactionDef.
+    damage_reaction: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     position: Mapped[int] = mapped_column(default=0)
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 

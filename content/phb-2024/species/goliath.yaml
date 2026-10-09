@@ -15,30 +15,37 @@ features:
   - slug: giant-ancestry
     name: Giant Ancestry
     kind: option
+    # `when` says when each boon is used; `damage_reaction` lets the sheet offer it when you
+    # enter damage.
     options:
     - slug: cloud
       name: Cloud's Jaunt (Cloud Giant)
-      summary: 'Bonus Action: teleport up to 30 ft to a space you can see.'
+      when: Bonus Action
+      summary: Teleport up to 30 ft to an unoccupied space you can see.
     - slug: fire
       name: Fire's Burn (Fire Giant)
-      summary: When you hit with an attack, deal an extra 1d10 fire.
+      when: When you hit a target with an attack roll
+      summary: Deal an extra 1d10 fire damage to the target.
     - slug: frost
       name: Frost's Chill (Frost Giant)
+      when: When you hit a target with an attack roll
       summary: >-
-        When you hit, deal an extra 1d6 cold and cut the target's speed by 10 ft until your
-        next turn.
+        Deal an extra 1d6 cold damage, and the target's speed drops by 10 ft until the start
+        of your next turn.
     - slug: hill
       name: Hill's Tumble (Hill Giant)
-      summary: When you hit a Large or smaller creature, knock it Prone.
+      when: When you hit a Large or smaller creature with an attack roll
+      summary: Knock the target Prone.
     - slug: stone
       name: Stone's Endurance (Stone Giant)
-      summary: >-
-        Reaction when you take damage: roll 1d12 + Con modifier and reduce the damage by that
-        much.
+      when: Reaction, when you take damage
+      summary: Roll 1d12, add your Constitution modifier, and reduce the damage by the total.
+      damage_reaction: {kind: reduce, dice: 1d12, ability: CON}
     - slug: storm
       name: Storm's Thunder (Storm Giant)
-      summary: >-
-        Reaction when a creature within 60 ft damages you: deal 1d8 thunder to it.
+      when: Reaction, when a creature within 60 ft damages you
+      summary: Deal 1d8 thunder damage to that creature.
+      damage_reaction: {kind: retaliate, dice: 1d8, damage_type: thunder}
 - slug: large-form
   name: Large Form
   uses: {max: 1, recharge: long_rest}

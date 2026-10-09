@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, replace
 from typing import Annotated
 
@@ -14,7 +15,7 @@ from app.core.db import DbSession
 from app.core.templates import morph_in_place, templates
 from app.features.kinds import KINDS
 from app.leveling.service import constitution_modifier
-from app.sheet.models import CharacterHpEffect, CharacterPreparedSpell
+from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
 from app.sheet.rests import (
     damage_reactions,
     feature_uses,
@@ -29,6 +30,8 @@ from app.sheet.rules import heal, hit_die_healing, set_temp_hp, take_damage
 from app.sheet.service import (
     COPY_SEARCH_MIN,
     ability_modifier,
+    ability_rows,
+    armor_class,
     castable_spells,
     copy_warnings,
     hp_view,
@@ -69,6 +72,8 @@ def render_sheet(
         "user": user,
         "character": character,
         "hp": hp_view(db, character),
+        "abilities": ability_rows(db, character),
+        "ac": armor_class(db, character),
         # Rest-only features (like Arcane Recovery) appear only in the Short rest panel.
         "resources": [u for u in uses if not u.rest_only],
         "castable": castable_spells(db, character),
@@ -120,8 +125,10 @@ def refresh_sheet(
 
 
 def _amount(raw: str, low: int, high: int) -> int | None:
-    raw = raw.strip()
-    if raw.lstrip("-").isdigit() and low <= int(raw) <= high:
+    """A whole number in [low, high]. Accepts a leading "+", and "−" (the minus sign shown in
+    placeholders) as well as "-"."""
+    raw = raw.strip().replace("−", "-")
+    if re.fullmatch(r"[+-]?\d{1,4}", raw) and low <= int(raw) <= high:
         return int(raw)
     return None
 
@@ -250,6 +257,50 @@ def end_hp_effect(
     # Ending an effect never heals: Aid ending only caps current HP, and a drain wearing off
     # raises max HP without restoring any.
     track_max_change(db, character, old_max, heal=False)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+# --- Armor Class effects ------------------------------------------------------------------
+
+
+@router.post("/characters/{character_id}/sheet/ac-effects", response_class=HTMLResponse)
+def add_ac_effect(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    label: Annotated[str, Form()] = "",
+    kind: Annotated[str, Form()] = "",
+    value: Annotated[str, Form()] = "",
+):
+    """Mage Armor: base 13 (+ DEX). Shield: bonus +5."""
+    label = label.strip()[:80]
+    if kind == "base":
+        amount = _amount(value, 10, 30)
+        problem = "a base AC from 10 to 30 (e.g. Mage Armor, 13)"
+    else:
+        kind = "bonus"
+        amount = _amount(value, -20, 20)
+        problem = "a non-zero bonus (e.g. Shield, +5)"
+    if not label or not amount:
+        errors = {"ac_effect": f"Give the effect a name and {problem}."}
+        return refresh_sheet(request, db, user, character, errors, status_code=400)
+    db.add(CharacterAcEffect(character_id=character.id, label=label, kind=kind, value=amount))
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post(
+    "/characters/{character_id}/sheet/ac-effects/{effect_id}/end", response_class=HTMLResponse
+)
+def end_ac_effect(
+    request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, effect_id: int
+):
+    effect = db.get(CharacterAcEffect, effect_id)
+    if effect is None or effect.character_id != character.id:
+        raise HTTPException(status_code=404)
+    db.delete(effect)
     db.commit()
     return refresh_sheet(request, db, user, character)
 

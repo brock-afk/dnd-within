@@ -2,3 +2,4 @@ slug: druid
 name: Druid
 summary: A keeper of nature who shapeshifts and calls on the wild.
 hit_die: 8
+saving_throws: [INT, WIS]

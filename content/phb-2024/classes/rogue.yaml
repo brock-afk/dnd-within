@@ -2,3 +2,4 @@ slug: rogue
 name: Rogue
 summary: A stealthy expert who strikes where it hurts.
 hit_die: 8
+saving_throws: [DEX, INT]

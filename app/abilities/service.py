@@ -21,9 +21,12 @@ class AbilityView:
         return min(self.base + self.bonus, MAX_SCORE)
 
     @property
+    def mod(self) -> int:
+        return modifier(self.total)
+
+    @property
     def modifier(self) -> str:
-        mod = modifier(self.total)
-        return f"+{mod}" if mod >= 0 else f"−{-mod}"
+        return f"+{self.mod}" if self.mod >= 0 else f"−{-self.mod}"
 
 
 def ability_views(db: Session, character: Character) -> list[AbilityView] | None:

@@ -2,3 +2,4 @@ slug: bard
 name: Bard
 summary: A performer whose music and words weave magic.
 hit_die: 8
+saving_throws: [DEX, CHA]

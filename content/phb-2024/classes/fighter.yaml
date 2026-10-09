@@ -2,3 +2,4 @@ slug: fighter
 name: Fighter
 summary: A master of weapons, armor, and battlefield tactics.
 hit_die: 10
+saving_throws: [STR, CON]

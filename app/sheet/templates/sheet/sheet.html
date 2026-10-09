@@ -18,6 +18,65 @@
 {{ page_tabs(character, "play") }}
 {% include "sheet/partials/rest_bar.html" %}
 
+{% if abilities %}
+{#- AC and abilities: the numbers looked at most in play. The modifiers and saves are roll
+    buttons (static/dice.js). -#}
+<section class="sheet-section stats-block">
+  <div class="card ac-block">
+    <span class="group-title">Armor class</span>
+    <span class="ac-total">{{ ac.total }}</span>
+    <p class="muted ac-breakdown">
+      {{ ac.base }}{% if ac.base_label %} {{ ac.base_label }}{% endif %}
+      {{ "+" if ac.dex >= 0 else "−" }} {{ ac.dex | abs }} DEX
+      {%- for e in ac.bonuses %} {{ "+" if e.value >= 0 else "−" }} {{ e.value | abs }} {{ e.label }}{% endfor %}
+    </p>
+    {% if ac.effects %}
+    <ul class="plain-list">
+      {% for e in ac.effects %}
+      <li class="hp-effect">
+        <span><strong>{{ e.label }}</strong>
+          <span class="muted">{% if e.kind == "base" %}base {{ e.value }} + DEX{% else %}{{ signed(e.value) }} AC{% endif %}</span></span>
+        <button type="button" class="link-button"
+                hx-post="/characters/{{ character.id }}/sheet/ac-effects/{{ e.id }}/end">End</button>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <details class="add-effect" {% if errors.ac_effect %}open{% endif %}>
+      <summary>Add effect</summary>
+      <form hx-post="/characters/{{ character.id }}/sheet/ac-effects" novalidate class="hp-form ac-effect-form">
+        <input name="label" type="text" maxlength="80" placeholder="Name, e.g. Mage Armor" aria-label="Effect name">
+        <select name="kind" aria-label="Kind of effect">
+          <option value="base">Sets base AC (+ DEX)</option>
+          <option value="bonus">Bonus to AC</option>
+        </select>
+        <input name="value" type="text" inputmode="numeric" maxlength="3" placeholder="13 or +5"
+               aria-label="Value" class="delta-input">
+        <button type="submit" class="secondary-button">Add</button>
+      </form>
+      {% if errors.ac_effect %}<p class="error" role="alert">{{ errors.ac_effect }}</p>{% endif %}
+    </details>
+  </div>
+
+  <ul class="ability-grid play-abilities">
+    {% for row in abilities %}
+    {% set a = row.ability %}
+    <li class="card">
+      <span class="ability-abbr">{{ a.abbr }}</span>
+      <button type="button" class="ability-mod roll-number" data-roll="1d20{{ '%+d' | format(a.mod) }}"
+              title="Roll a {{ a.name }} check" aria-label="Roll a {{ a.name }} check">{{ a.modifier }}</button>
+      <span class="ability-score">{{ a.total }}</span>
+      <button type="button" class="ability-save roll-number{% if row.proficient %} proficient{% endif %}"
+              data-roll="1d20{{ '%+d' | format(row.save) }}"
+              title="Roll a {{ a.name }} saving throw{% if row.proficient %} (proficient){% endif %}"
+              aria-label="Roll a {{ a.name }} saving throw">{% if row.proficient %}<span aria-hidden="true">●</span> {% endif %}save {{ signed(row.save) }}</button>
+      <span class="roll-result muted" aria-live="polite"></span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <section class="sheet-section hp-block">
   <h2>Hit points</h2>
   {% if hp is none %}

@@ -8,6 +8,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +30,10 @@ class CharacterClass(ContentMixin, Base):
     name: Mapped[str] = mapped_column(String(50))
     summary: Mapped[str] = mapped_column(String(255))
     hit_die: Mapped[int] = mapped_column(SmallInteger, default=8, server_default="8")
+    # Saving throw proficiencies, e.g. ["INT", "WIS"]; only the starting class grants them.
+    saving_throws: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default=text("(json_array())")
+    )
     # {"ability": "INT", "prepared": [20 counts]} for spellcasting classes, else NULL.
     spellcasting: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 

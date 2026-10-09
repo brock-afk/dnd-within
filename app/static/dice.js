@@ -7,9 +7,9 @@
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-roll]");
   if (!button) return;
-  const [count, sides] = button.dataset.roll.split("d").map(Number);
+  const { count, sides, bonus } = parseDice(button.dataset.roll);
   const rolls = Array.from({ length: count }, () => rollDie(sides));
-  const total = rolls.reduce((sum, n) => sum + n, 0);
+  const total = rolls.reduce((sum, n) => sum + n, 0) + bonus;
 
   const input = button.dataset.rollTarget && document.querySelector(button.dataset.rollTarget);
   if (input) {
@@ -17,8 +17,20 @@ document.addEventListener("click", (event) => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
   }
   const result = button.parentElement.querySelector(".roll-result");
-  if (result) result.textContent = count > 1 ? `rolled ${rolls.join(" + ")} = ${total}` : `rolled ${total}`;
+  if (result) result.textContent = describe(rolls, bonus, total);
 });
+
+// "2d6", "1d20+3" or "1d20-1" -> { count, sides, bonus }.
+function parseDice(notation) {
+  const [, count, sides, bonus] = notation.match(/^(\d+)d(\d+)([+-]\d+)?$/);
+  return { count: Number(count), sides: Number(sides), bonus: Number(bonus || 0) };
+}
+
+// "rolled 7", "rolled 3 + 4 = 7", "rolled 14 + 3 = 17", "rolled 9 − 1 = 8".
+function describe(rolls, bonus, total) {
+  const parts = rolls.join(" + ") + (bonus > 0 ? ` + ${bonus}` : bonus < 0 ? ` − ${-bonus}` : "");
+  return rolls.length > 1 || bonus ? `rolled ${parts} = ${total}` : `rolled ${total}`;
+}
 
 // A fair roll: random 32-bit numbers from the browser's secure generator, rejecting the
 // few at the top of the range that would make some faces slightly more likely.

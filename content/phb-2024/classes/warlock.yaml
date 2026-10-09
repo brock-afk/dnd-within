@@ -2,3 +2,4 @@ slug: warlock
 name: Warlock
 summary: A caster empowered by a pact with an otherworldly patron.
 hit_die: 8
+saving_throws: [WIS, CHA]

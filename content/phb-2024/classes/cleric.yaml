@@ -2,3 +2,4 @@ slug: cleric
 name: Cleric
 summary: A priestly champion wielding divine magic.
 hit_die: 8
+saving_throws: [WIS, CHA]

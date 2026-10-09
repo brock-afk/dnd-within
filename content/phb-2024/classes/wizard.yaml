@@ -2,6 +2,7 @@ slug: wizard
 name: Wizard
 summary: A scholar who masters magic through study.
 hit_die: 6
+saving_throws: [INT, WIS]
 spellcasting:
   ability: INT
   # Spells you can prepare at Wizard levels 1-20.

@@ -76,6 +76,8 @@ class ClassDef(Strict):
     name: str
     summary: str
     hit_die: Literal[6, 8, 10, 12]
+    # Saving throw proficiencies, granted by the starting class only (2024 multiclassing).
+    saving_throws: list[Ability] = Field(min_length=2, max_length=2)
     spellcasting: Spellcasting | None = None
     features: list[FeatureDef] = []
 

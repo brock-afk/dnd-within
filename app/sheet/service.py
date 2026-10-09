@@ -4,16 +4,17 @@ from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
 from app.abilities.rules import modifier
-from app.abilities.service import ability_views
+from app.abilities.service import AbilityView, ability_views
 from app.characters.models import Character
 from app.leveling.service import hit_points
 from app.sheet.models import (
+    CharacterAcEffect,
     CharacterHpEffect,
     CharacterPlayState,
     CharacterPreparedSpell,
     CharacterSpellSlot,
 )
-from app.sheet.rules import apply_max_change, current_hp
+from app.sheet.rules import apply_max_change, current_hp, proficiency_bonus
 from app.sheet.slots import slot_maximums
 from app.spells.models import Spell
 from app.spells.queries import character_spells, spellbook
@@ -86,6 +87,69 @@ def track_max_change(db: Session, character: Character, old_max: int | None, hea
     if old_max is None or new_max is None or old_max == new_max:
         return
     apply_max_change(play_state(db, character), old_max, new_max, heal)
+
+
+# --- Abilities, saving throws and Armor Class ---------------------------------------------
+
+
+@dataclass(frozen=True)
+class AbilityRow:
+    ability: AbilityView
+    save: int  # saving throw bonus
+    proficient: bool
+
+
+def ability_rows(db: Session, character: Character) -> list[AbilityRow] | None:
+    """Each ability with its saving throw, or None until scores are set. Save proficiencies
+    come from the starting class only (2024 multiclassing rules)."""
+    abilities = ability_views(db, character)
+    if abilities is None:
+        return None
+    starting = next((cc for cc in character.classes if cc.is_starting_class), None)
+    proficient = set(starting.character_class.saving_throws) if starting else set()
+    pb = proficiency_bonus(character.level)
+    return [
+        AbilityRow(a, a.mod + (pb if a.abbr in proficient else 0), a.abbr in proficient)
+        for a in abilities
+    ]
+
+
+@dataclass(frozen=True)
+class ArmorClassView:
+    base: int  # 10 unarmored, or the highest base effect (Mage Armor 13)
+    base_label: str  # "" when unarmored
+    dex: int
+    effects: list[CharacterAcEffect]
+
+    @property
+    def bonuses(self) -> list[CharacterAcEffect]:
+        return [e for e in self.effects if e.kind == "bonus"]
+
+    @property
+    def total(self) -> int:
+        return self.base + self.dex + sum(e.value for e in self.bonuses)
+
+
+def armor_class(db: Session, character: Character) -> ArmorClassView | None:
+    """AC = base (10, or the highest base effect) + DEX modifier + bonus effects. None until
+    ability scores are set. Worn armor joins this once inventory exists."""
+    abilities = ability_views(db, character)
+    if abilities is None:
+        return None
+    dex = next(a.mod for a in abilities if a.abbr == "DEX")
+    effects = list(
+        db.scalars(
+            select(CharacterAcEffect)
+            .where(CharacterAcEffect.character_id == character.id)
+            .order_by(CharacterAcEffect.created_at, CharacterAcEffect.id)
+        )
+    )
+    best = max(
+        (e for e in effects if e.kind == "base"), key=lambda e: e.value, default=None
+    )
+    return ArmorClassView(
+        best.value if best else 10, best.label if best else "", dex, effects
+    )
 
 
 # --- Spells -------------------------------------------------------------------------------

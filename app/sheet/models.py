@@ -53,6 +53,29 @@ class CharacterHpEffect(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class CharacterAcEffect(Base):
+    """An active effect on Armor Class. `base` sets base AC to value + DEX modifier, like Mage
+    Armor (13); the highest base wins. `bonus` adds on top, like Shield (+5)."""
+
+    __tablename__ = "character_ac_effects"
+    __table_args__ = (
+        CheckConstraint("kind IN ('base', 'bonus')", name="kind_values"),
+        CheckConstraint(
+            "(kind = 'base' AND value BETWEEN 10 AND 30) OR (kind = 'bonus' AND value <> 0)",
+            name="value_range",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    character_id: Mapped[int] = mapped_column(ForeignKey("characters.id", ondelete="CASCADE"))
+    label: Mapped[str] = mapped_column(String(80))
+    kind: Mapped[str] = mapped_column(String(10))
+    value: Mapped[int] = mapped_column(SmallInteger)
+    # Where the effect came from, once spells declare their effects (e.g. Mage Armor).
+    spell_id: Mapped[int | None] = mapped_column(ForeignKey("spells.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class CharacterPreparedSpell(Base):
     """A spellbook spell the character has prepared.
 

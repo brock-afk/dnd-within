@@ -183,6 +183,7 @@ class _Importer:
                 "name": d.name,
                 "summary": d.summary,
                 "hit_die": d.hit_die,
+                "saving_throws": list(d.saving_throws),
                 "spellcasting": d.spellcasting.model_dump() if d.spellcasting else None,
             },
         )

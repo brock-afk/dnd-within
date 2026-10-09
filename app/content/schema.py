@@ -9,16 +9,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.features.schema import FeatureDef
+from app.features.schema import FeatureDef, School
 
 Ability = Literal["STR", "DEX", "CON", "INT", "WIS", "CHA"]
 DamageType = Literal[
     "acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing",
     "poison", "psychic", "radiant", "slashing", "thunder",
-]
-School = Literal[
-    "abjuration", "conjuration", "divination", "enchantment", "evocation", "illusion",
-    "necromancy", "transmutation",
 ]
 
 # "8d6", "1d4+1", "2d4 + 4", or a flat number like "5".

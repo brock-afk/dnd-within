@@ -4,12 +4,20 @@ Mistakes in content data fail loudly at startup instead of showing up as broken 
 """
 
 import re
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 DICE = re.compile(r"^\d+d\d+$")
+
+School = Literal[
+    "abjuration", "conjuration", "divination", "enchantment", "evocation", "illusion",
+    "necromancy", "transmutation",
+]
+
+# Allowed criteria for spell and spellbook choices.
+SPELL_CRITERIA = {"class", "level", "max_level", "school", "acquired_via"}
 
 
 class DamageReactionDef(BaseModel):
@@ -69,6 +77,17 @@ class ChoiceDef(BaseModel):
                 raise ValueError(
                     f"{self.slug}: spell choices need criteria 'class' and exactly one of "
                     "'level' (an exact spell level) or 'max_level' (levels 1 up to it)"
+                )
+            if unknown := keys - SPELL_CRITERIA:
+                raise ValueError(f"{self.slug}: unknown spell criteria {sorted(unknown)}")
+            school = self.criteria.get("school")
+            if school is not None and school not in get_args(School):
+                raise ValueError(f"{self.slug}: unknown school {school!r}")
+            # How a spellbook pick got there: a level up (default) or a feature (Savant).
+            via = self.criteria.get("acquired_via")
+            if via is not None and (self.kind != "spellbook" or via not in ("level_up", "feature")):
+                raise ValueError(
+                    f"{self.slug}: 'acquired_via' is for spellbook choices: level_up or feature"
                 )
         return self
 

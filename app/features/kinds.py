@@ -39,7 +39,7 @@ class ChoiceKind:
     known_label = "Already known"
     noun = ("option", "options")  # for counts like "31 spells"
 
-    def pick_values(self) -> dict:
+    def pick_values(self, choice: Choice) -> dict:
         """Extra columns to set on each new pick row."""
         return {}
 
@@ -91,7 +91,7 @@ class ChoiceKind:
                 character_id=character_id,
                 choice_id=choice.id,
                 **{self.target_fk: t.id},
-                **self.pick_values(),
+                **self.pick_values(choice),
             )
             for t in targets
         )
@@ -158,8 +158,8 @@ class SkillKind(ChoiceKind):
 
 class SpellKind(ChoiceKind):
     """Spells known from a class's list, like cantrips. criteria: {"class_id": ...} plus either
-    "level" (an exact spell level) or "max_level" (levels 1 up to it). The class is resolved
-    from its slug on import."""
+    "level" (an exact spell level) or "max_level" (levels 1 up to it), and optionally "school"
+    (Evocation Savant). The class is resolved from its slug on import."""
 
     target, pick, target_fk = Spell, CharacterSpell, "spell_id"
     noun = ("spell", "spells")
@@ -171,6 +171,8 @@ class SpellKind(ChoiceKind):
             query = query.where(Spell.level == criteria["level"])
         else:
             query = query.where(Spell.level.between(1, criteria["max_level"]))
+        if "school" in criteria:
+            query = query.where(Spell.school == criteria["school"])
         return query.order_by(Spell.level, Spell.name)
 
     def view(self, spell):
@@ -181,14 +183,15 @@ class SpellKind(ChoiceKind):
 
 
 class SpellbookKind(SpellKind):
-    """Spells written into a Wizard's spellbook on level up. Same options as SpellKind, but
-    picks become spellbook entries."""
+    """Spells written into a Wizard's spellbook on level up, or by a feature like Savant
+    (criteria "acquired_via": "feature"). Same options as SpellKind, but picks become spellbook
+    entries."""
 
     pick = SpellbookEntry
     known_label = "In your spellbook"
 
-    def pick_values(self):
-        return {"acquired_via": "level_up"}
+    def pick_values(self, choice):
+        return {"acquired_via": choice.criteria.get("acquired_via", "level_up")}
 
 
 class SubclassKind(ChoiceKind):

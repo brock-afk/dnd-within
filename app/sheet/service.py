@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.abilities.rules import modifier
 from app.abilities.service import AbilityView, ability_views
 from app.characters.models import Character
+from app.features.models import Choice
 from app.leveling.service import hit_points
 from app.sheet.models import (
     CharacterAcEffect,
@@ -315,13 +316,18 @@ def copy_warnings(db: Session, character: Character, spells: list[Spell]) -> dic
 
 
 def spellbook_notes(db: Session, character: Character) -> dict[int, str]:
-    """{spell id: note} for copied spellbook spells, e.g. "Copied to spellbook · scroll from
-    the crypt"."""
-    return {
-        entry.spell_id: " · ".join(filter(None, ["Copied to spellbook", entry.source_note]))
-        for entry in spellbook(db, character.id)
-        if entry.acquired_via == "copied"
-    }
+    """{spell id: note} for spellbook spells that didn't come from a level up: copied ones
+    ("Copied to spellbook · scroll from the crypt") and ones a feature added ("From Evocation
+    Savant")."""
+    notes = {}
+    for entry in spellbook(db, character.id):
+        if entry.acquired_via == "copied":
+            notes[entry.spell_id] = " · ".join(
+                filter(None, ["Copied to spellbook", entry.source_note])
+            )
+        elif entry.acquired_via == "feature" and entry.choice_id is not None:
+            notes[entry.spell_id] = f"From {db.get(Choice, entry.choice_id).feature.name}"
+    return notes
 
 
 COPY_SEARCH_MIN = 2  # characters typed before searching

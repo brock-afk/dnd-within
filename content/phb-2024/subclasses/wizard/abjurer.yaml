@@ -7,9 +7,50 @@ features:
   name: Abjuration Savant
   summary: >-
     Add two Abjuration spells of level 2 or lower to your spellbook for free, and one more
-    whenever you gain access to a new level of spell slots. (Picking them arrives with the
-    spellbook update.)
+    whenever you gain access to a new level of spell slots (Wizard 5, 7, 9, 11, 13, 15, 17).
   level: 3
+  choices:
+  - slug: savant-3
+    name: Savant spells
+    kind: spellbook
+    count: 2
+    level: 3
+    criteria: {class: wizard, school: abjuration, max_level: 2, acquired_via: feature}
+  - slug: savant-5
+    name: Savant spell
+    kind: spellbook
+    level: 5
+    criteria: {class: wizard, school: abjuration, max_level: 3, acquired_via: feature}
+  - slug: savant-7
+    name: Savant spell
+    kind: spellbook
+    level: 7
+    criteria: {class: wizard, school: abjuration, max_level: 4, acquired_via: feature}
+  - slug: savant-9
+    name: Savant spell
+    kind: spellbook
+    level: 9
+    criteria: {class: wizard, school: abjuration, max_level: 5, acquired_via: feature}
+  - slug: savant-11
+    name: Savant spell
+    kind: spellbook
+    level: 11
+    criteria: {class: wizard, school: abjuration, max_level: 6, acquired_via: feature}
+  - slug: savant-13
+    name: Savant spell
+    kind: spellbook
+    level: 13
+    criteria: {class: wizard, school: abjuration, max_level: 7, acquired_via: feature}
+  - slug: savant-15
+    name: Savant spell
+    kind: spellbook
+    level: 15
+    criteria: {class: wizard, school: abjuration, max_level: 8, acquired_via: feature}
+  - slug: savant-17
+    name: Savant spell
+    kind: spellbook
+    level: 17
+    criteria: {class: wizard, school: abjuration, max_level: 9, acquired_via: feature}
 - slug: arcane-ward
   name: Arcane Ward
   summary: >-

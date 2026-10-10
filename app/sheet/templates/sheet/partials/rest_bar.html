@@ -3,10 +3,10 @@
 <div class="rest-bar">
   {% if not resting %}
   <button type="button" class="secondary-button"
-          hx-get="/characters/{{ character.id }}/sheet/short-rest">Short rest</button>
+          hx-get="/characters/{{ character.id }}/sheet/short-rest">Short<span class="wide-only"> rest</span></button>
   {% endif %}
   <details class="long-rest">
-    <summary class="secondary-button">Long rest</summary>
+    <summary class="secondary-button">Long<span class="wide-only"> rest</span></summary>
     <div class="long-rest-confirm card">
       <p>A long rest restores:</p>
       <ul>

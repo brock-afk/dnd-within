@@ -1,7 +1,7 @@
 # Terraform
 
-The same infrastructure as `../bicep/`, kept in a remote state file in Azure Storage (set up in
-step 0.4). Resource providers are registered explicitly, never automatically.
+The subscription comes from the environment, not the code: set `ARM_SUBSCRIPTION_ID` in your
+shell profile (CI sets it from a GitHub variable).
 
     terraform init       # download providers, connect to the state backend
     terraform plan       # what would change (the Bicep what-if equivalent)

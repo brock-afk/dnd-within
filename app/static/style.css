@@ -630,3 +630,40 @@ details[open] > .section-summary .section-digest { display: none; }
   .vital-panel { left: 1rem; top: 100%; }
 }
 }
+
+/* Inventory (Play sheet): coins, then compact item rows like the spell rows. */
+.coins { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem; margin-bottom: 0.75rem; }
+.coins-label { min-width: 4rem; font-weight: 600; }
+.coins-total { font-variant-numeric: tabular-nums; }
+.coins .link-button { font-size: 0.85rem; }
+#coins:has(.coins-form) { display: block; }
+.coin-fields { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; }
+.coin-field { display: grid; gap: 0.2rem; }
+.coin-field label { margin: 0; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.coin-field input[type="text"] { width: 5rem; padding: 0.35rem 0.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+.coins-form .form-actions { margin-top: 0.6rem; }
+.item-list li.item-row {
+  display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.35rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.item-list li.item-row:last-child { border-bottom: 0; }
+.item-details { flex: 1; min-width: 0; }
+.item-details > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; cursor: pointer; list-style: none; }
+.item-details > summary::-webkit-details-marker { display: none; }
+.item-details > summary:hover .item-name { color: var(--accent); }
+.item-quantity { color: var(--muted); font-variant-numeric: tabular-nums; }
+.item-more { display: grid; gap: 0.4rem; padding: 0.4rem 0 0.2rem; font-size: 0.9rem; }
+.item-notes { display: flex; gap: 0.4rem; }
+.item-notes input[type="text"] { padding: 0.35rem 0.5rem; font-size: 0.9rem; }
+.item-remove > summary { display: inline; cursor: pointer; font-size: 0.85rem; list-style: none; }
+.item-remove > summary::-webkit-details-marker { display: none; }
+.item-remove[open] > summary { margin-right: 0.5rem; }
+.item-actions { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
+.item-actions .link-button { font-size: 0.85rem; }
+.qty-steps { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; }
+.qty-step { width: 1.9rem; padding: 0.2rem 0; border-radius: 0; background: var(--surface); color: var(--text); }
+.qty-step:hover { background: var(--border); }
+#inventory-add { margin-top: 0.75rem; }
+.add-fields { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
+.add-fields select { padding: 0.45rem 0.6rem; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }
+.add-fields input[name="quantity"] { width: 4.5rem; }

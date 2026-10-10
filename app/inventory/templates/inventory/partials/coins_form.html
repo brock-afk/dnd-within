@@ -1,0 +1,19 @@
+{% from "partials/refresh.html" import refresh_button %}
+{# Editing coins: one box per coin, highest first. Saving refreshes the sheet. #}
+<form class="coins-form" hx-post="/characters/{{ character.id }}/sheet/inventory/coins"
+      hx-target="#coins" novalidate>
+  {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}
+  <div class="coin-fields">
+    {% for column, label in coin_labels %}
+    <div class="coin-field">
+      <label for="coin-{{ column }}">{{ label }}</label>
+      <input id="coin-{{ column }}" name="{{ column }}" type="text" inputmode="numeric" maxlength="7"
+             value="{{ coins[column] }}" autocomplete="off" {% if column == "gp" %}autofocus{% endif %}>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="small-button">Save</button>
+    {{ refresh_button(character, page="play") }}
+  </div>
+</form>

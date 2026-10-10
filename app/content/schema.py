@@ -115,6 +115,60 @@ class BackgroundDef(Strict):
         return self
 
 
+# --- Items -------------------------------------------------------------------------------
+
+# "40 GP", "5 SP", "1 CP": a price, stored in copper pieces.
+COST = re.compile(r"^\s*(\d+)\s*(CP|SP|EP|GP|PP)\s*$", re.IGNORECASE)
+COPPER = {"CP": 1, "SP": 10, "EP": 50, "GP": 100, "PP": 1000}
+
+
+class PackItem(Strict):
+    item: str  # item slug, e.g. "parchment" or "phb-2024/parchment"
+    quantity: int = Field(default=1, ge=1)
+
+
+class ItemDef(Strict):
+    """An item in the catalog. A pack lists `contents` (adding it adds those); a spell scroll
+    has a `spell_level`, and the spell is picked when it's added to a character."""
+
+    slug: Slug
+    name: Text80
+    category: Literal["gear", "consumable", "pack", "scroll", "tool", "magic"]
+    rarity: Literal["common", "uncommon", "rare", "very_rare", "legendary", "artifact"] | None = None
+    cost: str | None = None  # "40 GP"
+    weight: float | None = Field(default=None, ge=0)  # pounds
+    summary: Text255
+    description: str | None = None  # full rules text: only in private packs (copyright)
+    consumable: bool = False  # potions and scrolls are, without saying so
+    requires_attunement: bool = False
+    spell_level: int | None = Field(default=None, ge=0, le=9)
+    contents: list[PackItem] = []
+
+    @field_validator("cost")
+    @classmethod
+    def check_cost(cls, value):
+        if value is not None and not COST.match(value):
+            raise ValueError(f"{value!r} isn't a price like 40 GP or 5 SP")
+        return value
+
+    @model_validator(mode="after")
+    def check(self):
+        if (self.category == "scroll") != (self.spell_level is not None):
+            raise ValueError("spell scrolls need spell_level, and only they have one")
+        if (self.category == "pack") != bool(self.contents):
+            raise ValueError("packs list their contents, and only packs have contents")
+        if self.category in ("consumable", "scroll"):
+            self.consumable = True
+        return self
+
+    @property
+    def cost_cp(self) -> int | None:
+        if self.cost is None:
+            return None
+        amount, coin = COST.match(self.cost).groups()
+        return int(amount) * COPPER[coin.upper()]
+
+
 # --- Spells -------------------------------------------------------------------------------
 
 

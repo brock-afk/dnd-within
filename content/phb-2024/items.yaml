@@ -1,0 +1,166 @@
+# A starter catalog: what a Wizard is likely to carry. Prices and weights are from the 2024
+# Player's Handbook; summaries are in our own words. Weapons and armor are plain gear until
+# the sheet does attack and AC math for them.
+
+# --- Potions and scrolls ---------------------------------------------------------------------
+- slug: potion-of-healing
+  name: Potion of Healing
+  category: consumable
+  rarity: common
+  cost: 50 GP
+  weight: 0.5
+  summary: "Bonus Action to drink (or an action to give it to someone): regain 2d4 + 2 HP."
+- slug: spell-scroll-0
+  name: Spell Scroll (Cantrip)
+  category: scroll
+  rarity: common
+  spell_level: 0
+  summary: Cast the cantrip it holds if it's on your class's spell list. The scroll crumbles.
+- slug: spell-scroll-1
+  name: Spell Scroll (Level 1)
+  category: scroll
+  rarity: common
+  spell_level: 1
+  summary: >-
+    Cast the level 1 spell it holds if it's on your class's spell list (save DC 13, +5 to
+    hit). The scroll crumbles.
+- slug: spell-scroll-2
+  name: Spell Scroll (Level 2)
+  category: scroll
+  rarity: uncommon
+  spell_level: 2
+  summary: Cast the level 2 spell it holds if it's on your class's spell list. The scroll crumbles.
+- slug: spell-scroll-3
+  name: Spell Scroll (Level 3)
+  category: scroll
+  rarity: uncommon
+  spell_level: 3
+  summary: >-
+    Cast the level 3 spell it holds if it's on your class's spell list; a higher-level spell
+    than you can cast needs an ability check. The scroll crumbles.
+
+# --- Packs ---------------------------------------------------------------------------------
+- slug: scholars-pack
+  name: Scholar's Pack
+  category: pack
+  cost: 40 GP
+  weight: 22
+  summary: Backpack, Book, Ink, Ink Pen, Lamp, 10 flasks of Oil, 10 sheets of Parchment, Tinderbox.
+  contents:
+  - {item: backpack}
+  - {item: book}
+  - {item: ink}
+  - {item: ink-pen}
+  - {item: lamp}
+  - {item: oil, quantity: 10}
+  - {item: parchment, quantity: 10}
+  - {item: tinderbox}
+
+# --- Adventuring gear ----------------------------------------------------------------------
+- slug: backpack
+  name: Backpack
+  category: gear
+  cost: 2 GP
+  weight: 5
+  summary: Holds up to 30 lb of gear within 1 cubic foot.
+- slug: book
+  name: Book
+  category: gear
+  cost: 25 GP
+  weight: 5
+  summary: A book of lore, poetry or the like; can help with checks on its subject.
+- slug: ink
+  name: Ink
+  category: gear
+  cost: 10 GP
+  summary: A 1-ounce bottle, enough to write about 500 pages.
+- slug: ink-pen
+  name: Ink Pen
+  category: gear
+  cost: 2 CP
+  summary: A wooden pen for writing or drawing with ink.
+- slug: lamp
+  name: Lamp
+  category: gear
+  cost: 5 SP
+  weight: 1
+  summary: Burns Oil for 6 hours, with Bright Light in a 15-ft radius and Dim Light 30 ft more.
+- slug: oil
+  name: Oil
+  category: gear
+  cost: 1 SP
+  weight: 1
+  summary: A flask of oil. Fuels a lamp, or can be thrown and set alight for fire damage.
+- slug: parchment
+  name: Parchment
+  category: gear
+  cost: 1 SP
+  summary: One sheet of parchment.
+- slug: tinderbox
+  name: Tinderbox
+  category: gear
+  cost: 5 SP
+  weight: 1
+  summary: Lights a candle, lamp or torch as a Bonus Action; other fires take longer.
+
+# --- Wizard basics -------------------------------------------------------------------------
+- slug: spellbook
+  name: Spellbook
+  category: gear
+  cost: 50 GP
+  weight: 3
+  summary: 100 pages for recording your Wizard spells.
+- slug: component-pouch
+  name: Component Pouch
+  category: gear
+  cost: 25 GP
+  weight: 2
+  summary: Holds the free Material components your spells need; usable in place of them.
+- slug: arcane-focus-crystal
+  name: "Arcane Focus: Crystal"
+  category: gear
+  cost: 10 GP
+  weight: 1
+  summary: A Spellcasting Focus for arcane spells.
+- slug: arcane-focus-orb
+  name: "Arcane Focus: Orb"
+  category: gear
+  cost: 20 GP
+  weight: 3
+  summary: A Spellcasting Focus for arcane spells.
+- slug: arcane-focus-rod
+  name: "Arcane Focus: Rod"
+  category: gear
+  cost: 10 GP
+  weight: 2
+  summary: A Spellcasting Focus for arcane spells.
+- slug: arcane-focus-staff
+  name: "Arcane Focus: Staff"
+  category: gear
+  cost: 5 GP
+  weight: 4
+  summary: A Spellcasting Focus for arcane spells; also usable as a Quarterstaff.
+- slug: arcane-focus-wand
+  name: "Arcane Focus: Wand"
+  category: gear
+  cost: 10 GP
+  weight: 1
+  summary: A Spellcasting Focus for arcane spells.
+- slug: quarterstaff
+  name: Quarterstaff
+  category: gear
+  cost: 2 SP
+  weight: 4
+  summary: "Simple melee weapon: 1d6 bludgeoning (1d8 two-handed)."
+- slug: dagger
+  name: Dagger
+  category: gear
+  cost: 2 GP
+  weight: 1
+  summary: "Simple melee weapon: 1d4 piercing; finesse, light, thrown (20/60 ft)."
+- slug: robe
+  name: Robe
+  category: gear
+  cost: 1 GP
+  weight: 4
+  summary: Clothing for spellcasters, scholars and the like.

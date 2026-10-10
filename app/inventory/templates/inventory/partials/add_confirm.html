@@ -1,0 +1,39 @@
+{# The confirm step for one item: how many, and for a scroll which spell. A pack lists what it
+   adds, since it's added as its contents. #}
+{% set base = "/characters/%d/sheet/inventory" % character.id %}
+<form hx-post="{{ base }}/add" hx-target="#add-step" novalidate class="copy-confirm">
+  <input type="hidden" name="item_id" value="{{ item.id }}">
+  <input type="hidden" name="q" value="{{ query }}">
+  <div class="copy-pick">
+    <span class="choice-name">{{ item.name }}</span>
+    {% if detail %}<span class="muted">{{ detail }}</span>{% endif %}
+    <p class="choice-summary">{{ item.summary }}</p>
+  </div>
+  {% if contents %}
+  <p class="copy-rules">Adds {% for content, n in contents %}{{ content.name }}{% if n > 1 %} ×{{ n }}{% endif %}{{ ", " if not loop.last }}{% endfor %}.</p>
+  {% endif %}
+  {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}
+  <div class="add-fields">
+    {% if spells %}
+    <div class="hp-form">
+      <label for="add-spell">Spell on the scroll</label>
+      <select id="add-spell" name="spell_id">
+        <option value="">Choose a spell</option>
+        {% for spell in spells %}
+        <option value="{{ spell.id }}" {% if spell_id == spell.id | string %}selected{% endif %}>{{ spell.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="hp-form">
+      <label for="add-quantity">Quantity</label>
+      <input id="add-quantity" name="quantity" type="text" inputmode="numeric" maxlength="3"
+             value="{{ quantity }}" autocomplete="off">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit">Add to inventory</button>
+    <button type="button" class="link-button"
+            hx-get="{{ base }}/add?{{ {'q': query} | urlencode }}" hx-target="#inventory-add">Back to search</button>
+  </div>
+</form>

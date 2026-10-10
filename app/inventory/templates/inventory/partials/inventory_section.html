@@ -1,0 +1,71 @@
+{#- Coins on one line (Change opens a box per coin), then one line per item: name and quantity,
+    with −/+ and Use or Attune beside it. An item opens to its summary, notes and Remove. Every
+    change refreshes the sheet in place. -#}
+{% set base = "/characters/%d/sheet/inventory" % character.id %}
+{% call section("inventory", "Inventory", inventory_digest, classes="order-late") %}
+  <div id="coins" class="coins">
+    <span class="coins-label">Coins</span>
+    <span class="coins-total">{{ coin_summary or "None" }}</span>
+    <button type="button" class="link-button" hx-get="{{ base }}/coins/edit" hx-target="#coins">Change</button>
+  </div>
+
+  {% if items %}
+  <ul class="plain-list item-list">
+    {% for row in items %}
+    <li class="item-row">
+      <details class="item-details" data-collapse="item-{{ row.id }}">
+        <summary>
+          <span class="item-name">{{ row.name }}</span>
+          {% if row.quantity > 1 %}<span class="item-quantity">×{{ row.quantity }}</span>{% endif %}
+          {% if row.attuned %}<span class="spell-tag ritual">Attuned</span>
+          {% elif row.item.requires_attunement %}<span class="spell-tag">Needs attunement</span>{% endif %}
+        </summary>
+        <div class="item-more">
+          <span class="muted">{{ row.item.summary }}</span>
+          {% if row.spell %}<span class="muted">{{ row.spell.name }}: {{ row.spell.summary }}</span>{% endif %}
+          {% if row.item.description %}
+          <details class="feature-text">
+            <summary>Full text</summary>
+            <p>{{ row.item.description }}</p>
+          </details>
+          {% endif %}
+          <form class="item-notes" hx-post="{{ base }}/{{ row.id }}/notes" novalidate>
+            <input type="text" name="notes" maxlength="255" value="{{ row.notes or '' }}"
+                   placeholder="Notes, e.g. where it came from" aria-label="Notes for {{ row.name }}">
+            <button type="submit" class="secondary-button small-button">Save</button>
+          </form>
+          <details class="item-remove">
+            <summary class="link-button">Remove</summary>
+            <button type="button" class="danger-button small-button"
+                    hx-post="{{ base }}/{{ row.id }}/remove">Remove {{ row.name }}{% if row.quantity > 1 %} (all {{ row.quantity }}){% endif %}</button>
+          </details>
+        </div>
+      </details>
+      <span class="item-actions">
+        {% if row.item.consumable %}
+        <button type="button" class="secondary-button small-button"
+                hx-post="{{ base }}/{{ row.id }}/use" title="Spend one">Use</button>
+        {% endif %}
+        {% if row.item.requires_attunement %}
+        <button type="button" class="link-button" hx-post="{{ base }}/{{ row.id }}/attune"
+                hx-vals='{"attuned": "{{ 0 if row.attuned else 1 }}"}'>{{ "End attunement" if row.attuned else "Attune" }}</button>
+        {% endif %}
+        <span class="qty-steps">
+          <button type="button" class="qty-step" hx-post="{{ base }}/{{ row.id }}/quantity"
+                  hx-vals='{"delta": "-1"}' aria-label="One fewer {{ row.name }}">−</button>
+          <button type="button" class="qty-step" hx-post="{{ base }}/{{ row.id }}/quantity"
+                  hx-vals='{"delta": "1"}' aria-label="One more {{ row.name }}">+</button>
+        </span>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Nothing carried yet.</p>
+  {% endif %}
+  {% if errors.inventory %}<p class="error" role="alert">{{ errors.inventory }}</p>{% endif %}
+
+  <div id="inventory-add">
+    <button type="button" class="link-button" hx-get="{{ base }}/add" hx-target="#inventory-add">Add item</button>
+  </div>
+{% endcall %}

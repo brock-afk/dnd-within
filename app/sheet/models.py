@@ -18,8 +18,8 @@ from app.core.db import Base
 
 
 class CharacterPlayState(Base):
-    """Current hit points and temporary hit points. One row per character, created the first
-    time something changes.
+    """Current hit points, temporary hit points and coins. One row per character, created the
+    first time something changes.
 
     Current HP is stored rather than "damage taken" because effects that raise max HP (like
     Aid) end by only capping current HP; see app/sheet/rules.py.
@@ -29,6 +29,9 @@ class CharacterPlayState(Base):
     __table_args__ = (
         CheckConstraint("current_hp >= 0", name="current_hp_non_negative"),
         CheckConstraint("temp_hp >= 0", name="temp_hp_non_negative"),
+        CheckConstraint(
+            "cp >= 0 AND sp >= 0 AND ep >= 0 AND gp >= 0 AND pp >= 0", name="coins_non_negative"
+        ),
     )
 
     character_id: Mapped[int] = mapped_column(
@@ -37,6 +40,12 @@ class CharacterPlayState(Base):
     current_hp: Mapped[int | None] = mapped_column(SmallInteger)  # NULL = at full HP
     temp_hp: Mapped[int] = mapped_column(SmallInteger, default=0, server_default="0")
     temp_hp_source: Mapped[str | None] = mapped_column(String(80))  # e.g. "False Life"
+    # Coins, by denomination; kept as the player has them, never converted automatically.
+    cp: Mapped[int] = mapped_column(default=0, server_default="0")
+    sp: Mapped[int] = mapped_column(default=0, server_default="0")
+    ep: Mapped[int] = mapped_column(default=0, server_default="0")
+    gp: Mapped[int] = mapped_column(default=0, server_default="0")
+    pp: Mapped[int] = mapped_column(default=0, server_default="0")
 
 
 class CharacterHpEffect(Base):

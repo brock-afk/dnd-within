@@ -1,0 +1,20 @@
+{# Search results for the Add an item panel. `results` is [(item, detail)]. #}
+{% if query | trim | length < min_length %}
+{% if query %}<p class="muted">Keep typing…</p>{% endif %}
+{% elif not results %}
+<p class="muted">No item is named like “{{ query }}”.</p>
+{% else %}
+<ul class="copy-results">
+  {% for item, detail in results %}
+  <li class="copy-result">
+    <div>
+      <span class="choice-name">{{ item.name }}</span>
+      {% if detail %}<span class="muted">{{ detail }}</span>{% endif %}
+    </div>
+    <button type="button" class="secondary-button"
+            hx-get="/characters/{{ character.id }}/sheet/inventory/add/confirm?{{ {'item': item.id, 'q': query} | urlencode }}"
+            hx-target="#add-step">Add</button>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}

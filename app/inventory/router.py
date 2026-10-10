@@ -1,0 +1,248 @@
+from typing import Annotated
+
+from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.auth.dependencies import CurrentUser
+from app.characters.dependencies import OwnedCharacter
+from app.characters.models import Character
+from app.core.db import DbSession
+from app.core.templates import templates
+from app.inventory.models import CharacterItem, Item
+from app.inventory.service import (
+    COINS,
+    MAX_COINS,
+    SEARCH_MIN_LENGTH,
+    add_item,
+    change_quantity,
+    character_item,
+    coin_values,
+    item_detail,
+    pack_contents,
+    scroll_spells,
+    search_items,
+    set_attuned,
+    set_coins,
+)
+from app.sheet.router import refresh_sheet
+from app.spells.models import Spell
+
+router = APIRouter(tags=["inventory"])
+
+BASE = "/characters/{character_id}/sheet/inventory"
+
+
+def _item_partial(request: Request, name: str, context: dict, status_code: int = 200):
+    return templates.TemplateResponse(
+        request, f"inventory/partials/{name}.html", context, status_code=status_code
+    )
+
+
+def _search_context(db: Session, character: Character, query: str) -> dict:
+    return {
+        "character": character,
+        "query": query,
+        "min_length": SEARCH_MIN_LENGTH,
+        "results": [(item, item_detail(item)) for item in search_items(db, query)],
+    }
+
+
+@router.get(BASE + "/add", response_class=HTMLResponse)
+def add_panel(request: Request, db: DbSession, character: OwnedCharacter, q: str = ""):
+    """Add an item, like copying a spell: search by name, pick one, confirm. `q` refills the
+    search when coming back from the confirm step."""
+    return _item_partial(request, "add_panel", _search_context(db, character, q))
+
+
+@router.get(BASE + "/add/search", response_class=HTMLResponse)
+def add_search(request: Request, db: DbSession, character: OwnedCharacter, q: str = ""):
+    return _item_partial(request, "add_results", _search_context(db, character, q))
+
+
+def _render_confirm(
+    request: Request,
+    db: Session,
+    character: Character,
+    item: Item,
+    query: str,
+    quantity: str = "1",
+    spell_id: str = "",
+    error: str | None = None,
+    status_code: int = 200,
+):
+    """The confirm step: quantity, and the spell for a scroll; a pack lists what it adds."""
+    return _item_partial(
+        request,
+        "add_confirm",
+        {
+            "character": character,
+            "item": item,
+            "detail": item_detail(item),
+            "contents": pack_contents(db, item),
+            "spells": scroll_spells(db, item) if item.category == "scroll" else [],
+            "query": query,
+            "quantity": quantity,
+            "spell_id": spell_id,
+            "error": error,
+        },
+        status_code=status_code,
+    )
+
+
+def _catalog_item(db: Session, key: str) -> Item | None:
+    item = db.get(Item, int(key)) if key.isdigit() else None
+    return item if item is not None and item.retired_at is None else None
+
+
+@router.get(BASE + "/add/confirm", response_class=HTMLResponse)
+def add_confirm(
+    request: Request, db: DbSession, character: OwnedCharacter, item: str = "", q: str = ""
+):
+    found = _catalog_item(db, item)
+    if found is None:
+        raise HTTPException(status_code=404)
+    return _render_confirm(request, db, character, found, q)
+
+
+@router.post(BASE + "/add", response_class=HTMLResponse)
+def add(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    item_id: Annotated[str, Form()] = "",
+    quantity: Annotated[str, Form()] = "1",
+    spell_id: Annotated[str, Form()] = "",
+    q: Annotated[str, Form()] = "",
+):
+    item = _catalog_item(db, item_id)
+    if item is None:
+        raise HTTPException(status_code=404)
+    spell = db.get(Spell, int(spell_id)) if spell_id.isdigit() else None
+    amount = int(quantity) if quantity.strip().isdigit() else 0
+    if not 1 <= amount <= 999:
+        error = "Quantity is 1 to 999."
+    else:
+        error = add_item(db, character, item, amount, spell)
+    if error:
+        return _render_confirm(
+            request, db, character, item, q, quantity, spell_id, error, status_code=400
+        )
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+def _row(db: Session, character: Character, row_id: int) -> CharacterItem:
+    row = character_item(db, character, row_id)
+    if row is None:
+        raise HTTPException(status_code=404)
+    return row
+
+
+@router.post(BASE + "/{row_id}/quantity", response_class=HTMLResponse)
+def quantity(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    row_id: int,
+    delta: Annotated[str, Form()] = "",
+):
+    if delta not in ("1", "-1"):
+        raise HTTPException(status_code=400)
+    change_quantity(db, _row(db, character, row_id), int(delta))
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post(BASE + "/{row_id}/use", response_class=HTMLResponse)
+def use(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, row_id: int):
+    """Spend one of a consumable (drink the potion, read the scroll)."""
+    row = _row(db, character, row_id)
+    if not row.item.consumable:
+        return refresh_sheet(
+            request, db, user, character, {"inventory": f"{row.name} isn't used up."}, 400
+        )
+    change_quantity(db, row, -1)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post(BASE + "/{row_id}/attune", response_class=HTMLResponse)
+def attune(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    row_id: int,
+    attuned: Annotated[str, Form()] = "",
+):
+    error = set_attuned(db, character, _row(db, character, row_id), attuned == "1")
+    if error:
+        return refresh_sheet(request, db, user, character, {"inventory": error}, 400)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post(BASE + "/{row_id}/notes", response_class=HTMLResponse)
+def notes(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    row_id: int,
+    notes: Annotated[str, Form()] = "",
+):
+    _row(db, character, row_id).notes = notes.strip()[:255] or None
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post(BASE + "/{row_id}/remove", response_class=HTMLResponse)
+def remove(
+    request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, row_id: int
+):
+    db.delete(_row(db, character, row_id))
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+class CoinForm(BaseModel):
+    pp: str = ""
+    gp: str = ""
+    ep: str = ""
+    sp: str = ""
+    cp: str = ""
+
+
+def _coins_form(request, character, coins: dict, error: str | None = None, status_code=200):
+    context = {"character": character, "coins": coins, "coin_labels": COINS, "error": error}
+    return _item_partial(request, "coins_form", context, status_code=status_code)
+
+
+@router.get(BASE + "/coins/edit", response_class=HTMLResponse)
+def edit_coins(request: Request, db: DbSession, character: OwnedCharacter):
+    return _coins_form(request, character, coin_values(db, character))
+
+
+@router.post(BASE + "/coins", response_class=HTMLResponse)
+def coins(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    form: Annotated[CoinForm, Form()],
+):
+    values = {}
+    for column, label in COINS:
+        raw = getattr(form, column).strip() or "0"
+        if not raw.isdigit() or int(raw) > MAX_COINS:
+            error = f"{label} is a whole number from 0 to {MAX_COINS:,}."
+            typed = {col: getattr(form, col) for col, _ in COINS}
+            return _coins_form(request, character, typed, error, status_code=400)
+        values[column] = int(raw)
+    set_coins(db, character, values)
+    db.commit()
+    return refresh_sheet(request, db, user, character)

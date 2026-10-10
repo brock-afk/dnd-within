@@ -41,7 +41,9 @@ def play_state(db: Session, character: Character) -> CharacterPlayState:
     """The character's play state, created (at full HP) the first time it's needed."""
     state = db.get(CharacterPlayState, character.id)
     if state is None:
-        state = CharacterPlayState(character_id=character.id, temp_hp=0)
+        state = CharacterPlayState(
+            character_id=character.id, temp_hp=0, cp=0, sp=0, ep=0, gp=0, pp=0
+        )
         db.add(state)
     return state
 

@@ -16,6 +16,8 @@ from app.core.db import DbSession
 from app.core.templates import morph_in_place, templates
 from app.features.kinds import KINDS
 from app.features.service import applicable_choice, play_choices
+from app.inventory.service import MAX_ATTUNED, coin_summary, coin_values, inventory
+from app.inventory.service import digest as inventory_digest
 from app.leveling.service import constitution_modifier
 from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
 from app.sheet.rests import (
@@ -76,6 +78,7 @@ def render_sheet(
     (hit dice, Arcane Recovery) so they stay off the main sheet."""
     uses = feature_uses(db, character)
     attrs = attributes(db, character)
+    items = inventory(db, character)
     context = {
         "user": user,
         "character": character,
@@ -95,6 +98,10 @@ def render_sheet(
         "prepared_limit": prepared_limit(character),
         "has_spellbook": bool(spellbook(db, character.id)),
         "resting": resting,
+        "items": items,
+        "coin_summary": coin_summary(coin_values(db, character)),
+        "inventory_digest": inventory_digest(db, character, items),
+        "max_attuned": MAX_ATTUNED,
         "errors": errors or {},
         "pending_damage": pending_damage,
         "spell_warnings": spell_warnings(db, character),

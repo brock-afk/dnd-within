@@ -1,0 +1,18 @@
+{# Add an item, like copying a spell: search by name, pick one, confirm. #}
+{% from "partials/refresh.html" import refresh_button %}
+<div class="card copy-panel">
+  <div class="choice-form-header">
+    <h3 class="section-title">Add an item</h3>
+    {{ refresh_button(character, page="play") }}
+  </div>
+  <div id="add-step">
+    <form role="search" class="hp-form copy-search" novalidate
+          hx-get="/characters/{{ character.id }}/sheet/inventory/add/search"
+          hx-target="#add-results" hx-trigger="input delay:250ms, submit">
+      <label for="item-search">Item name</label>
+      <input id="item-search" name="q" type="search" value="{{ query }}"
+             autocomplete="off" autofocus placeholder="e.g. Potion of Healing">
+    </form>
+    <div id="add-results" aria-live="polite">{% include "inventory/partials/add_results.html" %}</div>
+  </div>
+</div>

@@ -19,6 +19,7 @@ from app.content.models import Source
 from app.feats.models import Feat
 from app.features.models import Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.schema import ChoiceDef, FeatureDef
+from app.inventory.models import Item
 from app.skills.models import Skill
 from app.species.models import Species
 from app.spells.models import Spell
@@ -259,6 +260,29 @@ class _Importer:
                 "feat_id": self._id(Feat, d.feat, "feats"),
             },
         )
+
+        items = self._sync_rows(
+            Item,
+            self.pack.items,
+            lambda d: {
+                "name": d.name,
+                "category": d.category,
+                "rarity": d.rarity,
+                "cost_cp": d.cost_cp,
+                "weight_lb": d.weight,
+                "summary": d.summary,
+                "description": d.description,
+                "consumable": d.consumable,
+                "requires_attunement": d.requires_attunement,
+                "spell_level": d.spell_level,
+            },
+        )
+        # Pack contents point at other items, so they're set once every item has an id.
+        for d in self.pack.items:
+            items[d.slug].contents = [
+                {"item_id": self._id(Item, c.item, "items"), "quantity": c.quantity}
+                for c in d.contents
+            ] or None
 
         for d in self.pack.species:
             self._sync_features("species_id", species[d.slug].id, d.features)

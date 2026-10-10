@@ -17,6 +17,7 @@ from app.content.schema import (
     BackgroundDef,
     ClassDef,
     FeatDef,
+    ItemDef,
     PackMeta,
     SkillDef,
     SpeciesDef,
@@ -39,6 +40,7 @@ class Pack:
     spells: list[SpellDef] = field(default_factory=list)
     feats: list[FeatDef] = field(default_factory=list)
     backgrounds: list[BackgroundDef] = field(default_factory=list)
+    items: list[ItemDef] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -142,6 +144,8 @@ def _parse(folder: Path) -> Pack:
         pack.subclasses.append(sub)
     for file in sorted(folder.glob("spells/*.yaml")):
         pack.spells.extend(load_list(file, SpellDef))
+    if (folder / "items.yaml").exists():
+        pack.items = load_list(folder / "items.yaml", ItemDef)
     pack.feats = load_each("feats/*.yaml", FeatDef)
     pack.backgrounds = load_each("backgrounds/*.yaml", BackgroundDef)
 
@@ -152,6 +156,7 @@ def _parse(folder: Path) -> Pack:
         ("spell", pack.spells),
         ("feat", pack.feats),
         ("background", pack.backgrounds),
+        ("item", pack.items),
     ]:
         seen = set()
         for item in items:
@@ -185,7 +190,8 @@ def resolve(ref: str, kind: str, pack: Pack, by_slug: dict[str, Pack]) -> str | 
 
 
 def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
-    singular = {"classes": "class", "skills": "skill", "spells": "spell", "feats": "feat"}
+    singular = {"classes": "class", "skills": "skill", "spells": "spell", "feats": "feat",
+                "items": "item"}
 
     def check(ref: str, kind: str, where: str):
         if resolve(ref, kind, pack, by_slug) is None:
@@ -221,6 +227,9 @@ def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
     for bg in pack.backgrounds:
         check(bg.feat, "feats", f"backgrounds/{bg.slug}")
         check_features(bg.features, f"backgrounds/{bg.slug}")
+    for item in pack.items:
+        for content in item.contents:
+            check(content.item, "items", f"items/{item.slug} > contents")
     for spell in pack.spells:
         for ref in spell.classes:
             check(ref, "classes", f"spells/{spell.slug}")

@@ -10,12 +10,11 @@ from app.backgrounds.models import Background
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
 from app.characters.page import refresh_character_page
+from app.characters.service import change_origin
 from app.content.queries import available
 from app.core.db import DbSession
 from app.core.templates import templates
 from app.features.kinds import OptionView
-from app.features.service import fill_fixed_choices, remove_inapplicable_picks
-from app.sheet.service import max_hp, track_max_change
 
 router = APIRouter(tags=["backgrounds"])
 
@@ -31,16 +30,18 @@ def _render_form(
     backgrounds = db.scalars(
         select(Background).where(available(Background)).order_by(Background.name)
     ).all()
-    options = [
-        OptionView(str(b.id), b.name, b.summary, detail=f"Origin feat: {b.feat.name}")
-        for b in backgrounds
-    ]
     return templates.TemplateResponse(
         request,
-        "backgrounds/partials/background_form.html",
+        "characters/partials/origin_form.html",
         {
             "character": character,
-            "options": options,
+            "title": "Background",
+            "url": f"/characters/{character.id}/background",
+            "field": "background_id",
+            "options": [
+                OptionView(str(b.id), b.name, b.summary, detail=f"Origin feat: {b.feat.name}")
+                for b in backgrounds
+            ],
             "selected": selected,
             "error": error,
         },
@@ -66,17 +67,6 @@ def save_background(
         return _render_form(
             request, db, character, background_id, "Choose a background.", status_code=400
         )
-    if background.id == character.background_id:
-        return refresh_character_page(request, db, user, character)
-
-    old_max = max_hp(db, character)
-    character.background_id = background.id
-    db.flush()
-    db.refresh(character)  # reload the background relationship the rules below read
-    # The old background's skills, ability increases and feat picks go with it.
-    remove_inapplicable_picks(db, character)
-    db.commit()
-    fill_fixed_choices(db, character)
-    track_max_change(db, character, old_max, heal=True)
-    db.commit()
+    if background.id != character.background_id:
+        change_origin(db, character, "background_id", background.id)
     return refresh_character_page(request, db, user, character)

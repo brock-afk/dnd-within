@@ -43,6 +43,14 @@ function rememberSection(section, open) {
 document.addEventListener("click", (event) => {
   const summary = event.target.closest("summary");
   const section = summary && summary.parentElement;
+  // A button marked data-summary-action (a feature group's Change) works while the section is
+  // collapsed: htmx has already sent its request, so stop the click toggling the section and
+  // open it instead, to show what loads. That isn't remembered as the player's choice.
+  if (section && event.target.closest("[data-summary-action]")) {
+    event.preventDefault();
+    section.open = true;
+    return;
+  }
   if (section && section.matches("[data-collapse]")) {
     // The click toggles the section after this handler runs, so `!section.open` is its new state.
     rememberSection(section, !section.open);

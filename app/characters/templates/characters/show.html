@@ -9,6 +9,78 @@
         hx-target="#choice-{{ choice.id }}">{{ label }}</button>
 {% endmacro %}
 
+{#- One feature: closed, its name and what was picked for it; open, its summary, full text and
+    Change buttons. -#}
+{% macro feature_item(fv) %}
+{% set picks = fv.choices | selectattr("done") | rejectattr("choice.kind", "in", ["spell", "spellbook"])
+               | map(attribute="picked") | sum(start=[]) | map(attribute="name") | list %}
+{% set spell_count = fv.choices | selectattr("done") | selectattr("choice.kind", "in", ["spell", "spellbook"])
+                     | map(attribute="picked") | sum(start=[]) | length %}
+<li>
+  <details class="feature" data-collapse="feature-{{ fv.feature.id }}">
+    <summary>
+      <span class="feature-name">{{ fv.feature.name }}</span>
+      {% if fv.feature.level > 1 %}<span class="feature-level">Level {{ fv.feature.level }}</span>{% endif %}
+      {% if picks %}<span class="feature-picks">{{ picks | join(", ") }}</span>{% endif %}
+      {% if spell_count %}<span class="feature-picks">{{ spell_count }} spells chosen</span>{% endif %}
+      {% if fv.choices | rejectattr("done") | list %}<span class="spell-tag ritual">To choose</span>{% endif %}
+    </summary>
+    <div class="feature-body">
+      <span class="muted">{{ fv.feature.summary }}</span>
+      {% if fv.feature.description %}
+      <details class="feature-text">
+        <summary>Full text</summary>
+        <p>{{ fv.feature.description }}</p>
+      </details>
+      {% endif %}
+      {% for cv in fv.choices if cv.done and cv.choice.kind not in ("spell", "spellbook") %}
+      <div class="feature-choice" id="choice-{{ cv.choice.id }}">
+        <span>{{ cv.choice.name }}: <strong>{{ cv.picked | map(attribute="name") | join(", ") }}</strong></span>
+        {% if cv.choice.in_play %}
+        <span class="muted">· changed on the Play sheet</span>
+        {% else %}
+        {{ choose_button(cv.choice, "Change") }}
+        {% endif %}
+        {% if cv.choice.kind in ("option", "subclass") %}
+        <span class="muted feature-choice-summary">{{ cv.picked[0].summary }}</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {#- Spells by the level they were chosen at: how the character was built. -#}
+      {% set spell_choices = fv.choices | selectattr("done") | selectattr("choice.kind", "in", ["spell", "spellbook"]) | list %}
+      {% set has_book = fv.feature.id == copied_under %}
+      {% if spell_choices or (has_book and copied) %}
+      <div class="spell-levels">
+        {% for level, by_level in spell_choices | groupby("level") %}
+        <span class="spell-level-label">Level {{ level }}</span>
+        <div class="spell-level-choices">
+          {% for cv in by_level %}
+          <div class="feature-choice" id="choice-{{ cv.choice.id }}">
+            <span>{{ cv.choice.name }}:
+              {% for o in cv.picked %}<strong title="{{ o.detail }}">{{ o.name }}</strong>{{ ", " if not loop.last }}{% endfor %}</span>
+            {{ choose_button(cv.choice, "Change") }}
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+        {% if has_book and copied %}
+        <span class="spell-level-label">Copied</span>
+        <div class="spell-level-choices">
+          <div class="feature-choice">
+            <span>{% for entry, warnings in copied %}<strong title="{{ entry.spell.detail }}">{{ entry.spell.name }}</strong>
+              {%- if entry.source_note %} <span class="muted">({{ entry.source_note }})</span>{% endif %}
+              {%- for w in warnings %} <span class="spell-tag warning">{{ w }}</span>{% endfor %}
+              {{- ", " if not loop.last }}{% endfor %}</span>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </details>
+</li>
+{% endmacro %}
+
 {% block content %}
 <div id="character-page" data-collapse-scope="build-{{ character.id }}">
 <div class="page-header">
@@ -94,94 +166,31 @@
 {% endcall %}
 {% endif %}
 
-{#- Each source (species, class, subclass) collapses, and so does each feature: closed, a feature
-    shows its name and what was picked for it; open, its summary, full text and Change buttons. -#}
+{#- Each source (species, background, class, subclass) collapses, and so does each feature. A
+    background's origin feat is a titled section inside the background's group. -#}
 {% call section("features", "Traits & features", feature_groups | map(attribute="name") | join(" · ")) %}
-  {% if character.background %}
-  <div class="section-actions">
-    <button type="button" class="link-button" hx-get="/characters/{{ character.id }}/background"
-            hx-target="#background-slot">Change background</button>
-  </div>
-  <div id="background-slot"></div>
-  {% endif %}
   {% for group in feature_groups %}
   <details class="feature-group" data-collapse="group-{{ group.name | lower | replace(" ", "-") }}" open>
     <summary>
       <span class="feature-group-name">{{ group.name }}</span>
-      <span class="muted">{{ group.features | length }} feature{{ "s" if group.features | length != 1 }}</span>
+      <span class="muted">{{ group.kind }} · {{ group.features | length }} feature{{ "s" if group.features | length != 1 }}</span>
+      {#- In the summary so it's there while the group is collapsed; data-summary-action makes
+          clicking it open the group (to show the form) instead of toggling it. -#}
+      {% if group.change_url %}
+      <button type="button" class="link-button" data-summary-action
+              hx-get="{{ group.change_url }}" hx-target="#group-slot-{{ loop.index }}">Change</button>
+      {% endif %}
     </summary>
+    <div id="group-slot-{{ loop.index }}"></div>
     {% if group.features %}
+    {% for section in group.sections if section.features %}
+    {% if section.title %}<h3 class="group-title feature-section-title">{{ section.title }}</h3>{% endif %}
     <ul class="plain-list feature-list">
-      {% for fv in group.features %}
-      {% set picks = fv.choices | selectattr("done") | rejectattr("choice.kind", "in", ["spell", "spellbook"])
-                     | map(attribute="picked") | sum(start=[]) | map(attribute="name") | list %}
-      {% set spell_count = fv.choices | selectattr("done") | selectattr("choice.kind", "in", ["spell", "spellbook"])
-                           | map(attribute="picked") | sum(start=[]) | length %}
-      <li>
-        <details class="feature" data-collapse="feature-{{ fv.feature.id }}">
-          <summary>
-            <span class="feature-name">{{ fv.feature.name }}</span>
-            {% if fv.feature.level > 1 %}<span class="feature-level">Level {{ fv.feature.level }}</span>{% endif %}
-            {% if picks %}<span class="feature-picks">{{ picks | join(", ") }}</span>{% endif %}
-            {% if spell_count %}<span class="feature-picks">{{ spell_count }} spells chosen</span>{% endif %}
-            {% if fv.choices | rejectattr("done") | list %}<span class="spell-tag ritual">To choose</span>{% endif %}
-          </summary>
-          <div class="feature-body">
-            <span class="muted">{{ fv.feature.summary }}</span>
-            {% if fv.feature.description %}
-            <details class="feature-text">
-              <summary>Full text</summary>
-              <p>{{ fv.feature.description }}</p>
-            </details>
-            {% endif %}
-            {% for cv in fv.choices if cv.done and cv.choice.kind not in ("spell", "spellbook") %}
-            <div class="feature-choice" id="choice-{{ cv.choice.id }}">
-              <span>{{ cv.choice.name }}: <strong>{{ cv.picked | map(attribute="name") | join(", ") }}</strong></span>
-              {% if cv.choice.in_play %}
-              <span class="muted">· changed on the Play sheet</span>
-              {% else %}
-              {{ choose_button(cv.choice, "Change") }}
-              {% endif %}
-              {% if cv.choice.kind in ("option", "subclass") %}
-              <span class="muted feature-choice-summary">{{ cv.picked[0].summary }}</span>
-              {% endif %}
-            </div>
-            {% endfor %}
-            {#- Spells by the level they were chosen at: how the character was built. -#}
-            {% set spell_choices = fv.choices | selectattr("done") | selectattr("choice.kind", "in", ["spell", "spellbook"]) | list %}
-            {% set has_book = fv.feature.id == copied_under %}
-            {% if spell_choices or (has_book and copied) %}
-            <div class="spell-levels">
-              {% for level, by_level in spell_choices | groupby("level") %}
-              <span class="spell-level-label">Level {{ level }}</span>
-              <div class="spell-level-choices">
-                {% for cv in by_level %}
-                <div class="feature-choice" id="choice-{{ cv.choice.id }}">
-                  <span>{{ cv.choice.name }}:
-                    {% for o in cv.picked %}<strong title="{{ o.detail }}">{{ o.name }}</strong>{{ ", " if not loop.last }}{% endfor %}</span>
-                  {{ choose_button(cv.choice, "Change") }}
-                </div>
-                {% endfor %}
-              </div>
-              {% endfor %}
-              {% if has_book and copied %}
-              <span class="spell-level-label">Copied</span>
-              <div class="spell-level-choices">
-                <div class="feature-choice">
-                  <span>{% for entry, warnings in copied %}<strong title="{{ entry.spell.detail }}">{{ entry.spell.name }}</strong>
-                    {%- if entry.source_note %} <span class="muted">({{ entry.source_note }})</span>{% endif %}
-                    {%- for w in warnings %} <span class="spell-tag warning">{{ w }}</span>{% endfor %}
-                    {{- ", " if not loop.last }}{% endfor %}</span>
-                </div>
-              </div>
-              {% endif %}
-            </div>
-            {% endif %}
-          </div>
-        </details>
-      </li>
+      {% for fv in section.features %}
+      {{ feature_item(fv) }}
       {% endfor %}
     </ul>
+    {% endfor %}
     {% else %}
     <p class="muted">{{ group.name }} options aren't available yet.</p>
     {% endif %}

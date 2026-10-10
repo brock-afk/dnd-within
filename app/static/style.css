@@ -590,6 +590,10 @@ details[open] > .section-summary .section-digest { display: none; }
 .feature-group-name { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
 .feature-group > summary .muted { font-size: 0.85rem; }
 .feature-group .feature-list { gap: 0; margin-left: 1.1rem; }
+.feature-group > summary .link-button { font-size: 0.85rem; }
+.feature-group > summary + div:not(:empty) { margin: 0.25rem 0 0.5rem 1.1rem; }  /* Change form */
+/* A section that comes with the group, like a background's origin feat. */
+.feature-section-title { margin: 0.75rem 0 0.1rem 1.1rem; }
 .feature-list > li { border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
 .feature-list > li:last-child { border-bottom: 0; }
 .feature > summary {

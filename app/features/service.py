@@ -34,12 +34,28 @@ class FeatureView:
 
 
 @dataclass
+class FeatureSection:
+    """Part of a group: its own features (no title), or features that come with it, like a
+    background's origin feat ("Origin feat · Familiar Friend")."""
+
+    title: str
+    features: list[FeatureView]
+
+
+@dataclass
 class FeatureGroup:
-    """Features from one source: the species, background, origin feat, or one of the
-    character's classes or subclasses."""
+    """Features from one source: the species, the background (with its origin feat), or one
+    of the character's classes or subclasses."""
 
     name: str
-    features: list[FeatureView]
+    kind: str  # what the name is: "Species", "Background", "Class", "Wizard subclass"
+    sections: list[FeatureSection]
+    change_url: str = ""  # the form for picking a different one, shown by the group's name
+
+    @property
+    def features(self) -> list[FeatureView]:
+        """Every feature in the group, across its sections."""
+        return [fv for section in self.sections for fv in section.features]
 
 
 def _applies(applies_to: str, cc: CharacterClassLevel) -> bool:
@@ -92,15 +108,27 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
         ).all()
         return _views(db, character, features, character.level)
 
+    species = by_character_level(Feature.species_id, character.species_id)
     groups = [
-        FeatureGroup(character.species.name, by_character_level(Feature.species_id, character.species_id))
+        FeatureGroup(
+            character.species.name,
+            "Species",
+            [FeatureSection("", species)],
+            f"/characters/{character.id}/species",
+        )
     ]
     if background := character.background:
+        sections = [
+            FeatureSection("", by_character_level(Feature.background_id, background.id)),
+            FeatureSection(
+                f"Origin feat · {background.feat.name}",
+                by_character_level(Feature.feat_id, background.feat_id),
+            ),
+        ]
         groups.append(
-            FeatureGroup(background.name, by_character_level(Feature.background_id, background.id))
-        )
-        groups.append(
-            FeatureGroup(background.feat.name, by_character_level(Feature.feat_id, background.feat_id))
+            FeatureGroup(
+                background.name, "Background", sections, f"/characters/{character.id}/background"
+            )
         )
 
     for cc in character.classes:
@@ -112,11 +140,14 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
             .order_by(Feature.position)
         ).all()
         applicable = [f for f in class_features if _applies(f.applies_to, cc)]
+        views = _views(db, character, applicable, cc.level, cc.character_class.name)
         groups.append(
-            FeatureGroup(
-                cc.character_class.name,
-                _views(db, character, applicable, cc.level, cc.character_class.name),
-            )
+            FeatureGroup(cc.character_class.name, "Class", [FeatureSection("", views)])
+        )
+        # The subclass group is changed through this class's subclass choice.
+        subclass_choice = next(
+            (cv.choice for fv in views for cv in fv.choices if cv.choice.kind == "subclass"),
+            None,
         )
 
         if cc.subclass_id is not None:
@@ -133,7 +164,13 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
             views = _views(
                 db, character, subclass_features, cc.level, cc.character_class.name
             )
-            groups.append(FeatureGroup(name, views))
+            kind = f"{cc.character_class.name} subclass"
+            url = (
+                f"/characters/{character.id}/choices/{subclass_choice.id}"
+                if subclass_choice
+                else ""
+            )
+            groups.append(FeatureGroup(name, kind, [FeatureSection("", views)], url))
     return groups
 
 

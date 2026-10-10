@@ -2,7 +2,7 @@
    character, given a data-collapse-scope around it). While collapsed, `digest` is shown next to
    the title, so hiding a section doesn't hide its key numbers, e.g. "Spells · 6/6 prepared".
    The body is the `{% call %}` block. Actions like "Change" go in the body: buttons inside a
-   <summary> would toggle it. #}
+   <summary> would toggle it, unless marked data-summary-action (see static/collapse.js). #}
 {% macro section(name, title, digest="", open=true, classes="") -%}
 <details class="sheet-section{% if classes %} {{ classes }}{% endif %}" data-collapse="{{ name }}"
          id="section-{{ name }}"{% if open %} open{% endif %}>

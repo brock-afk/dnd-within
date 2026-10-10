@@ -12,9 +12,11 @@
    With `slots` ({level: SlotLevel}) and `cast_url`, slot spells get a Cast menu. With
    `free_cast_url` and `free_uses` ({feature id: FeatureUses}), free_cast spells also offer a
    free cast that spends a use of their feature.
-   `warnings` ({spell id: [text]}) and `notes` ({spell id: text}) add rule markers and notes. #}
+   `warnings` ({spell id: [text]}) and `notes` ({spell id: text}) add rule markers and notes.
+   `compact` shows each spell as one line (name, tags, Cast) that expands to its details, and
+   starts a Rituals section closed when none of its spells are prepared. #}
 {% macro spell_groups(rows, scope, slots=none, cast_url="", warnings={}, notes={},
-                      free_cast_url="", free_uses={}) %}
+                      free_cast_url="", free_uses={}, compact=false) %}
 {% set ns = namespace(pairs=[], labels=[]) %}
 {% for row in rows %}
   {% set label = row.group if row.group is defined
@@ -27,7 +29,10 @@
   {{ filter_bar(rows | map(attribute="spell.school") | unique | sort | list) }}
   {% for label in ns.labels %}
   {% set in_group = ns.pairs | selectattr(0, "equalto", label) | map(attribute=1) | list %}
-  <details class="choice-group" data-filter-group="{{ label }}" open>
+  {% set unprepared_rituals = in_group | selectattr("in_ritual_section", "defined") | selectattr("in_ritual_section")
+                             | rejectattr("prepared") | list %}
+  {% set starts_closed = compact and unprepared_rituals | length == in_group | length %}
+  <details class="choice-group" data-filter-group="{{ label }}" {% if not starts_closed %}open{% endif %}>
     <summary>
       <span class="choice-group-name">{{ label }}</span>
       <span class="muted">{{ in_group | length }} {{ "spell" if in_group | length == 1 else "spells" }}</span>
@@ -36,8 +41,8 @@
       {% for row in in_group %}
       {% set spell = row.spell %}
       {% set as_ritual = row.in_ritual_section is defined and row.in_ritual_section %}
-      <li {{ filter_attrs(spell.name, spell.school, spell.ritual) }}>
-        <span class="spell-name-line">
+      <li {{ filter_attrs(spell.name, spell.school, spell.ritual) }}{% if compact %} class="spell-row"{% endif %}>
+        {% if compact %}<details class="spell-details"><summary class="spell-name-line">{% else %}<span class="spell-name-line">{% endif %}
           <span class="feature-name">{{ spell.name }}</span>
           {% if as_ritual %}
             <span class="muted spell-level-note">Level {{ spell.level }}</span>
@@ -52,20 +57,27 @@
           {% if row.granted_by is defined and row.granted_by %}<span class="spell-tag" title="From {{ row.granted_by.name }}">Always prepared</span>{% endif %}
           {% if spell.concentration %}<span class="spell-tag">Concentration</span>{% endif %}
           {% for w in warnings.get(spell.id, []) %}<span class="spell-tag warning">{{ w }}</span>{% endfor %}
-          {% if slots is not none and row.uses_slots is defined and row.uses_slots %}
-            {{ _cast_menu(row, slots, cast_url, free_cast_url, free_uses) }}
-          {% endif %}
-        </span>
+          {% if not compact %}{{ _cast(row, slots, cast_url, free_cast_url, free_uses) }}{% endif %}
+        {% if compact %}</summary><div class="spell-more">{% else %}</span>{% endif %}
         <span class="choice-detail">{{ spell.stat_line }}</span>
         {% if notes.get(spell.id) %}<span class="muted spell-note">{{ notes[spell.id] }}</span>{% endif %}
         {% if row.note is defined and row.note %}<span class="muted spell-note">{{ row.granted_by.name }} · {{ row.note }}</span>{% endif %}
         <span class="muted">{{ spell.summary }}</span>
+        {% if compact %}</div></details>
+        {#- Beside the row, not in its summary, so casting doesn't expand it. -#}
+        {{ _cast(row, slots, cast_url, free_cast_url, free_uses) }}{% endif %}
       </li>
       {% endfor %}
     </ul>
   </details>
   {% endfor %}
 </div>
+{% endmacro %}
+
+{% macro _cast(row, slots, cast_url, free_cast_url, free_uses) %}
+{% if slots is not none and row.uses_slots is defined and row.uses_slots %}
+  {{ _cast_menu(row, slots, cast_url, free_cast_url, free_uses) }}
+{% endif %}
 {% endmacro %}
 
 {# A dropdown of the slot levels this spell can be cast with (its level or higher, with a slot

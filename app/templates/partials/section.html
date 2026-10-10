@@ -1,0 +1,17 @@
+{# A collapsible page section (static/collapse.js remembers whether it's open, per page and
+   character, given a data-collapse-scope around it). While collapsed, `digest` is shown next to
+   the title, so hiding a section doesn't hide its key numbers, e.g. "Spells · 6/6 prepared".
+   The body is the `{% call %}` block. Actions like "Change" go in the body: buttons inside a
+   <summary> would toggle it. #}
+{% macro section(name, title, digest="", open=true, classes="") -%}
+<details class="sheet-section{% if classes %} {{ classes }}{% endif %}" data-collapse="{{ name }}"
+         id="section-{{ name }}"{% if open %} open{% endif %}>
+  <summary class="section-summary">
+    <h2>{{ title }}</h2>
+    {%- if digest %}<span class="section-digest">{{ digest }}</span>{% endif %}
+  </summary>
+  <div class="section-body">
+    {{ caller() }}
+  </div>
+</details>
+{%- endmacro %}

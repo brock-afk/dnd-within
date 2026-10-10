@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ character.name }} · Play · DnD Within{% endblock %}
+{% block body_class %}wide{% endblock %}
 {% from "partials/page_tabs.html" import page_tabs %}
 {% from "partials/dice.html" import roll_button %}
 {% macro signed(n) %}{{ "+" if n >= 0 else "−" }}{{ n | abs }}{% endmacro %}
@@ -8,6 +9,7 @@
 {%- endmacro %}
 
 {% from "partials/spell_list.html" import spell_groups %}
+{% from "partials/section.html" import section %}
 
 {#- An in-play choice's dropdown (Choice.in_play). Changing it saves; the empty entry clears it. -#}
 {% macro play_choice_select(pc, empty_label, form_class="") %}
@@ -23,7 +25,7 @@
 {% endmacro %}
 
 {% block content %}
-<div id="sheet-page">
+<div id="sheet-page" data-collapse-scope="play-{{ character.id }}">
 <div class="page-header">
   <div>
     <h1>{{ character.name }}</h1>
@@ -32,13 +34,36 @@
   <a href="/characters">All characters</a>
 </div>
 {{ page_tabs(character, "play") }}
-{% include "sheet/partials/rest_bar.html" %}
+
+{#- Pinned while scrolling: the numbers needed at any moment, and the rests. -#}
+<div class="vitals-bar">
+  <div class="vitals">
+    {% if hp is not none %}
+    <span class="vital" title="Hit points">
+      <span class="vital-label">HP</span> <strong>{{ hp.current }}</strong><span class="muted">/{{ hp.maximum }}</span>
+      {%- if hp.temp %} <span class="vital-temp">+{{ hp.temp }}</span>{% endif %}
+    </span>
+    {% endif %}
+    {% if abilities %}
+    <span class="vital" title="Armor class"><span class="vital-label">AC</span> <strong>{{ ac.total }}</strong></span>
+    {% endif %}
+    {% for s in slots.values() %}
+    <span class="vital" title="Level {{ s.level }} spell slots: {{ s.remaining }} of {{ s.maximum }} left">
+      <span class="vital-label">L{{ s.level }}</span>
+      <span class="mini-pips" aria-hidden="true">{% for i in range(1, s.maximum + 1) %}<span class="mini-pip{% if i <= s.remaining %} filled{% endif %}"></span>{% endfor %}</span>
+      <span class="visually-hidden">{{ s.remaining }} of {{ s.maximum }}</span>
+    </span>
+    {% endfor %}
+  </div>
+  {% include "sheet/partials/rest_bar.html" %}
+</div>
+{% include "sheet/partials/short_rest_panel.html" %}
 
 {#- Like the Build page's "Choices to make": in-play choices not made yet. Once picked, they
     move to Resources. -#}
 {% set unchosen = play_choices | rejectattr("picked") | list %}
 {% if unchosen %}
-<section class="sheet-section">
+<section class="sheet-section pending-section">
   <h2>Choices to make</h2>
   <ul class="plain-list">
     {% for pc in unchosen %}
@@ -55,10 +80,123 @@
 </section>
 {% endif %}
 
+{#- One column on narrow screens, in order of use. From 1100px, two: the character on the left,
+    spells on the right. -#}
+<div class="sheet-columns">
+<div class="sheet-column">
+{#- HP, AC and abilities: the numbers looked at most in play. The modifiers and saves are roll
+    buttons (static/dice.js). -#}
+{% call section("combat", "Combat",
+                ("HP %d/%d" % (hp.current, hp.maximum) if hp is not none else "")
+                ~ (" · AC %d" % ac.total if abilities else "")) %}
+  <div class="hp-block">
+    {% if hp is none %}
+    <p class="muted">Set ability scores first: hit points depend on Constitution.
+      <a href="/characters/{{ character.id }}">Go to Build</a></p>
+    {% else %}
+    <div class="hp-display">
+      <span class="hp-current">{{ hp.current }}</span>
+      <span class="hp-max">/ {{ hp.maximum }}</span>
+      {% if hp.temp %}
+      <span class="hp-temp">+{{ hp.temp }} temp{% if hp.temp_source %} · {{ hp.temp_source }}{% endif %}</span>
+      {% endif %}
+    </div>
+    {% if hp.effects %}
+    <p class="muted hp-breakdown">
+      {{ hp.base }} base{% for e in hp.effects %} {{ signed(e.max_hp_delta) }} {{ e.label }}{% endfor %}
+    </p>
+    {% endif %}
+
+    <form hx-post="/characters/{{ character.id }}/sheet/hp" novalidate class="hp-form">
+      <label for="hp-amount" class="visually-hidden">Amount</label>
+      <input id="hp-amount" name="amount" type="text" inputmode="numeric" maxlength="3" placeholder="Amount"
+             {% if errors.hp %}aria-invalid="true"{% endif %}>
+      <button type="submit" name="action" value="damage" class="danger-button">Damage</button>
+      <button type="submit" name="action" value="heal">Heal</button>
+    </form>
+    {% if errors.hp %}<p class="error" role="alert">{{ errors.hp }}</p>{% endif %}
+
+    {% if pending_damage is not none %}
+    <div class="damage-prompt card" role="group" aria-labelledby="damage-prompt-title">
+      <h3 id="damage-prompt-title" class="section-title">Taking {{ pending_damage }} damage</h3>
+      {% for r, mod in reactions %}
+      <form hx-post="/characters/{{ character.id }}/sheet/hp/react" novalidate class="reaction-form">
+        <input type="hidden" name="amount" value="{{ pending_damage }}">
+        <input type="hidden" name="option_id" value="{{ r.option.id }}">
+        <p class="reaction-title"><strong>{{ r.option.name }}</strong>
+          <span class="muted">· {{ r.uses.remaining }} of {{ r.uses.maximum }} {{ r.uses.feature.name }} left</span></p>
+        {% if r.kind == "reduce" %}
+        <p class="muted">Reduce the damage by {{ r.dice }}{% if mod %} {{ signed(mod) }}{% endif %}.</p>
+        <div class="hp-form">
+          <label for="reaction-roll-{{ r.option.id }}">{{ r.dice }} roll</label>
+          <input id="reaction-roll-{{ r.option.id }}" name="roll" type="text" inputmode="numeric"
+                 maxlength="3" autocomplete="off">
+          {{ roll_button(r.dice, "reaction-roll-%d" % r.option.id) }}
+          <button type="submit">Use it</button>
+        </div>
+        {% else %}
+        <p class="muted">{{ r.option.summary }}</p>
+        <div class="hp-form">
+          {{ roll_button(r.dice) }}
+          <button type="submit">Use it and take {{ pending_damage }}</button>
+        </div>
+        {% endif %}
+      </form>
+      {% endfor %}
+      {% if errors.reaction %}<p class="error" role="alert">{{ errors.reaction }}</p>{% endif %}
+      <form hx-post="/characters/{{ character.id }}/sheet/hp" class="form-actions">
+        <input type="hidden" name="action" value="damage">
+        <input type="hidden" name="amount" value="{{ pending_damage }}">
+        <input type="hidden" name="skip_reactions" value="1">
+        <button type="submit" class="danger-button">Take all {{ pending_damage }}</button>
+      </form>
+    </div>
+    {% endif %}
+
+    {#- Rarely needed, so tucked away; open while there's something in it to end, or an error. -#}
+    <details class="hp-extras" {% if hp.effects or errors.temp_hp or errors.effect %}open{% endif %}>
+    <summary>Temp HP &amp; max HP effects</summary>
+    <form hx-post="/characters/{{ character.id }}/sheet/temp-hp" novalidate class="hp-form">
+      <label for="temp-amount">Temp HP</label>
+      <input id="temp-amount" name="amount" type="text" inputmode="numeric" maxlength="3"
+             value="{{ hp.temp }}" {% if errors.temp_hp %}aria-invalid="true"{% endif %}>
+      <input name="source" type="text" maxlength="80" placeholder="Source (optional)" aria-label="Temp HP source"
+             value="{{ hp.temp_source or '' }}">
+      <button type="submit" class="secondary-button">Set</button>
+    </form>
+    {% if errors.temp_hp %}<p class="error" role="alert">{{ errors.temp_hp }}</p>{% endif %}
+
+    <div class="hp-effects">
+      <h3 class="group-title">Max HP effects</h3>
+      {% if hp.effects %}
+      <ul class="plain-list">
+        {% for e in hp.effects %}
+        <li class="hp-effect">
+          <span><strong>{{ e.label }}</strong> <span class="muted">{{ signed(e.max_hp_delta) }} max HP</span></span>
+          <button type="button" class="link-button"
+                  hx-post="/characters/{{ character.id }}/sheet/hp-effects/{{ e.id }}/end">End</button>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <details class="add-effect" {% if errors.effect %}open{% endif %}>
+        <summary>Add effect</summary>
+        <form hx-post="/characters/{{ character.id }}/sheet/hp-effects" novalidate class="hp-form">
+          <input name="label" type="text" maxlength="80" placeholder="Name, e.g. Aid" aria-label="Effect name">
+          <input name="delta" type="text" inputmode="numeric" maxlength="4" placeholder="+5 or −4"
+                 aria-label="Change to max HP" class="delta-input">
+          <button type="submit" class="secondary-button">Add</button>
+        </form>
+        {% if errors.effect %}<p class="error" role="alert">{{ errors.effect }}</p>{% endif %}
+      </details>
+    </div>
+    </details>
+    {% endif %}
+  </div>
 {% if abilities %}
 {#- AC and abilities: the numbers looked at most in play. The modifiers and saves are roll
     buttons (static/dice.js). -#}
-<section class="sheet-section stats-block">
+<div class="stats-block">
   <div class="card ac-block">
     <span class="group-title">Armor class</span>
     <span class="ac-total">{{ ac.total }}</span>
@@ -142,159 +280,16 @@
     </li>
     {% endfor %}
   </ul>
-</section>
+</div>
 {% endif %}
-
-{% if skills %}
-{#- Each skill's bonus is a roll button: ● proficient, ◆ Expertise (proficiency bonus doubled). -#}
-<section class="sheet-section">
-  <h2>Skills</h2>
-  <ul class="skill-list">
-    {% for row in skills %}
-    {% set label = "Expertise (%s)" % row.expertise_source if row.expertise else ("Proficient" if row.proficient else "") %}
-    <li class="{% if row.proficient %}proficient{% endif %}">
-      <button type="button" class="roll-number skill-roll" data-roll="1d20{{ '%+d' | format(row.bonus) }}"
-              title="Roll {{ row.skill.name }}{% if label %} · {{ label }}{% endif %}"
-              aria-label="Roll {{ row.skill.name }}{% if label %}, {{ label }}{% endif %}">
-        <span class="skill-mark" aria-hidden="true">{{ "◆" if row.expertise else ("●" if row.proficient else "") }}</span>
-        <span class="skill-name">{{ row.skill.name }} <span class="muted">{{ row.skill.ability }}</span></span>
-        <span class="skill-bonus">{{ signed(row.bonus) }}</span>
-      </button>
-      <span class="roll-result muted" aria-live="polite"></span>
-    </li>
-    {% endfor %}
-  </ul>
-</section>
-{% endif %}
-
-{#- Passive data: what the character is, each part with where it comes from. Spells and
-    Resources (below) are the active side: what they do. -#}
-<section class="sheet-section">
-  <h2>Attributes</h2>
-  <dl class="attributes">
-    {% if attributes.saves %}
-    <dt>Saving throws</dt>
-    <dd>{% for names, source in attributes.save_groups %}<span>{{ names | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
-    {% endif %}
-    <dt>Speed</dt>
-    <dd><span>{{ attributes.speed }} ft{% if attributes.speed_parts | length > 1 %} <span class="muted">· {{ attributes.speed_parts | join(", ") }}</span>{% else %} <span class="muted">· {{ character.species.name }}</span>{% endif %}</span></dd>
-    {% if attributes.darkvision %}
-    <dt>Darkvision</dt>
-    <dd><span>{{ attributes.darkvision }} ft <span class="muted">· {{ attributes.darkvision_sources | join(", ") }}</span></span></dd>
-    {% endif %}
-    {% if attributes.resistances %}
-    <dt>Resistances</dt>
-    <dd>{% for types, source in attributes.resistance_groups %}<span>{{ types | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
-    {% endif %}
-  </dl>
-</section>
-
-<section class="sheet-section hp-block">
-  <h2>Hit points</h2>
-  {% if hp is none %}
-  <p class="muted">Set ability scores first: hit points depend on Constitution.
-    <a href="/characters/{{ character.id }}">Go to Build</a></p>
-  {% else %}
-  <div class="hp-display">
-    <span class="hp-current">{{ hp.current }}</span>
-    <span class="hp-max">/ {{ hp.maximum }}</span>
-    {% if hp.temp %}
-    <span class="hp-temp">+{{ hp.temp }} temp{% if hp.temp_source %} · {{ hp.temp_source }}{% endif %}</span>
-    {% endif %}
-  </div>
-  {% if hp.effects %}
-  <p class="muted hp-breakdown">
-    {{ hp.base }} base{% for e in hp.effects %} {{ signed(e.max_hp_delta) }} {{ e.label }}{% endfor %}
-  </p>
-  {% endif %}
-
-  <form hx-post="/characters/{{ character.id }}/sheet/hp" novalidate class="hp-form">
-    <label for="hp-amount" class="visually-hidden">Amount</label>
-    <input id="hp-amount" name="amount" type="text" inputmode="numeric" maxlength="3" placeholder="Amount"
-           {% if errors.hp %}aria-invalid="true"{% endif %}>
-    <button type="submit" name="action" value="damage" class="danger-button">Damage</button>
-    <button type="submit" name="action" value="heal">Heal</button>
-  </form>
-  {% if errors.hp %}<p class="error" role="alert">{{ errors.hp }}</p>{% endif %}
-
-  {% if pending_damage is not none %}
-  <div class="damage-prompt card" role="group" aria-labelledby="damage-prompt-title">
-    <h3 id="damage-prompt-title" class="section-title">Taking {{ pending_damage }} damage</h3>
-    {% for r, mod in reactions %}
-    <form hx-post="/characters/{{ character.id }}/sheet/hp/react" novalidate class="reaction-form">
-      <input type="hidden" name="amount" value="{{ pending_damage }}">
-      <input type="hidden" name="option_id" value="{{ r.option.id }}">
-      <p class="reaction-title"><strong>{{ r.option.name }}</strong>
-        <span class="muted">· {{ r.uses.remaining }} of {{ r.uses.maximum }} {{ r.uses.feature.name }} left</span></p>
-      {% if r.kind == "reduce" %}
-      <p class="muted">Reduce the damage by {{ r.dice }}{% if mod %} {{ signed(mod) }}{% endif %}.</p>
-      <div class="hp-form">
-        <label for="reaction-roll-{{ r.option.id }}">{{ r.dice }} roll</label>
-        <input id="reaction-roll-{{ r.option.id }}" name="roll" type="text" inputmode="numeric"
-               maxlength="3" autocomplete="off">
-        {{ roll_button(r.dice, "reaction-roll-%d" % r.option.id) }}
-        <button type="submit">Use it</button>
-      </div>
-      {% else %}
-      <p class="muted">{{ r.option.summary }}</p>
-      <div class="hp-form">
-        {{ roll_button(r.dice) }}
-        <button type="submit">Use it and take {{ pending_damage }}</button>
-      </div>
-      {% endif %}
-    </form>
-    {% endfor %}
-    {% if errors.reaction %}<p class="error" role="alert">{{ errors.reaction }}</p>{% endif %}
-    <form hx-post="/characters/{{ character.id }}/sheet/hp" class="form-actions">
-      <input type="hidden" name="action" value="damage">
-      <input type="hidden" name="amount" value="{{ pending_damage }}">
-      <input type="hidden" name="skip_reactions" value="1">
-      <button type="submit" class="danger-button">Take all {{ pending_damage }}</button>
-    </form>
-  </div>
-  {% endif %}
-
-  <form hx-post="/characters/{{ character.id }}/sheet/temp-hp" novalidate class="hp-form">
-    <label for="temp-amount">Temp HP</label>
-    <input id="temp-amount" name="amount" type="text" inputmode="numeric" maxlength="3"
-           value="{{ hp.temp }}" {% if errors.temp_hp %}aria-invalid="true"{% endif %}>
-    <input name="source" type="text" maxlength="80" placeholder="Source (optional)" aria-label="Temp HP source"
-           value="{{ hp.temp_source or '' }}">
-    <button type="submit" class="secondary-button">Set</button>
-  </form>
-  {% if errors.temp_hp %}<p class="error" role="alert">{{ errors.temp_hp }}</p>{% endif %}
-
-  <div class="hp-effects">
-    <h3 class="group-title">Max HP effects</h3>
-    {% if hp.effects %}
-    <ul class="plain-list">
-      {% for e in hp.effects %}
-      <li class="hp-effect">
-        <span><strong>{{ e.label }}</strong> <span class="muted">{{ signed(e.max_hp_delta) }} max HP</span></span>
-        <button type="button" class="link-button"
-                hx-post="/characters/{{ character.id }}/sheet/hp-effects/{{ e.id }}/end">End</button>
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-    <details class="add-effect" {% if errors.effect %}open{% endif %}>
-      <summary>Add effect</summary>
-      <form hx-post="/characters/{{ character.id }}/sheet/hp-effects" novalidate class="hp-form">
-        <input name="label" type="text" maxlength="80" placeholder="Name, e.g. Aid" aria-label="Effect name">
-        <input name="delta" type="text" inputmode="numeric" maxlength="4" placeholder="+5 or −4"
-               aria-label="Change to max HP" class="delta-input">
-        <button type="submit" class="secondary-button">Add</button>
-      </form>
-      {% if errors.effect %}<p class="error" role="alert">{{ errors.effect }}</p>{% endif %}
-    </details>
-  </div>
-  {% endif %}
-</section>
+{% endcall %}
 
 {% set chosen = play_choices | selectattr("picked") | list %}
 {% if resources or chosen %}
-<section class="sheet-section">
-  <h2>Resources</h2>
+{% set resources_digest %}
+{%- for r in resources %}{{ r.feature.name }} {{ r.remaining }}/{{ r.maximum }}{{ " · " if not loop.last }}{% endfor -%}
+{% endset %}
+{% call section("resources", "Resources", resources_digest | trim) %}
   {#- Choices that change during play, like the Transmuter's Stone benefit. Picking saves. -#}
   {% for pc in chosen %}
   <div class="resource">
@@ -326,18 +321,90 @@
   {% endfor %}
   {% if errors.uses %}<p class="error" role="alert">{{ errors.uses }}</p>{% endif %}
   {% if errors.play_choice and not unchosen %}<p class="error" role="alert">{{ errors.play_choice }}</p>{% endif %}
-</section>
+{% endcall %}
 {% endif %}
 
+{% if skills %}
+{% set skills_digest %}{% for row in skills if row.proficient %}{{ row.skill.name }} {{ signed(row.bonus) }}{{ " · " if not loop.last }}{% endfor %}{% endset %}
+{% call section("skills", "Skills", skills_digest, classes="order-late") %}
+  {#- Each skill's bonus is a roll button: ● proficient, ◆ Expertise (proficiency bonus doubled). -#}
+  <ul class="skill-list">
+    {% for row in skills %}
+    {% set label = "Expertise (%s)" % row.expertise_source if row.expertise else ("Proficient" if row.proficient else "") %}
+    <li class="{% if row.proficient %}proficient{% endif %}">
+      <button type="button" class="roll-number skill-roll" data-roll="1d20{{ '%+d' | format(row.bonus) }}"
+              title="Roll {{ row.skill.name }}{% if label %} · {{ label }}{% endif %}"
+              aria-label="Roll {{ row.skill.name }}{% if label %}, {{ label }}{% endif %}">
+        <span class="skill-mark" aria-hidden="true">{{ "◆" if row.expertise else ("●" if row.proficient else "") }}</span>
+        <span class="skill-name">{{ row.skill.name }} <span class="muted">{{ row.skill.ability }}</span></span>
+        <span class="skill-bonus">{{ signed(row.bonus) }}</span>
+      </button>
+      <span class="roll-result muted" aria-live="polite"></span>
+    </li>
+    {% endfor %}
+  </ul>
+{% endcall %}
+{% endif %}
+
+{#- Passive data: what the character is, each part with where it comes from. -#}
+{% call section("attributes", "Attributes",
+                "Speed %d ft" % attributes.speed ~ (" · Darkvision %d ft" % attributes.darkvision if attributes.darkvision else ""),
+                classes="order-late") %}
+  <dl class="attributes">
+    {% if attributes.saves %}
+    <dt>Saving throws</dt>
+    <dd>{% for names, source in attributes.save_groups %}<span>{{ names | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
+    {% endif %}
+    <dt>Speed</dt>
+    <dd><span>{{ attributes.speed }} ft{% if attributes.speed_parts | length > 1 %} <span class="muted">· {{ attributes.speed_parts | join(", ") }}</span>{% else %} <span class="muted">· {{ character.species.name }}</span>{% endif %}</span></dd>
+    {% if attributes.darkvision %}
+    <dt>Darkvision</dt>
+    <dd><span>{{ attributes.darkvision }} ft <span class="muted">· {{ attributes.darkvision_sources | join(", ") }}</span></span></dd>
+    {% endif %}
+    {% if attributes.resistances %}
+    <dt>Resistances</dt>
+    <dd>{% for types, source in attributes.resistance_groups %}<span>{{ types | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
+    {% endif %}
+  </dl>
+{% endcall %}
+</div>
+
+<div class="sheet-column">
 {% if castable or has_spellbook or prepared_limit is not none %}
-<section class="sheet-section">
-  <div class="section-heading">
-    <h2>Spells</h2>
-    {% if prepared_limit is not none and not copying %}
+{% set spells_digest %}
+{%- if prepared_limit is not none %}{{ prepared_count }}/{{ prepared_limit }} prepared · {% endif -%}
+{%- for s in slots.values() %}L{{ s.level }} {{ s.remaining }}/{{ s.maximum }} · {% endfor -%}
+{% endset %}
+{% call section("spells", "Spells", spells_digest | trim(" ·")) %}
+  {% if prepared_limit is not none and not copying %}
+  <div class="section-actions">
     <button type="button" class="link-button"
             hx-get="/characters/{{ character.id }}/sheet/spellbook/copy">Copy a spell</button>
-    {% endif %}
   </div>
+  {% endif %}
+  {% if slots %}
+  <div class="slot-tracker">
+    <h3 class="group-title">Spell slots</h3>
+    {% for s in slots.values() %}
+    <div class="slot-row">
+      <span class="slot-label">Level {{ s.level }}</span>
+      <span class="slot-pips">
+        {% for i in range(1, s.maximum + 1) %}
+        {# Filled = available. Clicking sets how many remain; the last filled pip spends one. #}
+        {% set target = i - 1 if i == s.remaining else i %}
+        <button type="button" class="pip{% if i <= s.remaining %} filled{% endif %}"
+                hx-post="/characters/{{ character.id }}/sheet/slots/{{ s.level }}"
+                hx-vals='{"remaining": "{{ target }}"}'
+                aria-label="Set level {{ s.level }} slots remaining to {{ target }}"
+                title="{{ target }} left"></button>
+        {% endfor %}
+      </span>
+      <span class="muted">{{ s.remaining }} of {{ s.maximum }}</span>
+    </div>
+    {% endfor %}
+    {% if errors.slots %}<p class="error" role="alert">{{ errors.slots }}</p>{% endif %}
+  </div>
+  {% endif %}
   {% if copying %}{% include "sheet/partials/copy_panel.html" %}{% endif %}
   <div id="prepared-section">
     {% if prepared_limit is not none %}
@@ -350,40 +417,19 @@
       {% endif %}
     </div>
     {% endif %}
-    {% if slots %}
-    <div class="slot-tracker">
-      <span class="group-title">Spell slots</span>
-      {% for s in slots.values() %}
-      <div class="slot-row">
-        <span class="slot-label">Level {{ s.level }}</span>
-        <span class="slot-pips">
-          {% for i in range(1, s.maximum + 1) %}
-          {# Filled = available. Clicking sets how many remain; the last filled pip spends one. #}
-          {% set target = i - 1 if i == s.remaining else i %}
-          <button type="button" class="pip{% if i <= s.remaining %} filled{% endif %}"
-                  hx-post="/characters/{{ character.id }}/sheet/slots/{{ s.level }}"
-                  hx-vals='{"remaining": "{{ target }}"}'
-                  aria-label="Set level {{ s.level }} slots remaining to {{ target }}"
-                  title="{{ target }} left"></button>
-          {% endfor %}
-        </span>
-        <span class="muted">{{ s.remaining }} of {{ s.maximum }}</span>
-      </div>
-      {% endfor %}
-      {% if errors.slots %}<p class="error" role="alert">{{ errors.slots }}</p>{% endif %}
-      {% if errors.cast %}<p class="error" role="alert">{{ errors.cast }}</p>{% endif %}
-    </div>
-    {% endif %}
+    {% if errors.cast %}<p class="error" role="alert">{{ errors.cast }}</p>{% endif %}
     {% if castable %}
     {{ spell_groups(castable, "sheet-spells", slots=slots,
                    cast_url="/characters/%d/sheet/cast" % character.id, warnings=spell_warnings,
                    notes=spell_notes, free_cast_url="/characters/%d/sheet/cast-free" % character.id,
-                   free_uses=free_uses) }}
+                   free_uses=free_uses, compact=true) }}
     {% else %}
     <p class="muted">No spells prepared yet.</p>
     {% endif %}
   </div>
-</section>
+{% endcall %}
 {% endif %}
+</div>
+</div>
 </div>
 {% endblock %}

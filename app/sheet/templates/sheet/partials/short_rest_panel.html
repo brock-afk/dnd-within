@@ -1,0 +1,66 @@
+{# The Short rest panel: every short-rest action (hit dice, Arcane Recovery...), shown while
+   resting. #}
+{% from "partials/refresh.html" import refresh_button %}
+{% from "partials/dice.html" import roll_button %}
+{% if resting %}
+<section class="card short-rest-panel">
+  <div class="section-heading">
+    <h2>Short rest</h2>
+  </div>
+
+  {% for dice in hit_dice %}
+  <div class="rest-block">
+    <h3 class="group-title">Hit dice · {{ dice.character_class.name }}</h3>
+    <p><strong>{{ dice.available }}</strong> of {{ dice.total }} left (d{{ dice.die }})</p>
+    {% if dice.available %}
+    <form hx-post="/characters/{{ character.id }}/sheet/short-rest/hit-die" novalidate class="hp-form">
+      <input type="hidden" name="class_id" value="{{ dice.character_class.id }}">
+      <label for="hit-die-roll-{{ dice.character_class.id }}">d{{ dice.die }} roll</label>
+      <input id="hit-die-roll-{{ dice.character_class.id }}" name="roll" type="text" inputmode="numeric"
+             maxlength="2" autocomplete="off">
+      {{ roll_button("1d%d" % dice.die, "hit-die-roll-%d" % dice.character_class.id) }}
+      <button type="submit">Spend a hit die</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% if errors.hit_die %}<p class="error" role="alert">{{ errors.hit_die }}</p>{% endif %}
+
+  {% for uses, budget in recoveries %}
+  {% set max_level = uses.feature.slot_recovery.max_slot_level %}
+  {# Slot levels it can recover from: at or below its limit, with at least one slot spent. #}
+  {% set spent_slots = slots.values() | selectattr("level", "le", max_level)
+                       | selectattr("expended", "gt", 0) | list %}
+  <div class="rest-block">
+    <h3 class="group-title">{{ uses.feature.name }}</h3>
+    {% if uses.remaining == 0 %}
+    <p class="muted">Used. It comes back on a long rest.</p>
+    {% else %}
+    <p class="muted">Recover spent spell slots totaling up to <strong>{{ budget }}</strong>
+      slot level{{ "s" if budget != 1 }} (none above level {{ max_level }}). Once per long rest.</p>
+    {% if spent_slots %}
+    <form hx-post="/characters/{{ character.id }}/sheet/short-rest/recover/{{ uses.feature.id }}"
+          novalidate class="recovery-form">
+      {% for slot in spent_slots %}
+      <label class="recovery-row">
+        <span>Level {{ slot.level }} <span class="muted">({{ slot.maximum - slot.remaining }} spent)</span></span>
+        <input name="level_{{ slot.level }}" type="text" inputmode="numeric" maxlength="1"
+               placeholder="0" autocomplete="off">
+      </label>
+      {% endfor %}
+      <button type="submit">Recover slots</button>
+    </form>
+    {% else %}
+    <p class="muted">No spent slots to recover.</p>
+    {% endif %}
+    {% endif %}
+    {% if errors.recovery %}<p class="error" role="alert">{{ errors.recovery }}</p>{% endif %}
+  </div>
+  {% endfor %}
+
+  <div class="form-actions">
+    <button type="button" hx-post="/characters/{{ character.id }}/sheet/short-rest/finish">Finish short rest</button>
+    {{ refresh_button(character, page="play") }}
+  </div>
+</section>
+{% endif %}

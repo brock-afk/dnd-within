@@ -22,6 +22,8 @@ body {
 }
 
 main { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+/* The Play sheet uses the width for two columns. */
+body.wide main { max-width: 1240px; }
 
 /* Auth pages: a single card in the middle of the screen. */
 body.centered { display: grid; place-items: center; padding: 1rem; }
@@ -140,8 +142,26 @@ a { color: var(--accent); }
 /* Character page */
 .page-header .subtitle { margin: 0.25rem 0 0; }
 .sheet-section { margin-bottom: 2.25rem; }
-.sheet-section h2 { margin: 0 0 0.75rem; font-size: 1.2rem; }
-.group-title { margin: 1.25rem 0 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.sheet-section h2 { margin: 0 0 0.75rem; font-size: 1.25rem; }
+.group-title { margin: 1.25rem 0 0.5rem; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+
+/* Collapsible sections (partials/section.html, static/collapse.js): a ruled header with a
+   chevron; collapsed, it shows a one-line digest of what's inside. */
+details.sheet-section { margin-bottom: 0.5rem; border-top: 1px solid var(--border); scroll-margin-top: 7rem; }
+.section-summary {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem;
+  padding: 1rem 0 0.9rem; cursor: pointer; list-style: none; user-select: none;
+}
+.section-summary::-webkit-details-marker { display: none; }
+.section-summary::before { content: "▸"; align-self: center; color: var(--muted); transition: transform 0.15s; }
+details[open] > .section-summary::before { transform: rotate(90deg); }
+.section-summary h2 { margin: 0; }
+.section-summary:hover h2 { color: var(--accent); }
+.section-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.section-digest { color: var(--muted); font-size: 0.9rem; }
+details[open] > .section-summary .section-digest { display: none; }
+.section-body { padding-bottom: 1.5rem; }
+.section-actions { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin-bottom: 0.75rem; }
 .plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
 
 .pending-choice { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; border-color: var(--accent); }
@@ -149,7 +169,7 @@ a { color: var(--accent); }
 /* The Play sheet's in-play choices keep their dropdown on the same row. */
 .pending-choice.play-pending { display: flex; }
 
-.feature-list li, .spell-list li { display: grid; gap: 0.15rem; }
+.spell-list li { display: grid; gap: 0.15rem; }
 .feature-name { font-weight: 600; }
 .feature-choice { margin-top: 0.35rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; }
 .feature-choice:has(form) { display: block; margin-top: 0.75rem; }
@@ -288,7 +308,7 @@ a { color: var(--accent); }
 .filter-empty { flex-basis: 100%; font-size: 0.9rem; }
 
 /* Build | Play tabs */
-.page-tabs { display: flex; gap: 0.25rem; margin: -0.5rem 0 1.75rem; border-bottom: 1px solid var(--border); }
+.page-tabs { display: flex; gap: 0.25rem; margin: -0.5rem 0 1.25rem; border-bottom: 1px solid var(--border); }
 .page-tabs a { padding: 0.5rem 1rem; color: var(--muted); text-decoration: none; border-radius: 6px 6px 0 0; }
 .page-tabs a:hover { color: var(--text); background: var(--surface); }
 .page-tabs a.active { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
@@ -320,7 +340,7 @@ a { color: var(--accent); }
 /* Spell lists: name line with tags */
 .spell-groups { display: grid; gap: 0.6rem; }
 .spell-groups .choice-group { padding-bottom: 0.4rem; }
-.spell-list li { padding: 0.15rem 0; }
+.spell-list li { padding: 0.2rem 0; }
 .spell-name-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
 .spell-tag {
   padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
@@ -330,7 +350,8 @@ a { color: var(--accent); }
 #prepared-section .section-heading .group-title { margin: 0; }
 
 /* Spell slots */
-.slot-tracker { display: grid; gap: 0.4rem; margin: 0.25rem 0 1rem; }
+.slot-tracker { display: grid; gap: 0.4rem; margin: 0 0 1rem; }
+.slot-tracker .group-title { margin: 0 0 0.1rem; }
 .slot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
 .slot-label { width: 4.5rem; font-size: 0.9rem; }
 .slot-pips { display: inline-flex; gap: 0.35rem; }
@@ -361,14 +382,17 @@ a { color: var(--accent); }
 .cast-none { margin-left: auto; font-size: 0.8rem; }
 
 /* Rests and resources */
-.rest-bar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.6rem; margin: -0.75rem 0 1.5rem; }
+.rest-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .rest-bar .secondary-button { padding: 0.45rem 0.9rem; font-size: 0.9rem; }
 .long-rest > summary { list-style: none; cursor: pointer; display: inline-block; border-radius: 6px; }
 .long-rest > summary::-webkit-details-marker { display: none; }
-.long-rest-confirm { margin-top: 0.5rem; max-width: 26rem; display: grid; gap: 0.5rem; }
+/* Opens over the page from the sticky bar. */
+.long-rest { position: relative; }
+.long-rest-confirm { position: absolute; right: 0; z-index: 20; margin-top: 0.5rem; width: min(26rem, 90vw);
+  display: grid; gap: 0.5rem; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); }
 .long-rest-confirm p, .long-rest-confirm ul { margin: 0; }
 .long-rest-confirm ul { padding-left: 1.2rem; }
-.short-rest-panel { display: grid; gap: 1rem; margin-bottom: 2rem; border-color: var(--accent); }
+.short-rest-panel { display: grid; gap: 1rem; margin: 1rem 0 2rem; border-color: var(--accent); }
 .short-rest-panel h2 { margin: 0; }
 .rest-block p { margin: 0.25rem 0 0.5rem; }
 .rest-block .group-title { margin: 0; }
@@ -449,8 +473,8 @@ a { color: var(--accent); }
   background: var(--bg); color: inherit; font: inherit; font-size: 0.9rem; }
 .ac-effect-form input[name="label"] { width: auto; flex: 1 1 9rem; }
 
-.play-abilities { grid-template-columns: repeat(6, 1fr); gap: 0.75rem; }
-.play-abilities li { gap: 0.4rem; padding: 1rem 0.5rem 0.75rem; }
+.play-abilities { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.5rem; }
+.play-abilities li { gap: 0.4rem; padding: 0.9rem 0.25rem 0.6rem; min-width: 0; }
 .play-abilities .ability-abbr { font-weight: 600; }
 .roll-number { padding: 0.1rem 0.4rem; background: none; border: 0; border-radius: 6px; color: var(--accent); cursor: pointer; }
 .roll-number:hover { background: var(--border); }
@@ -459,6 +483,7 @@ a { color: var(--accent); }
 .ability-save { margin-top: 0.15rem; padding-top: 0.45rem; width: 100%; border-top: 1px solid var(--border);
   border-radius: 0; font-size: 0.85rem; font-weight: 400; color: var(--muted); white-space: nowrap; }
 .ability-save:hover { border-radius: 0 0 6px 6px; }
+.play-abilities .ability-save { padding-inline: 0; font-size: 0.8rem; }
 .ability-save.proficient { color: var(--text); font-weight: 600; }
 .skill-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.15rem 1.25rem; }
 .skill-list li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.5rem; }
@@ -473,7 +498,7 @@ a { color: var(--accent); }
 .attributes dd { display: grid; gap: 0.2rem; margin: 0; }
 .play-abilities .roll-result { font-size: 0.75rem; text-align: center; }
 .play-abilities .roll-result:empty { display: none; }
-@media (max-width: 640px) { .play-abilities { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .play-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .ac-block .add-effect[open] { display: grid; gap: 0.5rem; }
 .ac-block .add-effect .group-title { margin: 0.4rem 0 0; }
 .ac-spells { margin: 0; display: grid; }
@@ -482,3 +507,72 @@ a { color: var(--accent); }
 .ac-spells li:last-child { border-bottom: 1px solid var(--border); }
 .ac-cast-slots { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .ac-spells .secondary-button { padding: 0.3rem 0.7rem; font-size: 0.85rem; }
+
+/* Play sheet: the sticky bar with vitals and rests */
+.vitals-bar {
+  position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0.5rem 1.25rem; margin: -0.5rem -1rem 1rem; padding: 0.6rem 1rem;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.vitals { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 1rem; }
+.vital { display: inline-flex; align-items: baseline; gap: 0.3rem; color: var(--text); text-decoration: none; white-space: nowrap; }
+.vital strong { font-size: 1.15rem; color: var(--accent); }
+.vital-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); }
+.vital-temp { font-size: 0.85rem; color: var(--accent); }
+.mini-pips { display: inline-flex; gap: 0.2rem; align-self: center; }
+.mini-pip { width: 0.6rem; height: 0.6rem; border-radius: 50%; border: 1.5px solid var(--accent); }
+.mini-pip.filled { background: var(--accent); }
+.vitals-bar .rest-bar { margin-left: auto; }
+.vitals-bar .rest-bar .secondary-button { padding: 0.35rem 0.8rem; font-size: 0.85rem; }
+
+/* Play sheet columns: one column in order of use; from 1100px, spells get their own column. */
+.sheet-columns { display: flex; flex-direction: column; }
+.sheet-column { display: contents; }
+.sheet-columns .order-late { order: 1; }
+@media (min-width: 1100px) {
+  .sheet-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 0 2.5rem; align-items: start; }
+  .sheet-column { display: block; }
+}
+.pending-section { margin-bottom: 1.5rem; }
+
+/* Hit points: temp HP and max HP effects are tucked away */
+.hp-extras > summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; width: fit-content; }
+.hp-extras[open] { display: grid; gap: 0.75rem; }
+.hp-extras[open] > summary { margin-bottom: 0.1rem; }
+.stats-block { margin-top: 1.25rem; min-width: 0; }
+
+/* Compact spell rows: the name line expands to the details; Cast sits beside it. */
+.spell-list li.spell-row { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.spell-list li.spell-row:last-child { border-bottom: 0; }
+.spell-details { flex: 1; min-width: 0; }
+.spell-details > summary { cursor: pointer; list-style: none; }
+.spell-details > summary::-webkit-details-marker { display: none; }
+.spell-details > summary:hover .feature-name { color: var(--accent); }
+.spell-more { display: grid; gap: 0.15rem; padding: 0.3rem 0 0.2rem; }
+.spell-row .cast-menu { margin-left: 0; flex-shrink: 0; }
+
+/* Build page: features grouped by source; each feature collapses to its name and picks */
+.feature-group { margin-bottom: 0.75rem; }
+.feature-group > summary {
+  display: flex; align-items: baseline; gap: 0.6rem; padding: 0.4rem 0; cursor: pointer;
+  list-style: none; user-select: none;
+}
+.feature-group > summary::-webkit-details-marker { display: none; }
+.feature-group > summary::before { content: "▸"; color: var(--muted); transition: transform 0.15s; }
+.feature-group[open] > summary::before { transform: rotate(90deg); }
+.feature-group-name { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+.feature-group > summary .muted { font-size: 0.85rem; }
+.feature-group .feature-list { gap: 0; margin-left: 1.1rem; }
+.feature-list > li { border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.feature-list > li:last-child { border-bottom: 0; }
+.feature > summary {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; padding: 0.5rem 0;
+  cursor: pointer; list-style: none;
+}
+.feature > summary::-webkit-details-marker { display: none; }
+.feature > summary:hover .feature-name { color: var(--accent); }
+.feature-level { font-size: 0.75rem; color: var(--muted); }
+.feature-picks { color: var(--muted); font-size: 0.9rem; }
+.feature-picks::before { content: "· "; }
+.feature[open] > summary .feature-picks { display: none; }
+.feature-body { display: grid; gap: 0.15rem; padding: 0 0 0.75rem; }

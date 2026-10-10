@@ -5,26 +5,32 @@
 // (details[data-filter-group="<label>"]). Filtering only hides items: hidden choice cards stay
 // in their form, so picks you've already made are kept and still submitted.
 //
-// Each scope's filters and collapsed sections are remembered in sessionStorage and re-applied
-// after a reload and after every htmx swap (like the in-place refresh after casting a spell),
-// which would otherwise redraw everything expanded and unfiltered.
+// Each scope's filters are remembered for the browser session (sessionStorage), and which
+// sections are open for good (localStorage); both are re-applied after a reload and after every
+// htmx swap (like the in-place refresh after casting a spell), which would otherwise redraw
+// everything unfiltered and the way the server rendered it. A section's `open` attribute is its
+// default until the player toggles it.
 
-const store = {
-  get(key) {
-    try {
-      return JSON.parse(sessionStorage.getItem(key));
-    } catch {
-      return null; // storage blocked or unreadable: just don't remember
-    }
-  },
-  set(key, value) {
-    try {
-      sessionStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      // storage blocked: filtering still works on the current page
-    }
-  },
-};
+function storage(area) {
+  return {
+    get(key) {
+      try {
+        return JSON.parse(area().getItem(key));
+      } catch {
+        return null; // storage blocked or unreadable: just don't remember
+      }
+    },
+    set(key, value) {
+      try {
+        area().setItem(key, JSON.stringify(value));
+      } catch {
+        // storage blocked: filtering still works on the current page
+      }
+    },
+  };
+}
+const store = storage(() => sessionStorage);
+const groupStore = storage(() => localStorage);
 
 const FIELDS = ["name", "school", "ritual"];
 const filtersKey = (scope) => `filters:${scope.dataset.filterScope}`;
@@ -49,10 +55,9 @@ document.addEventListener("click", (event) => {
   const scope = group.closest("[data-filter-scope]");
   if (!scope) return;
   // The click toggles the section after this handler runs, so `!group.open` is its new state.
-  const closed = [...scope.querySelectorAll("[data-filter-group]")]
-    .filter((g) => (g === group ? group.open : !g.open))
-    .map((g) => g.dataset.filterGroup);
-  store.set(groupsKey(scope), closed);
+  const saved = groupStore.get(groupsKey(scope)) || {};
+  saved[group.dataset.filterGroup] = !group.open;
+  groupStore.set(groupsKey(scope), saved);
 });
 
 function applyFilters(scope) {
@@ -88,9 +93,10 @@ function restoreAll() {
       for (const field of FIELDS) control(bar, field).value = saved[field] ?? "";
     }
     applyFilters(scope);
-    const closed = store.get(groupsKey(scope)) || [];
+    const openGroups = groupStore.get(groupsKey(scope)) || {};
     for (const group of scope.querySelectorAll("[data-filter-group]")) {
-      if (closed.includes(group.dataset.filterGroup)) group.open = false;
+      const open = openGroups[group.dataset.filterGroup];
+      if (typeof open === "boolean") group.open = open;
     }
   }
 }

@@ -22,7 +22,8 @@ body {
 }
 
 main { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
-/* The Play sheet uses the width for two columns. */
+/* Character pages (Build and Play): one width, so switching tabs doesn't resize the page.
+   The Play sheet uses it for two columns. */
 body.wide main { max-width: 1240px; }
 
 /* Auth pages: a single card in the middle of the screen. */

@@ -45,9 +45,17 @@
   <div class="vital-group">
     <details class="vital-menu" data-popover {% if errors.temp_hp or errors.effect %}open{% endif %}>
       <summary class="vital" title="Hit points: temp HP and max HP effects">
-        <span class="vital-label">HP</span> <strong>{{ hp.current }}</strong><span class="muted">/{{ hp.maximum }}</span>
-        {%- if hp.temp %} <span class="vital-temp" title="Temporary hit points">+{{ hp.temp }}<span class="wide-only"> temp</span></span>{% endif %}
-        <span class="vital-caret" aria-hidden="true">▾</span>
+        <span class="vital-main">
+          <span class="vital-label">HP</span> <strong>{{ hp.current }}</strong><span class="muted">/{{ hp.maximum }}</span>
+          {%- if hp.temp %} <span class="vital-temp" title="Temporary hit points">+{{ hp.temp }}<span class="wide-only"> temp</span></span>{% endif %}
+          <span class="vital-caret" aria-hidden="true">▾</span>
+        </span>
+        {#- Active max HP effects stay in sight, so they're ended when they run out. -#}
+        {% if hp.effects %}
+        <span class="vital-detail vital-effects" title="Max HP: {{ hp.base }} base{% for e in hp.effects %} {{ signed(e.max_hp_delta) }} {{ e.label }}{% endfor %}">
+          {%- for e in hp.effects %}{{ e.label }} {{ signed(e.max_hp_delta) }}{{ " · " if not loop.last }}{% endfor -%}
+        </span>
+        {% endif %}
       </summary>
       <div class="vital-panel card hp-panel">
         <div class="panel-group">
@@ -96,20 +104,14 @@
   {% endif %}
   {% if abilities %}
   <details class="vital-menu" data-popover {% if errors.ac_effect %}open{% endif %}>
-    <summary class="vital" title="Armor class: breakdown and effects">
-      <span class="vital-label">AC</span> <strong>{{ ac.total }}</strong>
-      <span class="vital-caret" aria-hidden="true">▾</span>
+    <summary class="vital" title="Armor class: effects">
+      <span class="vital-main">
+        <span class="vital-label">AC</span> <strong>{{ ac.total }}</strong>
+        <span class="vital-caret" aria-hidden="true">▾</span>
+      </span>
+      <span class="vital-detail">{{ ac.breakdown }}</span>
     </summary>
     <div class="vital-panel card ac-panel">
-      <p class="muted ac-breakdown">
-        {% if ac.minimum_wins %}
-        {{ ac.minimum.value }} · {{ ac.minimum.label }} (minimum)
-        {% else %}
-        {{ ac.base }}{% if ac.base_label %} {{ ac.base_label }}{% endif %}
-        {{ "+" if ac.dex >= 0 else "−" }} {{ ac.dex | abs }} DEX
-        {%- for e in ac.bonuses %} {{ "+" if e.value >= 0 else "−" }} {{ e.value | abs }} {{ e.label }}{% endfor %}
-        {% endif %}
-      </p>
       {% if ac.effects %}
       <ul class="plain-list">
         {% for e in ac.effects %}

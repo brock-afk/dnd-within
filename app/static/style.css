@@ -451,7 +451,6 @@ details[open] > .section-summary .section-digest { display: none; }
   .spell-level-choices { margin-bottom: 0.4rem; }
 }
 /* Play page: abilities with saves */
-.ac-breakdown { margin: 0; font-size: 0.9rem; }
 .ac-effect-form select { padding: 0.45rem 0.5rem; border: 1px solid var(--border-strong); border-radius: 6px;
   background: var(--bg); color: inherit; font: inherit; font-size: 0.9rem; }
 .ac-effect-form input[name="label"] { width: auto; flex: 1 1 9rem; }
@@ -497,7 +496,11 @@ details[open] > .section-summary .section-digest { display: none; }
   background: var(--bg); border-bottom: 1px solid var(--border);
 }
 .vital-group { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem; }
-.vital { display: inline-flex; align-items: baseline; gap: 0.35rem; white-space: nowrap; }
+.vital { display: inline-grid; gap: 0.15rem; }
+.vital-main { display: inline-flex; align-items: baseline; gap: 0.35rem; white-space: nowrap; }
+/* How the number is made up, under it: AC's breakdown, HP's active max HP effects. */
+.vital-detail { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+.vital-effects { justify-self: start; padding: 0 0.45rem; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); }
 .vital strong { font-size: 1.6rem; line-height: 1; color: var(--accent); }
 .vital-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; color: var(--muted); }
 .vital-temp { font-size: 0.85rem; color: var(--accent); }
@@ -581,18 +584,25 @@ details[open] > .section-summary .section-digest { display: none; }
 .feature-picks::before { content: "· "; }
 .feature[open] > summary .feature-picks { display: none; }
 .feature-body { display: grid; gap: 0.15rem; padding: 0 0 0.75rem; }
-/* Phones: HP, AC and rests on one line, the damage box under them, so the pinned bar stays short. */
+/* Phones: HP, AC (its breakdown wrapping under it) and the rests, stacked, in one row; the
+   damage box under them. Keeps the pinned bar to two rows. */
 @media (max-width: 640px) {
-  .vitals-bar { gap: 0.5rem 0.4rem; }
-  .vital-menu > summary { padding: 0.15rem 0.25rem; }
-  .vitals-bar .rest-bar { gap: 0.35rem; }
-  .vitals-bar .rest-bar .secondary-button { padding: 0.35rem 0.65rem; }
+  .vitals-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 0.5rem 0.6rem; }
   .vital-group { display: contents; }
-  .vital-hp-form { order: 1; flex-basis: 100%; }
+  .vital-group > .vital-menu { grid-column: 1; grid-row: 1; }
+  .vitals-bar > .vital-menu { grid-column: 2; grid-row: 1; }
+  .vitals-bar .rest-bar { grid-column: 3; grid-row: 1; flex-direction: column; align-items: stretch; gap: 0.3rem; margin: 0; }
+  .vitals-bar .rest-bar .secondary-button { padding: 0.25rem 0.6rem; text-align: center; }
+  .vitals-bar .long-rest > summary { display: block; }
+  .vital-hp-form { grid-column: 1 / -1; grid-row: 2; }
   .vital-hp-form input[type="text"] { flex: 1; }
+  .vitals-error { grid-column: 1 / -1; }
   .vital strong { font-size: 1.35rem; }
+  .vital-detail { white-space: normal; }
   .vitals-bar .wide-only { display: none; }
+  .vital-menu > summary { padding: 0.15rem 0.25rem; }
   /* Panels open under the whole bar rather than under HP or AC, so they fit on screen. */
   .vital-menu { position: static; }
   .vital-panel { left: 1rem; top: 100%; }
+}
 }

@@ -262,7 +262,7 @@ def skill_rows(db: Session, character: Character) -> list[SkillRow] | None:
 @dataclass(frozen=True)
 class ArmorClassView:
     base: int  # 10 unarmored, or the highest base effect (Mage Armor 13)
-    base_label: str  # "" when unarmored
+    base_label: str  # "No armor", or the base effect's name ("Mage Armor")
     dex: int
     effects: list[CharacterAcEffect]
 
@@ -289,6 +289,17 @@ class ArmorClassView:
     def total(self) -> int:
         return self.minimum.value if self.minimum_wins else self.calculated
 
+    @property
+    def breakdown(self) -> str:
+        """How the total is reached: "No armor 10 + 2 DEX", "Mage Armor 13 + 2 DEX + 2 Shield
+        of Faith", or "Barkskin 17 (minimum)" when a minimum beats the calculation."""
+        if self.minimum_wins:
+            return f"{self.minimum.label} {self.minimum.value} (minimum)"
+        parts = [(self.dex, "DEX"), *((e.value, e.label) for e in self.bonuses)]
+        return f"{self.base_label} {self.base}" + "".join(
+            f" {'+' if value >= 0 else '−'} {abs(value)} {label}" for value, label in parts
+        )
+
 
 def armor_class(db: Session, character: Character) -> ArmorClassView | None:
     """AC = base (10, or the highest base effect) + DEX modifier + bonus effects, raised to the
@@ -306,7 +317,7 @@ def armor_class(db: Session, character: Character) -> ArmorClassView | None:
         )
     )
     best = max((e for e in effects if e.kind == "base"), key=lambda e: e.value, default=None)
-    return ArmorClassView(best.value if best else 10, best.label if best else "", dex, effects)
+    return ArmorClassView(best.value if best else 10, best.label if best else "No armor", dex, effects)
 
 
 @dataclass(frozen=True)

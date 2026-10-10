@@ -1,0 +1,4 @@
+{#- The shared view keeps itself current: every 30 seconds it re-fetches the page and morphs
+    `refresh_selector` into place, so HP, charges and slots change as the owner plays. -#}
+<div hidden hx-get="{{ refresh_url }}" hx-trigger="every 30s"
+     hx-select="{{ refresh_selector }}" hx-target="{{ refresh_selector }}" hx-swap="outerMorph"></div>

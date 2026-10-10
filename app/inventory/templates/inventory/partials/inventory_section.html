@@ -5,13 +5,13 @@
 {% call section("inventory", "Inventory", inventory_digest, classes="order-late") %}
   <div class="section-heading">
     <span class="group-title">Coins</span>
-    <button type="button" class="link-button" hx-get="{{ base }}/coins/edit" hx-target="#coins">Edit</button>
+    {% if not read_only %}<button type="button" class="link-button" hx-get="{{ base }}/coins/edit" hx-target="#coins">Edit</button>{% endif %}
   </div>
   {% include "inventory/partials/coins_block.html" %}
 
   <div class="section-heading inventory-items-heading">
     <span class="group-title">Items{% if items %} · {{ items | length }}{% endif %}</span>
-    <button type="button" class="link-button" hx-get="{{ base }}/add" hx-target="#inventory-add">Add item</button>
+    {% if not read_only %}<button type="button" class="link-button" hx-get="{{ base }}/add" hx-target="#inventory-add">Add item</button>{% endif %}
   </div>
   <div id="inventory-add"></div>
 
@@ -45,13 +45,18 @@
             <p>{{ row.item.description }}</p>
           </details>
           {% endif %}
+          {% if read_only %}
+          {% if row.notes %}<span class="muted">Notes: {{ row.notes }}</span>{% endif %}
+          {% else %}
           <form class="item-notes" hx-post="{{ base }}/{{ row.id }}/notes" novalidate>
             <input type="text" name="notes" maxlength="255" value="{{ row.notes or '' }}"
                    placeholder="Notes, e.g. where it came from" aria-label="Notes for {{ row.name }}">
             <button type="submit" class="secondary-button small-button">Save</button>
           </form>
+          {% endif %}
         </div>
       </details>
+      {% if not read_only %}
       <span class="item-actions" id="item-actions-{{ row.id }}">
         {% if row.item.consumable %}
         <button type="button" class="secondary-button small-button"
@@ -75,6 +80,7 @@
                 hx-target="#item-actions-{{ row.id }}" aria-label="Remove {{ row.name }}"
                 title="Remove">×</button>
       </span>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>

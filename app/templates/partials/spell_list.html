@@ -8,7 +8,8 @@
      .in_ritual_section  listed under Rituals: cast as a ritual, never with a slot
      .prepared           (ritual rows) whether it's prepared or only in the spellbook
      .uses_slots         cast with a spell slot
-     .granted_by         the feature keeping it always prepared, with .note and .free_cast
+     .granted_by         the feature giving it, with .note and .free_cast; .item_name if
+                         that's a magic item
    With `slots` ({level: SlotLevel}) and `cast_url`, slot spells get a Cast menu. With
    `free_cast_url` and `free_uses` ({feature id: FeatureUses}), free_cast spells also offer a
    free cast that spends a use of their feature.
@@ -54,7 +55,12 @@
           {% elif spell.ritual %}
             <span class="spell-tag">Ritual</span>
           {% endif %}
-          {% if row.granted_by is defined and row.granted_by %}<span class="spell-tag" title="From {{ row.granted_by.name }}">Always prepared</span>{% endif %}
+          {%- if row.granted_by is defined and row.granted_by %}
+          {#- From a feature: "Always prepared" when it is, and a magic item's name, so a spell cast
+              only through the item says where it comes from. -#}
+          {% if row.prepared %}<span class="spell-tag" title="From {{ row.granted_by.name }}">Always prepared</span>{% endif %}
+          {% if row.item_name %}<span class="spell-tag" title="Cast through {{ row.item_name }}">{{ row.item_name }}</span>{% endif %}
+          {%- endif %}
           {% if spell.concentration %}<span class="spell-tag">Concentration</span>{% endif %}
           {% for w in warnings.get(spell.id, []) %}<span class="spell-tag warning">{{ w }}</span>{% endfor %}
           {% if not compact %}{{ _cast(row, slots, cast_url, free_cast_url, free_uses) }}{% endif %}

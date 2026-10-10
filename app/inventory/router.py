@@ -18,11 +18,13 @@ from app.inventory.service import (
     COINS,
     MAX_COINS,
     SEARCH_MIN_LENGTH,
+    ac_scrolls,
     add_item,
     change_quantity,
     character_item,
     coin_summary,
     coin_values,
+    healing_uses,
     item_detail,
     pack_contents,
     scroll_spells,
@@ -32,6 +34,8 @@ from app.inventory.service import (
     use_one,
 )
 from app.inventory.rules import gain, spend
+from app.sheet.rules import current_hp, heal, roll_detail, set_temp_hp
+from app.sheet.service import apply_ac_spell, max_hp, play_state
 from app.sheet.router import refresh_sheet
 from app.spells.models import Spell
 
@@ -177,6 +181,53 @@ def use(request: Request, db: DbSession, user: CurrentUser, character: OwnedChar
         return refresh_sheet(
             request, db, user, character, {"inventory": f"{row.name} isn't used up."}, 400
         )
+    use_one(db, row)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post(BASE + "/{row_id}/heal", response_class=HTMLResponse)
+def heal_with(
+    request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, row_id: int
+):
+    """Drink a potion or cast a healing scroll from the HP panel: roll its dice, heal (or gain
+    temporary hit points), and use it up. The roll is shown in the panel."""
+    row = _row(db, character, row_id)
+    use = next((u for u in healing_uses([row])), None)
+    maximum = max_hp(db, character)
+    if use is None or maximum is None:
+        raise HTTPException(status_code=400)
+    amount, rolled = roll_detail(use.dice)
+    state = play_state(db, character)
+    name = row.name
+    if use.temporary:
+        if amount > state.temp_hp:
+            set_temp_hp(state, amount, row.spell.name)
+            notice = f"{name}: {amount} temporary hit points ({rolled})."
+        else:
+            notice = f"{name}: rolled {amount} ({rolled}); you kept your {state.temp_hp} temp HP."
+    else:
+        before = current_hp(state, maximum)
+        heal(state, amount, maximum)
+        gained = current_hp(state, maximum) - before
+        notice = f"{name}: healed {gained} ({rolled})" + (
+            f", {amount - gained} over your max." if gained < amount else "."
+        )
+    use_one(db, row)
+    db.commit()
+    return refresh_sheet(request, db, user, character, notices={"hp": notice})
+
+
+@router.post(BASE + "/{row_id}/cast-ac", response_class=HTMLResponse)
+def cast_ac_scroll(
+    request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, row_id: int
+):
+    """Read a scroll of an AC spell (Mage Armor) from the AC card: its effect starts and the
+    scroll is used up."""
+    row = _row(db, character, row_id)
+    if not ac_scrolls([row]):
+        raise HTTPException(status_code=400)
+    apply_ac_spell(db, character, row.spell)
     use_one(db, row)
     db.commit()
     return refresh_sheet(request, db, user, character)

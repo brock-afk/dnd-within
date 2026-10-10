@@ -153,10 +153,16 @@ class ItemDef(Strict):
     consumable: bool = False  # potions and scrolls are, without saying so
     requires_attunement: bool = False
     spell_level: int | None = Field(default=None, ge=0, le=9)
+    healing: str | None = None  # dice healed when used, e.g. "2d4+2" (a Potion of Healing)
     contents: list[PackItem] = []
     # A magic item's charges and benefits. They apply while it's attuned, or while it's carried
     # if it doesn't need attunement.
     features: list[FeatureDef] = []
+
+    @field_validator("healing")
+    @classmethod
+    def check_healing(cls, value):
+        return _check_dice(value) if value is not None else None
 
     @field_validator("cost")
     @classmethod

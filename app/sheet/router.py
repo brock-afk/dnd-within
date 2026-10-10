@@ -19,11 +19,14 @@ from app.features.service import applicable_choice, play_choices
 from app.inventory.service import (
     COINS,
     MAX_ATTUNED,
+    ac_scrolls,
     coin_summary,
     coin_values,
+    healing_uses,
     inventory,
     item_features,
 )
+from app.sharing.service import public_share
 from app.inventory.service import digest as inventory_digest
 from app.leveling.service import constitution_modifier
 from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
@@ -81,9 +84,14 @@ def render_sheet(
     resting=False,
     pending_damage: int | None = None,
     copying: "CopyPanel | None" = None,
+    notices=None,
+    read_only: bool = False,
+    base_url: str | None = None,
 ):
     """The sheet. `resting` shows the Short rest panel, which holds every short-rest action
-    (hit dice, Arcane Recovery) so they stay off the main sheet."""
+    (hit dice, Arcane Recovery) so they stay off the main sheet. `notices` report what just
+    happened (a potion's roll). `read_only` is the shared view: the same sheet with every
+    control left out, linking within `base_url` (/shared/<token>) instead of the owner's."""
     uses = feature_uses(db, character)
     attrs = attributes(db, character)
     items = inventory(db, character)
@@ -113,6 +121,12 @@ def render_sheet(
         "coin_labels": COINS,
         "inventory_digest": inventory_digest(db, character, items),
         "max_attuned": MAX_ATTUNED,
+        "healing_uses": healing_uses(items),
+        "ac_scrolls": ac_scrolls(items),
+        "notices": notices or {},
+        "read_only": read_only,
+        "base_url": base_url or f"/characters/{character.id}",
+        "share": None if read_only else public_share(db, character),
         "errors": errors or {},
         "pending_damage": pending_damage,
         "spell_warnings": spell_warnings(db, character),
@@ -146,11 +160,13 @@ def refresh_sheet(
     resting=False,
     pending_damage=None,
     copying=None,
+    notices=None,
 ):
     """Re-render the sheet and morph it into place (see app/core/templates.py)."""
     db.expire_all()  # sessions don't expire on commit; reload what just changed
     response = render_sheet(
-        request, db, user, character, errors, status_code, resting, pending_damage, copying
+        request, db, user, character, errors, status_code, resting, pending_damage, copying,
+        notices,
     )
     return morph_in_place(response, SHEET_SELECTOR)
 

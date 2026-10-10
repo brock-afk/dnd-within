@@ -1,6 +1,8 @@
 """What a character carries: adding (packs expand, scrolls hold a spell), quantities, using
 consumables, attunement and coins. Changes are flushed but not committed; routes commit."""
 
+from dataclasses import dataclass
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -37,6 +39,35 @@ def item_features(db: Session, rows: list[CharacterItem]) -> dict[int, list[Feat
     for feature in features:
         result.setdefault(feature.item_id, []).append(feature)
     return result
+
+
+@dataclass(frozen=True)
+class HealingUse:
+    """A carried item that heals from the HP panel: a potion (its own dice), or a scroll of a
+    healing spell (the spell's dice; False Life's are temporary hit points)."""
+
+    row: CharacterItem
+    dice: str
+    temporary: bool = False
+
+    @property
+    def verb(self) -> str:
+        return "Cast" if self.row.spell else "Drink" if self.row.item.consumable else "Use"
+
+
+def healing_uses(rows: list[CharacterItem]) -> list[HealingUse]:
+    uses = []
+    for row in rows:
+        if row.item.healing:
+            uses.append(HealingUse(row, row.item.healing))
+        elif row.spell and (healing := row.spell.details.get("healing")):
+            uses.append(HealingUse(row, healing["dice"], healing.get("temporary", False)))
+    return uses
+
+
+def ac_scrolls(rows: list[CharacterItem]) -> list[CharacterItem]:
+    """Carried scrolls of spells that change AC (Mage Armor), read from the AC card."""
+    return [row for row in rows if row.spell and row.spell.details.get("ac_effect")]
 
 
 def character_item(db: Session, character: Character, row_id: int) -> CharacterItem | None:

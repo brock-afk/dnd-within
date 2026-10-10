@@ -5,9 +5,11 @@
 {% from "partials/section.html" import section %}
 
 {% macro choose_button(choice, label) %}
+{% if not read_only %}
 <button type="button" class="{{ 'link-button' if label == 'Change' }}"
         hx-get="/characters/{{ character.id }}/choices/{{ choice.id }}"
         hx-target="#choice-{{ choice.id }}">{{ label }}</button>
+{% endif %}
 {% endmacro %}
 
 {#- One feature: closed, its name and what was picked for it; open, its summary, full text and
@@ -90,22 +92,27 @@
 <div id="character-page" data-collapse-scope="build-{{ character.id }}">
 <div class="page-header">
   <div>
-    {% include "characters/partials/name_heading.html" %}
+    {% if read_only %}<h1>{{ character.name }}</h1>{% else %}{% include "characters/partials/name_heading.html" %}{% endif %}
     <p class="subtitle">
       {{ character.species.name }} {{ character.class_summary }} · Level {{ character.level }}
       {% if hit_points %}· <strong title="{{ hit_points.breakdown }}">HP {{ hit_points.maximum }}</strong>{% endif %}
-      {% if character.level < 20 %}
+      {% if character.level < 20 and not read_only %}
       <button type="button" class="link-button level-up-button"
               hx-get="/characters/{{ character.id }}/level-up" hx-target="#level-up-slot">Level up</button>
       {% endif %}
     </p>
   </div>
+  {% if read_only %}
+  <span class="muted view-only-note">View only · updates automatically</span>
+  {% else %}
   <a href="/characters">All characters</a>
+  {% endif %}
 </div>
-{{ page_tabs(character, "build") }}
+{{ page_tabs(character, "build", base_url) }}
+{% if read_only %}{% with refresh_url=base_url ~ "/build", refresh_selector="#character-page" %}{% include "sharing/partials/auto_refresh.html" %}{% endwith %}{% endif %}
 <div id="level-up-slot"></div>
 
-{% if pending or not abilities or not character.background %}
+{% if (pending or not abilities or not character.background) and not read_only %}
 <section class="sheet-section">
   <h2>Choices to make</h2>
   <ul class="plain-list">
@@ -145,10 +152,12 @@
 {% if abilities %}
 {% set ability_digest %}{% for a in abilities %}{{ a.abbr }} {{ a.total }}{{ " · " if not loop.last }}{% endfor %}{% endset %}
 {% call section("abilities", "Abilities & skills", ability_digest) %}
+  {% if not read_only %}
   <div class="section-actions">
     <button type="button" class="link-button" hx-get="/characters/{{ character.id }}/abilities/edit"
             hx-target="#ability-scores">Change ability scores</button>
   </div>
+  {% endif %}
   <div id="ability-scores">
     <ul class="ability-grid">
       {% for a in abilities %}
@@ -181,7 +190,7 @@
       <span class="muted">{{ group.kind }} · {{ group.features | length }} feature{{ "s" if group.features | length != 1 }}</span>
       {#- In the summary so it's there while the group is collapsed; data-summary-action makes
           clicking it open the group (to show the form) instead of toggling it. -#}
-      {% if group.change_url %}
+      {% if group.change_url and not read_only %}
       <button type="button" class="link-button" data-summary-action
               hx-get="{{ group.change_url }}" hx-target="#group-slot-{{ loop.index }}">Change</button>
       {% endif %}
@@ -203,6 +212,7 @@
   {% endfor %}
 {% endcall %}
 
+{% if not read_only %}
 {% if character.level > 1 %}
 <details class="danger-zone">
   <summary>Remove level {{ character.level }}</summary>
@@ -222,5 +232,6 @@
   <summary>Delete character</summary>
   {% include "characters/partials/delete_form.html" %}
 </details>
+{% endif %}
 </div>
 {% endblock %}

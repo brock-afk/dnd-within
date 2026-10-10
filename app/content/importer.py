@@ -301,6 +301,7 @@ class _Importer(FeatureSync):
                 "consumable": d.consumable,
                 "requires_attunement": d.requires_attunement,
                 "spell_level": d.spell_level,
+                "healing": d.healing,
             },
         )
         # Pack contents point at other items, so they're set once every item has an id.

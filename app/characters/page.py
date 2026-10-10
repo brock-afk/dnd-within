@@ -44,8 +44,15 @@ def needs_building(db: Session, character: Character) -> bool:
 
 
 def render_character_page(
-    request: Request, db: Session, user: User, character: Character
+    request: Request,
+    db: Session,
+    user: User | None,
+    character: Character,
+    read_only: bool = False,
+    base_url: str | None = None,
 ) -> HTMLResponse:
+    """The Build page. `read_only` is the shared view: the same page with every control left
+    out, its tabs linking within `base_url` (/shared/<token>)."""
     groups = feature_groups(db, character)
     pending = pending_choices(groups)
     warnings = spell_warnings(db, character)
@@ -65,6 +72,8 @@ def render_character_page(
         {
             "user": user,
             "character": character,
+            "read_only": read_only,
+            "base_url": base_url,
             "abilities": ability_views(db, character),
             "hit_points": hit_points(db, character),
             "feature_groups": groups,

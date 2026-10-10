@@ -462,6 +462,7 @@ class CastableSpell:
     charge_cost: int = 1  # uses of `granted_by` a free cast spends
     # Cast only by spending the feature's uses, never with slots (a magic item's spell).
     charge_only: bool = False
+    item_name: str = ""  # granted by a magic item: tagged with its name ("Tome of Bal'vir")
     note: str = ""  # from the granting feature, e.g. what Wondrous Alteration adds
 
     @property
@@ -525,6 +526,7 @@ def castable_spells(db: Session, character: Character) -> list[CastableSpell]:
                 free_cast=feature_spell.free_cast,
                 charge_cost=feature_spell.charge_cost,
                 charge_only=not feature_spell.always_prepared,
+                item_name=db.get(Item, feature.item_id).name if feature.item_id else "",
                 note=feature_spell.note or "",
             )
         )

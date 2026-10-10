@@ -13,6 +13,12 @@
 
 {#- An in-play choice's dropdown (Choice.in_play). Changing it saves; the empty entry clears it. -#}
 {% macro play_choice_select(pc, empty_label, form_class="") %}
+{% if read_only %}
+<div {% if form_class %}class="{{ form_class }}"{% endif %}>
+  {% if form_class %}<span class="resource-label">{{ pc.feature.name }}</span>{% endif %}
+  <span>{{ pc.picked.name if pc.picked else empty_label }}</span>
+</div>
+{% else %}
 <form {% if form_class %}class="{{ form_class }}" {% endif %}hx-post="/characters/{{ character.id }}/sheet/choices/{{ pc.choice.id }}" hx-trigger="change">
   {% if form_class %}<label class="resource-label" for="play-choice-{{ pc.choice.id }}">{{ pc.feature.name }}</label>{% endif %}
   <select id="play-choice-{{ pc.choice.id }}" name="pick" class="play-choice-select" aria-label="{{ pc.choice.name }}">
@@ -22,6 +28,14 @@
     {% endfor %}
   </select>
 </form>
+{% endif %}
+{% endmacro %}
+
+{#- A use or slot marker: a button that sets how many remain, or just a mark when read-only. -#}
+{% macro pip(filled, url, target, label) %}
+{% if read_only %}<span class="pip{% if filled %} filled{% endif %}" aria-hidden="true"></span>
+{% else %}<button type="button" class="pip{% if filled %} filled{% endif %}" hx-post="{{ url }}"
+        hx-vals='{"remaining": "{{ target }}"}' aria-label="{{ label }}" title="{{ target }} left"></button>{% endif %}
 {% endmacro %}
 
 {% block content %}
@@ -31,12 +45,33 @@
     <h1>{{ character.name }}</h1>
     <p class="subtitle">{{ character.species.name }} {{ character.class_summary }} · Level {{ character.level }}</p>
   </div>
-  <a href="/characters">All characters</a>
+  {% if read_only %}
+  <span class="muted view-only-note">View only · updates automatically</span>
+  {% else %}
+  <div class="page-header-actions">
+    {% include "sharing/partials/share_control.html" %}
+    <a href="/characters">All characters</a>
+  </div>
+  {% endif %}
 </div>
-{{ page_tabs(character, "play") }}
+{{ page_tabs(character, "play", base_url) }}
+{% if read_only %}{% with refresh_url=base_url, refresh_selector="#sheet-page" %}{% include "sharing/partials/auto_refresh.html" %}{% endwith %}{% endif %}
 
 {#- Pinned while scrolling: hit points (with damage and healing), armor class and the rests,
     the things needed at any moment. Temp HP, max HP effects and AC effects open from it. -#}
+{% if read_only %}
+<div class="vitals-bar">
+  {% if hp %}
+  <span class="vital"><span class="vital-main"><span class="vital-label">HP</span> <strong>{{ hp.current }}</strong><span class="muted">/{{ hp.maximum }}</span>
+    {%- if hp.temp %} <span class="vital-temp">+{{ hp.temp }} temp</span>{% endif %}</span>
+    {% if hp.effects %}<span class="vital-detail">{% for e in hp.effects %}{{ e.label }} {{ signed(e.max_hp_delta) }}{{ " · " if not loop.last }}{% endfor %}</span>{% endif %}</span>
+  {% endif %}
+  {% if ac %}
+  <span class="vital"><span class="vital-main"><span class="vital-label">AC</span> <strong>{{ ac.total }}</strong></span>
+    <span class="vital-detail">{{ ac.breakdown }}</span></span>
+  {% endif %}
+</div>
+{% else %}
 <div class="vitals-bar">
   {% if hp is none %}
   <span class="vital"><span class="vital-label">HP</span>
@@ -91,6 +126,25 @@
           </form>
           {% if errors.effect %}<p class="error" role="alert">{{ errors.effect }}</p>{% endif %}
         </div>
+        {% if healing_uses or notices.hp %}
+        {#- Potions and healing scrolls from the inventory: the app rolls, heals, uses it up. -#}
+        <div class="panel-group">
+          <h3 class="group-title">Use an item</h3>
+          {% if notices.hp %}<p class="notice" role="status">{{ notices.hp }}</p>{% endif %}
+          {% if healing_uses %}
+          <ul class="plain-list effect-list">
+            {% for u in healing_uses %}
+            <li class="hp-effect">
+              <span><strong>{{ u.row.name }}</strong>
+                <span class="muted">{{ u.dice }}{{ " temp HP" if u.temporary else " HP" }}{% if u.row.quantity > 1 %} · ×{{ u.row.quantity }}{% endif %}</span></span>
+              <button type="button" class="secondary-button small-button"
+                      hx-post="/characters/{{ character.id }}/sheet/inventory/{{ u.row.id }}/heal">{{ u.verb }}</button>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
     </details>
     <form hx-post="/characters/{{ character.id }}/sheet/hp" novalidate class="hp-form vital-hp-form">
@@ -125,13 +179,13 @@
       </ul>
       {% endif %}
       <div class="add-effect">
-        {%- if not ac_spells %}
+        {%- if not (ac_spells or ac_scrolls) %}
         <h3 class="group-title">Add effect</h3>
         {%- endif %}
         {% if errors.ac_effect %}<p class="error" role="alert">{{ errors.ac_effect }}</p>{% endif %}
-        {% if ac_spells %}
+        {% if ac_spells or ac_scrolls %}
         {#- Prepared spells whose content declares an AC effect, cast on yourself: spends the slot
-            and applies the effect. -#}
+            and applies the effect. Scrolls of them from the inventory are read and used up. -#}
         <span class="group-title">Cast on yourself</span>
         <ul class="plain-list ac-spells">
           {% for a in ac_spells %}
@@ -150,6 +204,15 @@
             {% else %}
             <span class="muted">No slots left</span>
             {% endif %}
+          </li>
+          {% endfor %}
+          {% for row in ac_scrolls %}
+          {% set effect = row.spell.details.ac_effect %}
+          <li>
+            <span><strong>{{ row.name }}</strong>
+              <span class="muted">{{ ac_effect_text(effect.kind, effect.value) }} · scroll{% if row.quantity > 1 %} ×{{ row.quantity }}{% endif %}</span></span>
+            <button type="button" class="secondary-button"
+                    hx-post="/characters/{{ character.id }}/sheet/inventory/{{ row.id }}/cast-ac">Read scroll</button>
           </li>
           {% endfor %}
         </ul>
@@ -173,7 +236,8 @@
   {% include "sheet/partials/rest_bar.html" %}
   {% if errors.hp %}<p class="error vitals-error" role="alert">{{ errors.hp }}</p>{% endif %}
 </div>
-{% if pending_damage is not none %}
+{% endif %}
+{% if pending_damage is not none and not read_only %}
 <div class="damage-prompt card" role="group" aria-labelledby="damage-prompt-title">
   <h3 id="damage-prompt-title" class="section-title">Taking {{ pending_damage }} damage</h3>
   {% for r, mod in reactions %}
@@ -209,11 +273,11 @@
   </form>
 </div>
 {% endif %}
-{% include "sheet/partials/short_rest_panel.html" %}
+{% if not read_only %}{% include "sheet/partials/short_rest_panel.html" %}{% endif %}
 
 {#- Like the Build page's "Choices to make": in-play choices not made yet. Once picked, they
     move to Resources. -#}
-{% set unchosen = play_choices | rejectattr("picked") | list %}
+{% set unchosen = [] if read_only else play_choices | rejectattr("picked") | list %}
 {% if unchosen %}
 <section class="sheet-section pending-section">
   <h2>Choices to make</h2>
@@ -278,11 +342,8 @@
     <span class="slot-pips">
       {% for i in range(1, r.maximum + 1) %}
       {% set target = i - 1 if i == r.remaining else i %}
-      <button type="button" class="pip{% if i <= r.remaining %} filled{% endif %}"
-              hx-post="/characters/{{ character.id }}/sheet/uses/{{ r.feature.id }}"
-              hx-vals='{"remaining": "{{ target }}"}'
-              aria-label="Set {{ r.feature.name }} uses remaining to {{ target }}"
-              title="{{ target }} left"></button>
+      {{ pip(i <= r.remaining, "/characters/%d/sheet/uses/%d" % (character.id, r.feature.id), target,
+             "Set %s uses remaining to %d" % (r.feature.name, target)) }}
       {% endfor %}
     </span>
     <span class="muted">{{ r.remaining }} of {{ r.maximum }} · {% if r.recharge == "dawn" %}{{ "regains %s at dawn" % r.feature.uses.regain if r.feature.uses.regain else "dawn" }}{% else %}{{ "short rest" if r.recharge == "short_rest" else "long rest" }}{% endif %}</span>
@@ -296,9 +357,11 @@
     <span class="resource-spender-text"><strong>{{ f.name }}</strong>
       <span class="muted">· {% if f.action %}{{ action_labels[f.action] }} · {% endif %}{{ f.spends_amount }} charge{{ "s" if f.spends_amount != 1 }}</span>
       <span class="resource-detail">{{ f.summary }}</span></span>
+    {% if not read_only %}
     <button type="button" class="secondary-button small-button"
             hx-post="/characters/{{ character.id }}/sheet/features/{{ f.id }}/use"
             {% if r.remaining < f.spends_amount %}disabled title="Not enough left"{% endif %}>Use</button>
+    {% endif %}
   </div>
   {% endfor %}
   </div>
@@ -366,7 +429,7 @@
 {%- for s in slots.values() %}L{{ s.level }} {{ s.remaining }}/{{ s.maximum }} · {% endfor -%}
 {% endset %}
 {% call section("spells", "Spells", spells_digest | trim(" ·")) %}
-  {% if prepared_limit is not none and not copying %}
+  {% if prepared_limit is not none and not copying and not read_only %}
   <div class="section-actions">
     <button type="button" class="link-button"
             hx-get="/characters/{{ character.id }}/sheet/spellbook/copy">Copy a spell</button>
@@ -382,11 +445,8 @@
         {% for i in range(1, s.maximum + 1) %}
         {# Filled = available. Clicking sets how many remain; the last filled pip spends one. #}
         {% set target = i - 1 if i == s.remaining else i %}
-        <button type="button" class="pip{% if i <= s.remaining %} filled{% endif %}"
-                hx-post="/characters/{{ character.id }}/sheet/slots/{{ s.level }}"
-                hx-vals='{"remaining": "{{ target }}"}'
-                aria-label="Set level {{ s.level }} slots remaining to {{ target }}"
-                title="{{ target }} left"></button>
+        {{ pip(i <= s.remaining, "/characters/%d/sheet/slots/%d" % (character.id, s.level), target,
+               "Set level %d slots remaining to %d" % (s.level, target)) }}
         {% endfor %}
       </span>
       <span class="muted">{{ s.remaining }} of {{ s.maximum }}</span>
@@ -400,7 +460,7 @@
     {% if prepared_limit is not none %}
     <div class="section-heading">
       <span class="group-title">Prepared · {{ prepared_count }} / {{ prepared_limit }}</span>
-      {% if has_spellbook %}
+      {% if has_spellbook and not read_only %}
       <button type="button" class="link-button"
               hx-get="/characters/{{ character.id }}/sheet/prepared/edit"
               hx-target="#prepared-section">Change prepared</button>
@@ -409,7 +469,7 @@
     {% endif %}
     {% if errors.cast %}<p class="error" role="alert">{{ errors.cast }}</p>{% endif %}
     {% if castable %}
-    {{ spell_groups(castable, "sheet-spells", slots=slots,
+    {{ spell_groups(castable, "sheet-spells", slots=none if read_only else slots,
                    cast_url="/characters/%d/sheet/cast" % character.id, warnings=spell_warnings,
                    notes=spell_notes, free_cast_url="/characters/%d/sheet/cast-free" % character.id,
                    free_uses=free_uses, compact=true) }}

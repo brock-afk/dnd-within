@@ -88,7 +88,17 @@ def hit_die_healing(roll: int, con_mod: int) -> int:
 
 def roll(dice: str, rng: random.Random | None = None) -> int:
     """Roll "1d3" or "2d4+2" (validated content, so always well formed)."""
+    return roll_detail(dice, rng)[0]
+
+
+def roll_detail(dice: str, rng: random.Random | None = None) -> tuple[int, str]:
+    """Roll and say how: (9, "2d4+2: 3 + 4, +2"). A plain number ("5") is just itself."""
     rng = rng or random.Random()
-    match = re.fullmatch(r"(\d+)d(\d+)([+-]\d+)?", dice.replace(" ", ""))
+    text = dice.replace(" ", "")
+    if text.isdigit():
+        return int(text), text
+    match = re.fullmatch(r"(\d+)d(\d+)([+-]\d+)?", text)
     count, sides, flat = int(match[1]), int(match[2]), int(match[3] or 0)
-    return sum(rng.randint(1, sides) for _ in range(count)) + flat
+    rolls = [rng.randint(1, sides) for _ in range(count)]
+    shown = " + ".join(str(r) for r in rolls) + (f", {flat:+d}" if flat else "")
+    return sum(rolls) + flat, f"{text}: {shown}"

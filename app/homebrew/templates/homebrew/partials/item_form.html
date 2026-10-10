@@ -38,6 +38,12 @@
              placeholder="One sentence, shown in your inventory and in search">
       {{ field_error("summary") }}
     </div>
+    <div class="hb-field{% if errors.healing %} has-error{% endif %}">
+      <label for="hb-healing">Heals when used <span class="muted">· optional, e.g. 2d4+2</span></label>
+      <input id="hb-healing" name="healing" type="text" maxlength="20" value="{{ form.healing }}"
+             class="hb-number" placeholder="None" autocomplete="off">
+      {{ field_error("healing") }}
+    </div>
     <div class="hb-field">
       <label for="hb-description">Full text <span class="muted">· optional</span></label>
       <textarea id="hb-description" name="description" rows="5">{{ form.description }}</textarea>

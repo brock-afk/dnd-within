@@ -721,3 +721,22 @@ details[open] > .section-summary .section-digest { display: none; }
 
 .homebrew-form .has-error input, .homebrew-form .has-error select { border-color: var(--error); }
 .homebrew-form .field-error { margin: 0; }
+
+/* A report of what just happened, like a potion's roll in the HP panel. */
+.notice { margin: 0 0 0.5rem; padding: 0.4rem 0.6rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-size: 0.9rem; }
+
+/* Sharing: the owner's Share menu, and the shared view's note */
+.page-header-actions { display: flex; align-items: center; gap: 1.25rem; }
+.share-menu { position: relative; }
+.share-menu > summary { list-style: none; cursor: pointer; }
+.share-menu > summary::-webkit-details-marker { display: none; }
+.share-panel { right: 0; left: auto; width: min(26rem, 90vw); display: grid; gap: 0.6rem; }
+.share-text { margin: 0; font-size: 0.9rem; }
+.share-link { display: flex; gap: 0.4rem; }
+.share-link input[type="text"] { padding: 0.35rem 0.5rem; font-size: 0.85rem; }
+.share-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; font-size: 0.9rem; }
+.view-only-note { font-size: 0.9rem; }
+span.pip { display: inline-block; cursor: default; }
+span.pip:hover { background: none; }
+span.pip.filled:hover { background: var(--accent); }
+.page-header .share-menu { position: relative; }  /* also on phones, where vital menus go static */

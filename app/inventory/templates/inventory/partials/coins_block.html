@@ -4,6 +4,7 @@
 {% set choice = coin_choice | default("gp") %}
 <div id="coins" class="coins">
   <span class="coins-total{% if not coin_summary %} muted{% endif %}">{{ coin_summary or "No coins" }}</span>
+{% if not read_only %}
   <div class="coin-change">
     <input type="text" name="amount" inputmode="numeric" maxlength="7" autocomplete="off"
            value="{{ coin_amount | default('') }}" placeholder="0" aria-label="How many coins">
@@ -18,5 +19,6 @@
             hx-target="#coins" hx-swap="outerHTML">{{ label }}</button>
     {% endfor %}
   </div>
+{% endif %}
   {% if coin_error %}<p class="error" role="alert">{{ coin_error }}</p>{% endif %}
 </div>

@@ -62,6 +62,8 @@ class Item(ContentMixin, Base):
     consumable: Mapped[bool] = mapped_column(default=False, server_default=text("0"))
     requires_attunement: Mapped[bool] = mapped_column(default=False, server_default=text("0"))
     spell_level: Mapped[int | None] = mapped_column(SmallInteger)  # spell scrolls only
+    # Dice healed when used (a Potion of Healing's 2d4+2), drunk from the sheet's HP panel.
+    healing: Mapped[str | None] = mapped_column(String(20))
     # Packs only: [{"item_id": 3, "quantity": 10}, ...], resolved from slugs on import.
     contents: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
     # Homebrew only: the item as entered in the editor (an ItemDef), to reopen it for editing.

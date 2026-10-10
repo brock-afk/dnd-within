@@ -9,6 +9,7 @@
   rarity: common
   cost: 50 GP
   weight: 0.5
+  healing: 2d4+2
   summary: "Bonus Action to drink (or an action to give it to someone): regain 2d4 + 2 HP."
 - slug: spell-scroll-0
   name: Spell Scroll (Cantrip)

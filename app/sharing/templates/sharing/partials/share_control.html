@@ -1,0 +1,27 @@
+{#- The owner's Share menu on the Play sheet: share the character read-only through a public
+    link, copy it, replace it (the old link stops working) or stop sharing. -#}
+{% set url = "/characters/%d/share" % character.id %}
+<details class="vital-menu share-menu" id="share-menu" data-popover data-popover-stays>
+  <summary class="link-button">{{ "Shared" if share else "Share" }}</summary>
+  <div class="vital-panel card share-panel">
+    {% if share %}
+    {% set link = request.base_url ~ "shared/" ~ share.token %}
+    <p class="share-text">Anyone with this link can view {{ character.name }}, read-only. No account needed.</p>
+    <div class="share-link">
+      <input type="text" readonly value="{{ link }}" aria-label="Share link" onclick="this.select()">
+      <button type="button" class="secondary-button small-button"
+              onclick="navigator.clipboard.writeText('{{ link }}').then(() => { this.textContent = 'Copied'; })">Copy</button>
+    </div>
+    <div class="share-actions">
+      <a href="/shared/{{ share.token }}" target="_blank" rel="noopener">Open</a>
+      <button type="button" class="link-button" hx-post="{{ url }}">New link</button>
+      <button type="button" class="link-button" hx-post="{{ url }}/stop">Stop sharing</button>
+    </div>
+    <p class="muted share-text">A new link replaces this one, so the old one stops working.</p>
+    {% else %}
+    <p class="share-text">Make a link your DM can open to see {{ character.name }}: the Play sheet and the
+      Build summary, read-only, without an account.</p>
+    <button type="button" class="secondary-button" hx-post="{{ url }}">Share publicly</button>
+    {% endif %}
+  </div>
+</details>

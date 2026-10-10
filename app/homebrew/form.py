@@ -52,6 +52,7 @@ class ItemForm(BaseModel):
     attunement: str = ""  # "1" when checked
     summary: str = ""
     description: str = ""
+    healing: str = ""  # dice healed when used ("2d4+2"): drunk from the HP panel
     charges: str = ""
     recharge: str = "dawn"
     regain: str = ""
@@ -172,6 +173,8 @@ def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[st
         errors["category"] = "Choose a type."
     if form.rarity not in RARITIES:
         errors["rarity"] = "Choose a rarity."
+    if form.healing.strip() and not re.fullmatch(r"\s*\d+d\d+(\s*[+-]\s*\d+)?\s*|\s*\d+\s*", form.healing):
+        errors["healing"] = "Healing is dice like 2d4+2, or a number."
     charges = _number(form.charges, 1, 99, "Charges", errors, "charges")
     if form.recharge not in RECHARGES:
         errors["charges"] = "Choose when charges come back."
@@ -311,6 +314,7 @@ def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[st
         "rarity": form.rarity or None,
         "summary": summary,
         "description": form.description.strip() or None,
+        "healing": form.healing.strip() or None,
         "requires_attunement": bool(form.attunement),
         "features": features,
     }

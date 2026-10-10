@@ -18,6 +18,7 @@ from app.features.router import router as features_router
 from app.homebrew.router import router as homebrew_router
 from app.inventory.router import router as inventory_router
 from app.leveling.router import router as leveling_router
+from app.sharing.router import router as sharing_router
 from app.sheet.router import router as sheet_router
 from app.species.router import router as species_router
 
@@ -51,3 +52,4 @@ app.include_router(leveling_router)
 app.include_router(sheet_router)
 app.include_router(inventory_router)
 app.include_router(homebrew_router)
+app.include_router(sharing_router)

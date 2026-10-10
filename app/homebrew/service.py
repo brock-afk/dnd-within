@@ -94,6 +94,7 @@ def save_item(
     item.consumable = item_def.consumable
     item.requires_attunement = item_def.requires_attunement
     item.spell_level = None
+    item.healing = item_def.healing
     item.contents = None
     item.definition = definition
     item.retired_at = None

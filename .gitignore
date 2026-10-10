@@ -4,3 +4,13 @@ __pycache__/
 .env
 # Third-party content packs: copyrighted, never committed or built into the image.
 content-private/
+# Database dumps and backups: your data, never committed or built into the image.
+*.sql.gz
+backups/
+
+# Terraform working files: provider downloads, local state, plans, and compiled Bicep.
+infra/terraform/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+infra/bicep/*.json

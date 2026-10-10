@@ -16,6 +16,8 @@ class Settings(BaseSettings):
 
     secret_key: str = "change-me"
     session_https_only: bool = False
+    # When set, registering needs this code (give it to friends); empty leaves sign-up open.
+    invite_code: str = ""
 
     @property
     def database_url(self) -> str:

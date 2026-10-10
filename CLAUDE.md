@@ -33,6 +33,16 @@ Content packs:
 
 There is no test suite, linter, or formatter configured.
 
+Deploying: to Azure, being set up step by step (infrastructure as code in `infra/`, delivery through GitHub Actions). Database helpers:
+
+```bash
+scripts/dump-dev-db.sh                # local: dump the dev database
+scripts/restore-db.sh <dump.sql.gz>   # server: load a dump (stops and restarts the app)
+scripts/backup.sh                     # server: daily from cron, keeps the newest 14
+```
+
+`INVITE_CODE` gates registration. Keep the app a single process: live shared views notify in-process (`app/sharing/live.py`).
+
 ## Architecture
 
 ### Domain packages

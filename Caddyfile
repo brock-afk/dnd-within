@@ -1,0 +1,8 @@
+# Caddy: HTTPS for $DOMAIN (certificates are automatic) in front of the app.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy app:8000 {
+		# Send server-sent events (live shared views) straight through, unbuffered.
+		flush_interval -1
+	}
+}

@@ -1,3 +1,4 @@
+import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
@@ -7,6 +8,7 @@ from sqlalchemy import select
 from app.auth.dependencies import OptionalUser
 from app.auth.models import User
 from app.auth.security import hash_password, verify_password
+from app.core.config import settings
 from app.core.db import DbSession
 from app.core.templates import form_error, hx_redirect, templates
 
@@ -43,7 +45,9 @@ def login(
 def register_page(request: Request, user: OptionalUser):
     if user:
         return RedirectResponse("/", status_code=303)
-    return templates.TemplateResponse(request, "auth/register.html")
+    return templates.TemplateResponse(
+        request, "auth/register.html", {"invite_required": bool(settings.invite_code)}
+    )
 
 
 @router.post("/register")
@@ -53,7 +57,12 @@ def register(
     username: Annotated[str, Form()],
     password: Annotated[str, Form()],
     confirm_password: Annotated[str, Form()],
+    invite_code: Annotated[str, Form()] = "",
 ):
+    if settings.invite_code and not secrets.compare_digest(
+        invite_code.strip().encode(), settings.invite_code.encode()
+    ):
+        return form_error(request, "That invite code isn't right.", status_code=403)
     username = username.strip()
     if not 3 <= len(username) <= 50:
         return form_error(request, "Username must be 3–50 characters.")

@@ -1,0 +1,34 @@
+# Production overrides: Caddy in front for HTTPS, the private content packs mounted read-only.
+# Usage (on the server; the CI pipeline runs it):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+services:
+  app:
+    volumes:
+      # Third-party packs live on the server, never in the image.
+      - ./content-private:/app/content-private:ro
+    environment:
+      SESSION_HTTPS_ONLY: "true"
+    # One process: live updates for shared views are in-process (app/sharing/live.py).
+    # --proxy-headers makes request.base_url https://<domain>/ behind Caddy, so share links
+    # are right; trusting any forwarder is safe because the app port isn't public.
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 3 --proxy-headers --forwarded-allow-ips '*'"]
+
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env, e.g. dnd.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data  # HTTPS certificates: keep them across restarts
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

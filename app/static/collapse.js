@@ -7,7 +7,9 @@
 // page redraws sections the way the server rendered them).
 //
 // A popover is a <details data-popover> whose content opens over the page (the HP and AC panels,
-// the long rest confirmation). It closes on a click anywhere outside it, or on Escape.
+// the long rest confirmation). It closes on a click anywhere outside it, or on Escape. With
+// data-popover-stays (and an id), it also stays open after a request sent from inside it, like
+// adding or ending effects one after another; the page refresh would otherwise close it.
 
 const collapseStore = {
   get(key) {
@@ -74,4 +76,17 @@ document.addEventListener("keydown", (event) => {
     popover.open = false;
     if (popover.contains(document.activeElement)) popover.querySelector("summary").focus();
   }
+});
+
+// Popovers that stay: remember the one a request came from, and reopen it once the page has
+// been refreshed.
+let reopenPopover = null;
+document.addEventListener("htmx:before:request", (event) => {
+  const popover = event.target.closest?.("details[data-popover-stays][open]");
+  reopenPopover = popover ? popover.id : null;
+});
+document.addEventListener("htmx:after:settle", () => {
+  const popover = reopenPopover && document.getElementById(reopenPopover);
+  if (popover) popover.open = true;
+  reopenPopover = null;
 });

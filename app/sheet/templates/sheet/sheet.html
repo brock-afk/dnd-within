@@ -43,7 +43,7 @@
     <span class="muted">Set ability scores first. <a href="/characters/{{ character.id }}">Go to Build</a></span></span>
   {% else %}
   <div class="vital-group">
-    <details class="vital-menu" data-popover {% if errors.temp_hp or errors.effect %}open{% endif %}>
+    <details class="vital-menu" id="hp-menu" data-popover data-popover-stays {% if errors.temp_hp or errors.effect %}open{% endif %}>
       <summary class="vital" title="Hit points: temp HP and max HP effects">
         <span class="vital-main">
           <span class="vital-label">HP</span> <strong>{{ hp.current }}</strong><span class="muted">/{{ hp.maximum }}</span>
@@ -103,7 +103,7 @@
   </div>
   {% endif %}
   {% if abilities %}
-  <details class="vital-menu" data-popover {% if errors.ac_effect %}open{% endif %}>
+  <details class="vital-menu" id="ac-menu" data-popover data-popover-stays {% if errors.ac_effect %}open{% endif %}>
     <summary class="vital" title="Armor class: effects">
       <span class="vital-main">
         <span class="vital-label">AC</span> <strong>{{ ac.total }}</strong>

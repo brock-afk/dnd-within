@@ -12,7 +12,8 @@ from app.sheet.service import play_state
 from app.spells.models import Spell
 
 MAX_ATTUNED = 3  # 2024 rules: at most three magic items at once
-COINS = [("pp", "PP"), ("gp", "GP"), ("ep", "EP"), ("sp", "SP"), ("cp", "CP")]
+# Coins by their full names (not GP, SP...), highest first.
+COINS = [("pp", "Platinum"), ("gp", "Gold"), ("ep", "Electrum"), ("sp", "Silver"), ("cp", "Copper")]
 MAX_COINS = 1_000_000
 
 
@@ -32,17 +33,17 @@ SEARCH_LIMIT = 20
 
 
 def price(cost_cp: int | None) -> str:
-    """"40 GP", "5 SP", "2 CP", or "" without a price."""
+    """"40 gold", "5 silver", "2 copper", or "" without a price."""
     if cost_cp is None:
         return ""
-    for coin, value in [("GP", 100), ("SP", 10)]:
+    for coin, value in [("gold", 100), ("silver", 10)]:
         if cost_cp % value == 0:
             return f"{cost_cp // value} {coin}"
-    return f"{cost_cp} CP"
+    return f"{cost_cp} copper"
 
 
 def item_detail(item: Item) -> str:
-    """"Common · 50 GP": rarity and price, whichever it has."""
+    """"Common · 50 gold": rarity and price, whichever it has."""
     rarity = (item.rarity or "").replace("_", " ").capitalize()
     return " · ".join(part for part in [rarity, price(item.cost_cp)] if part)
 
@@ -118,8 +119,15 @@ def add_item(
 
 
 def change_quantity(db: Session, row: CharacterItem, delta: int) -> None:
-    """Add or take away; at 0 the item is gone."""
-    row.quantity += delta
+    """Add or take away, but never below 1: getting rid of an item is Remove (which asks
+    first), so a stray click can't lose the only backpack."""
+    row.quantity = max(1, row.quantity + delta)
+    db.flush()
+
+
+def use_one(db: Session, row: CharacterItem) -> None:
+    """Spend one of a consumable; the last one used is gone."""
+    row.quantity -= 1
     if row.quantity <= 0:
         db.delete(row)
     db.flush()
@@ -142,8 +150,10 @@ def coins(db: Session, character: Character) -> CharacterPlayState | None:
 
 
 def coin_summary(values: dict[str, int]) -> str:
-    """"1 PP 65 GP": the coins the character has, highest first; "" with none."""
-    return " ".join(f"{values[column]:,} {label}" for column, label in COINS if values[column])
+    """"65 gold, 3 silver": the coins the character has, highest first; "" with none."""
+    return ", ".join(
+        f"{values[column]:,} {label.lower()}" for column, label in COINS if values[column]
+    )
 
 
 def coin_values(db: Session, character: Character) -> dict[str, int]:
@@ -160,7 +170,7 @@ def set_coins(db: Session, character: Character, values: dict[str, int]) -> None
 
 
 def digest(db: Session, character: Character, rows: list[CharacterItem]) -> str:
-    """"65 GP · 12 items" for the collapsed Inventory section."""
+    """"65 gold · 12 items" for the collapsed Inventory section."""
     money = coin_summary(coin_values(db, character))
     count = f"{len(rows)} item{'s' if len(rows) != 1 else ''}" if rows else ""
     return " · ".join(part for part in [money, count] if part)

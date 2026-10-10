@@ -1,5 +1,6 @@
 {% from "partials/refresh.html" import refresh_button %}
-{# Editing coins: one box per coin, highest first. Saving refreshes the sheet. #}
+{# Setting each coin exactly (fixing a mistake): one box per coin, highest first. Saving
+   refreshes the sheet. #}
 <form class="coins-form" hx-post="/characters/{{ character.id }}/sheet/inventory/coins"
       hx-target="#coins" novalidate>
   {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}

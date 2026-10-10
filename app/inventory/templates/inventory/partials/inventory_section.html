@@ -1,13 +1,9 @@
-{#- Coins on one line (Change opens a box per coin), then one line per item: name and quantity,
-    with −/+ and Use or Attune beside it. An item opens to its summary, notes and Remove. Every
+{#- Coins (with a quick add/spend), then one line per item: name and quantity,
+    with −/+ and Use or Attune beside it. An item opens to its summary and notes; × at the end asks before removing it. Every
     change refreshes the sheet in place. -#}
 {% set base = "/characters/%d/sheet/inventory" % character.id %}
 {% call section("inventory", "Inventory", inventory_digest, classes="order-late") %}
-  <div id="coins" class="coins">
-    <span class="coins-label">Coins</span>
-    <span class="coins-total">{{ coin_summary or "None" }}</span>
-    <button type="button" class="link-button" hx-get="{{ base }}/coins/edit" hx-target="#coins">Change</button>
-  </div>
+  {% include "inventory/partials/coins_block.html" %}
 
   {% if items %}
   <ul class="plain-list item-list">
@@ -34,14 +30,9 @@
                    placeholder="Notes, e.g. where it came from" aria-label="Notes for {{ row.name }}">
             <button type="submit" class="secondary-button small-button">Save</button>
           </form>
-          <details class="item-remove">
-            <summary class="link-button">Remove</summary>
-            <button type="button" class="danger-button small-button"
-                    hx-post="{{ base }}/{{ row.id }}/remove">Remove {{ row.name }}{% if row.quantity > 1 %} (all {{ row.quantity }}){% endif %}</button>
-          </details>
         </div>
       </details>
-      <span class="item-actions">
+      <span class="item-actions" id="item-actions-{{ row.id }}">
         {% if row.item.consumable %}
         <button type="button" class="secondary-button small-button"
                 hx-post="{{ base }}/{{ row.id }}/use" title="Spend one">Use</button>
@@ -50,12 +41,19 @@
         <button type="button" class="link-button" hx-post="{{ base }}/{{ row.id }}/attune"
                 hx-vals='{"attuned": "{{ 0 if row.attuned else 1 }}"}'>{{ "End attunement" if row.attuned else "Attune" }}</button>
         {% endif %}
+        {#- Only where counting matters. − stops at 1; × (which asks first) gets rid of it. -#}
+        {% if row.quantity > 1 or row.item.consumable %}
         <span class="qty-steps">
           <button type="button" class="qty-step" hx-post="{{ base }}/{{ row.id }}/quantity"
-                  hx-vals='{"delta": "-1"}' aria-label="One fewer {{ row.name }}">−</button>
+                  hx-vals='{"delta": "-1"}' aria-label="One fewer {{ row.name }}"
+                  {% if row.quantity == 1 %}disabled{% endif %}>−</button>
           <button type="button" class="qty-step" hx-post="{{ base }}/{{ row.id }}/quantity"
                   hx-vals='{"delta": "1"}' aria-label="One more {{ row.name }}">+</button>
         </span>
+        {% endif %}
+        <button type="button" class="item-remove-button" hx-get="{{ base }}/{{ row.id }}/remove"
+                hx-target="#item-actions-{{ row.id }}" aria-label="Remove {{ row.name }}"
+                title="Remove">×</button>
       </span>
     </li>
     {% endfor %}

@@ -18,6 +18,7 @@ from app.inventory.service import (
     add_item,
     change_quantity,
     character_item,
+    coin_summary,
     coin_values,
     item_detail,
     pack_contents,
@@ -25,7 +26,9 @@ from app.inventory.service import (
     search_items,
     set_attuned,
     set_coins,
+    use_one,
 )
+from app.inventory.rules import gain, spend
 from app.sheet.router import refresh_sheet
 from app.spells.models import Spell
 
@@ -165,7 +168,7 @@ def use(request: Request, db: DbSession, user: CurrentUser, character: OwnedChar
         return refresh_sheet(
             request, db, user, character, {"inventory": f"{row.name} isn't used up."}, 400
         )
-    change_quantity(db, row, -1)
+    use_one(db, row)
     db.commit()
     return refresh_sheet(request, db, user, character)
 
@@ -200,6 +203,13 @@ def notes(
     return refresh_sheet(request, db, user, character)
 
 
+@router.get(BASE + "/{row_id}/remove", response_class=HTMLResponse)
+def remove_confirm(request: Request, db: DbSession, character: OwnedCharacter, row_id: int):
+    """Asks before removing, in place of the row's buttons."""
+    context = {"character": character, "row": _row(db, character, row_id)}
+    return _item_partial(request, "remove_confirm", context)
+
+
 @router.post(BASE + "/{row_id}/remove", response_class=HTMLResponse)
 def remove(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, row_id: int
@@ -215,6 +225,54 @@ class CoinForm(BaseModel):
     ep: str = ""
     sp: str = ""
     cp: str = ""
+
+
+def _coins_block(request, db, character, amount="", coin="gp", error=None, status_code=200):
+    """The coins line with its add/spend form, redrawn alone to show a mistake."""
+    context = {
+        "character": character,
+        "coin_summary": coin_summary(coin_values(db, character)),
+        "coin_labels": COINS,
+        "coin_amount": amount,
+        "coin_choice": coin,
+        "coin_error": error,
+    }
+    return _item_partial(request, "coins_block", context, status_code=status_code)
+
+
+@router.post(BASE + "/coins/change", response_class=HTMLResponse)
+def change_coins(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    amount: Annotated[str, Form()] = "",
+    coin: Annotated[str, Form()] = "gp",
+    action: Annotated[str, Form()] = "",
+):
+    """Gain or spend some coins. Spending breaks larger coins when there aren't enough of
+    the one paid with."""
+    labels = dict(COINS)
+    raw = amount.strip()
+    if coin not in labels or action not in ("gain", "spend"):
+        raise HTTPException(status_code=400)
+    if not raw.isdigit() or not 1 <= int(raw) <= MAX_COINS:
+        error = "Enter how many coins, e.g. 15."
+        return _coins_block(request, db, character, amount, coin, error, status_code=400)
+    current = coin_values(db, character)
+    if action == "gain":
+        new = gain(current, coin, int(raw))
+        if new[coin] > MAX_COINS:
+            error = f"That's more than {MAX_COINS:,} {labels[coin].lower()}."
+            return _coins_block(request, db, character, amount, coin, error, status_code=400)
+    else:
+        new = spend(current, coin, int(raw))
+        if new is None:
+            error = f"You don't have {raw} {labels[coin].lower()}, even breaking larger coins."
+            return _coins_block(request, db, character, amount, coin, error, status_code=400)
+    set_coins(db, character, new)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
 
 
 def _coins_form(request, character, coins: dict, error: str | None = None, status_code=200):

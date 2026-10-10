@@ -632,15 +632,30 @@ details[open] > .section-summary .section-digest { display: none; }
 }
 
 /* Inventory (Play sheet): coins, then compact item rows like the spell rows. */
-.coins { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem; margin-bottom: 0.75rem; }
-.coins-label { min-width: 4rem; font-weight: 600; }
+/* Coins sit apart from the items: their own block, ruled off below. */
+.coins {
+  display: grid; gap: 0.6rem;
+  padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border);
+}
+.coins-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem; }
+.coins-label { font-weight: 600; }
 .coins-total { font-variant-numeric: tabular-nums; }
 .coins .link-button { font-size: 0.85rem; }
+.coins .error { margin: 0; }
+/* Amount, coin, Add, Spend: one row of controls, all the same height and text size. */
+.coin-change { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.5rem; }
+.coin-change > * {
+  height: 2.25rem; margin: 0; padding: 0 0.75rem;
+  border: 1px solid var(--border-strong); border-radius: 6px; font: inherit; font-size: 0.9rem;
+}
+.coin-change input[type="text"] { width: 5rem; background: var(--bg); text-align: right; font-variant-numeric: tabular-nums; }
+.coin-change select { min-width: 7.5rem; padding-right: 0.4rem; background: var(--bg); color: inherit; }
+.coin-change button { padding: 0 1rem; }
 #coins:has(.coins-form) { display: block; }
 .coin-fields { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; }
 .coin-field { display: grid; gap: 0.2rem; }
 .coin-field label { margin: 0; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
-.coin-field input[type="text"] { width: 5rem; padding: 0.35rem 0.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+.coin-field input[type="text"] { width: 6rem; padding: 0.35rem 0.5rem; text-align: right; font-variant-numeric: tabular-nums; }
 .coins-form .form-actions { margin-top: 0.6rem; }
 .item-list li.item-row {
   display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.35rem 0;
@@ -655,14 +670,16 @@ details[open] > .section-summary .section-digest { display: none; }
 .item-more { display: grid; gap: 0.4rem; padding: 0.4rem 0 0.2rem; font-size: 0.9rem; }
 .item-notes { display: flex; gap: 0.4rem; }
 .item-notes input[type="text"] { padding: 0.35rem 0.5rem; font-size: 0.9rem; }
-.item-remove > summary { display: inline; cursor: pointer; font-size: 0.85rem; list-style: none; }
-.item-remove > summary::-webkit-details-marker { display: none; }
-.item-remove[open] > summary { margin-right: 0.5rem; }
 .item-actions { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
 .item-actions .link-button { font-size: 0.85rem; }
+/* Remove: a quiet × at the end of each row; it turns into "Remove X? Remove · Keep" in place. */
+.item-remove-button { padding: 0 0.3rem; background: none; color: var(--muted); font-size: 1.1rem; font-weight: 400; line-height: 1; }
+.item-remove-button:hover { background: none; color: var(--error); }
+.item-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; font-size: 0.9rem; }
 .qty-steps { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; }
 .qty-step { width: 1.9rem; padding: 0.2rem 0; border-radius: 0; background: var(--surface); color: var(--text); }
-.qty-step:hover { background: var(--border); }
+.qty-step:hover:not(:disabled) { background: var(--border); }
+.qty-step:disabled { color: var(--border-strong); cursor: not-allowed; }
 #inventory-add { margin-top: 0.75rem; }
 .add-fields { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
 .add-fields select { padding: 0.45rem 0.6rem; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }

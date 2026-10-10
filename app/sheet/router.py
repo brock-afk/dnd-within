@@ -16,7 +16,7 @@ from app.core.db import DbSession
 from app.core.templates import morph_in_place, templates
 from app.features.kinds import KINDS
 from app.features.service import applicable_choice, play_choices
-from app.inventory.service import MAX_ATTUNED, coin_summary, coin_values, inventory
+from app.inventory.service import COINS, MAX_ATTUNED, coin_summary, coin_values, inventory
 from app.inventory.service import digest as inventory_digest
 from app.leveling.service import constitution_modifier
 from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
@@ -100,6 +100,7 @@ def render_sheet(
         "resting": resting,
         "items": items,
         "coin_summary": coin_summary(coin_values(db, character)),
+        "coin_labels": COINS,
         "inventory_digest": inventory_digest(db, character, items),
         "max_attuned": MAX_ATTUNED,
         "errors": errors or {},

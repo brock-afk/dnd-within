@@ -1,9 +1,19 @@
-{#- Coins (with a quick add/spend), then one line per item: name and quantity,
+{#- Two parts, like Spells: Coins (with a quick add/spend), then Items, one line per item: name and quantity,
     with −/+ and Use or Attune beside it. An item opens to its summary and notes; × at the end asks before removing it. Every
     change refreshes the sheet in place. -#}
 {% set base = "/characters/%d/sheet/inventory" % character.id %}
 {% call section("inventory", "Inventory", inventory_digest, classes="order-late") %}
+  <div class="section-heading">
+    <span class="group-title">Coins</span>
+    <button type="button" class="link-button" hx-get="{{ base }}/coins/edit" hx-target="#coins">Edit</button>
+  </div>
   {% include "inventory/partials/coins_block.html" %}
+
+  <div class="section-heading inventory-items-heading">
+    <span class="group-title">Items{% if items %} · {{ items | length }}{% endif %}</span>
+    <button type="button" class="link-button" hx-get="{{ base }}/add" hx-target="#inventory-add">Add item</button>
+  </div>
+  <div id="inventory-add"></div>
 
   {% if items %}
   <ul class="plain-list item-list">
@@ -62,8 +72,4 @@
   <p class="muted">Nothing carried yet.</p>
   {% endif %}
   {% if errors.inventory %}<p class="error" role="alert">{{ errors.inventory }}</p>{% endif %}
-
-  <div id="inventory-add">
-    <button type="button" class="link-button" hx-get="{{ base }}/add" hx-target="#inventory-add">Add item</button>
-  </div>
 {% endcall %}

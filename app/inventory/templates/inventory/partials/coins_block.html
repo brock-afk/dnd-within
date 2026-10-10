@@ -1,13 +1,9 @@
-{#- Coins: what the character has, and a quick add/spend (amount, coin, Add or Spend). Edit
-    sets each coin exactly, for fixing mistakes. -#}
+{#- Coins: what the character has, and a quick add/spend (amount, coin, Add or Spend). The
+    Coins heading above it (inventory_section.html) has Edit, which sets each coin exactly. -#}
 {% set base = "/characters/%d/sheet/inventory" % character.id %}
 {% set choice = coin_choice | default("gp") %}
 <div id="coins" class="coins">
-  <div class="coins-line">
-    <span class="coins-label">Coins</span>
-    <span class="coins-total">{{ coin_summary or "None" }}</span>
-    <button type="button" class="link-button" hx-get="{{ base }}/coins/edit" hx-target="#coins">Edit</button>
-  </div>
+  <span class="coins-total{% if not coin_summary %} muted{% endif %}">{{ coin_summary or "No coins" }}</span>
   <div class="coin-change">
     <input type="text" name="amount" inputmode="numeric" maxlength="7" autocomplete="off"
            value="{{ coin_amount | default('') }}" placeholder="0" aria-label="How many coins">

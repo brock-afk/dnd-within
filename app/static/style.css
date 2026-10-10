@@ -632,18 +632,15 @@ details[open] > .section-summary .section-digest { display: none; }
 }
 
 /* Inventory (Play sheet): coins, then compact item rows like the spell rows. */
-/* Coins sit apart from the items: their own block, ruled off below. */
-.coins {
-  display: grid; gap: 0.6rem;
-  padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border);
-}
-.coins-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem; }
-.coins-label { font-weight: 600; }
-.coins-total { font-variant-numeric: tabular-nums; }
-.coins .link-button { font-size: 0.85rem; }
+/* Two titled parts, like Spells: Coins, then Items well below it. */
+.coins { display: grid; gap: 0.6rem; }
+.coins-total { font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+#section-inventory .section-heading { margin-bottom: 0.5rem; }
+#section-inventory .section-heading .group-title { margin: 0; }
+.inventory-items-heading { margin-top: 2rem; }
 .coins .error { margin: 0; }
 /* Amount, coin, Add, Spend: one row of controls, all the same height and text size. */
-.coin-change { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.5rem; }
+.coin-change { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.5rem; padding-top: 0.5rem; }
 .coin-change > * {
   height: 2.25rem; margin: 0; padding: 0 0.75rem;
   border: 1px solid var(--border-strong); border-radius: 6px; font: inherit; font-size: 0.9rem;
@@ -680,7 +677,7 @@ details[open] > .section-summary .section-digest { display: none; }
 .qty-step { width: 1.9rem; padding: 0.2rem 0; border-radius: 0; background: var(--surface); color: var(--text); }
 .qty-step:hover:not(:disabled) { background: var(--border); }
 .qty-step:disabled { color: var(--border-strong); cursor: not-allowed; }
-#inventory-add { margin-top: 0.75rem; }
+#inventory-add:not(:empty) { margin-bottom: 0.75rem; }
 .add-fields { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
 .add-fields select { padding: 0.45rem 0.6rem; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }
 .add-fields input[name="quantity"] { width: 4.5rem; }

@@ -25,6 +25,10 @@ def _text(length: int):
 Text50, Text80, Text120, Text255, Text500 = (_text(n) for n in (50, 80, 120, 255, 500))
 
 Ability = Literal["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+DamageType = Literal[
+    "acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing",
+    "poison", "psychic", "radiant", "slashing", "thunder",
+]
 
 School = Literal[
     "abjuration", "conjuration", "divination", "enchantment", "evocation", "illusion",
@@ -58,11 +62,30 @@ class DamageReactionDef(BaseModel):
 
 
 class GrantsDef(BaseModel):
-    """What having an option picked gives the character, applied on the Play sheet."""
+    """Character attributes a feature gives (always), or an option gives (while picked).
+    The Play sheet lists each with where it comes from.
+
+    darkvision:       a range; the highest source wins (a species' Darkvision 60)
+    darkvision_bonus: added on top, or from 0 without Darkvision (the Transmuter's Stone)
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    save_proficiencies: list[Ability] = Field(min_length=1)
+    save_proficiencies: list[Ability] = []
+    resistances: list[DamageType] = []
+    darkvision: int | None = Field(default=None, ge=5, le=300)
+    darkvision_bonus: int | None = Field(default=None, ge=5, le=300)
+    speed_bonus: int | None = Field(default=None, ge=5, le=120)
+
+    @model_validator(mode="after")
+    def check(self):
+        if not self.stored():
+            raise ValueError("grants needs at least one attribute")
+        return self
+
+    def stored(self) -> dict:
+        """What goes in the grants JSON columns: only what's set."""
+        return self.model_dump(exclude_defaults=True)
 
 
 class OptionDef(BaseModel):
@@ -139,6 +162,17 @@ class SlotRecoveryDef(BaseModel):
     max_slot_level: int = Field(ge=1, le=9)
 
 
+class FeatureSpellDef(BaseModel):
+    """A spell a feature gives you, always prepared (Wondrous Alteration's Alter Self)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    spell: str  # spell slug, e.g. "alter-self" or "phb-2024/alter-self"
+    # One cast spends a use of the feature instead of a spell slot.
+    free_cast: bool = False
+    note: Text255 | None = None  # shown on the spell, e.g. what the feature adds to it
+
+
 class FeatureDef(BaseModel):
     model_config = ConfigDict(extra="forbid")  # typos are errors, not ignored
 
@@ -150,4 +184,14 @@ class FeatureDef(BaseModel):
     applies_to: Literal["all", "starting_class", "multiclass"] = "all"
     uses: UsesDef | None = None
     slot_recovery: SlotRecoveryDef | None = None
+    grants: GrantsDef | None = None  # always on while the character has the feature
+    spells: list[FeatureSpellDef] = []
     choices: list[ChoiceDef] = []
+
+    @model_validator(mode="after")
+    def check_spells(self):
+        if any(s.free_cast for s in self.spells) and self.uses is None:
+            raise ValueError(
+                f"{self.slug}: free_cast spells spend the feature's uses, so it needs uses"
+            )
+        return self

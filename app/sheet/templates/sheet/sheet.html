@@ -143,17 +143,29 @@
     {% endfor %}
   </ul>
 </section>
-
-{#- Which saves are proficient, and why: the class, or a feature like the Transmuter's Stone. -#}
-<section class="sheet-section">
-  <h2>Saving throw proficiencies</h2>
-  <ul class="plain-list save-proficiencies">
-    {% for row in abilities if row.proficient %}
-    <li><strong>{{ row.ability.name }}</strong> <span class="muted">{{ row.sources | join(", ") }}</span></li>
-    {% endfor %}
-  </ul>
-</section>
 {% endif %}
+
+{#- Passive data: what the character is, each part with where it comes from. Spells and
+    Resources (below) are the active side: what they do. -#}
+<section class="sheet-section">
+  <h2>Attributes</h2>
+  <dl class="attributes">
+    {% if attributes.saves %}
+    <dt>Saving throws</dt>
+    <dd>{% for names, source in attributes.save_groups %}<span>{{ names | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
+    {% endif %}
+    <dt>Speed</dt>
+    <dd><span>{{ attributes.speed }} ft{% if attributes.speed_parts | length > 1 %} <span class="muted">· {{ attributes.speed_parts | join(", ") }}</span>{% else %} <span class="muted">· {{ character.species.name }}</span>{% endif %}</span></dd>
+    {% if attributes.darkvision %}
+    <dt>Darkvision</dt>
+    <dd><span>{{ attributes.darkvision }} ft <span class="muted">· {{ attributes.darkvision_sources | join(", ") }}</span></span></dd>
+    {% endif %}
+    {% if attributes.resistances %}
+    <dt>Resistances</dt>
+    <dd>{% for types, source in attributes.resistance_groups %}<span>{{ types | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
+    {% endif %}
+  </dl>
+</section>
 
 <section class="sheet-section hp-block">
   <h2>Hit points</h2>
@@ -343,7 +355,8 @@
     {% if castable %}
     {{ spell_groups(castable, "sheet-spells", slots=slots,
                    cast_url="/characters/%d/sheet/cast" % character.id, warnings=spell_warnings,
-                   notes=spell_notes) }}
+                   notes=spell_notes, free_cast_url="/characters/%d/sheet/cast-free" % character.id,
+                   free_uses=free_uses) }}
     {% else %}
     <p class="muted">No spells prepared yet.</p>
     {% endif %}

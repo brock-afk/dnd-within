@@ -8,9 +8,13 @@
      .in_ritual_section  listed under Rituals: cast as a ritual, never with a slot
      .prepared           (ritual rows) whether it's prepared or only in the spellbook
      .uses_slots         cast with a spell slot
-   With `slots` ({level: SlotLevel}) and `cast_url`, slot spells get a Cast menu.
+     .granted_by         the feature keeping it always prepared, with .note and .free_cast
+   With `slots` ({level: SlotLevel}) and `cast_url`, slot spells get a Cast menu. With
+   `free_cast_url` and `free_uses` ({feature id: FeatureUses}), free_cast spells also offer a
+   free cast that spends a use of their feature.
    `warnings` ({spell id: [text]}) and `notes` ({spell id: text}) add rule markers and notes. #}
-{% macro spell_groups(rows, scope, slots=none, cast_url="", warnings={}, notes={}) %}
+{% macro spell_groups(rows, scope, slots=none, cast_url="", warnings={}, notes={},
+                      free_cast_url="", free_uses={}) %}
 {% set ns = namespace(pairs=[], labels=[]) %}
 {% for row in rows %}
   {% set label = row.group if row.group is defined
@@ -45,14 +49,16 @@
           {% elif spell.ritual %}
             <span class="spell-tag">Ritual</span>
           {% endif %}
+          {% if row.granted_by is defined and row.granted_by %}<span class="spell-tag" title="From {{ row.granted_by.name }}">Always prepared</span>{% endif %}
           {% if spell.concentration %}<span class="spell-tag">Concentration</span>{% endif %}
           {% for w in warnings.get(spell.id, []) %}<span class="spell-tag warning">{{ w }}</span>{% endfor %}
           {% if slots is not none and row.uses_slots is defined and row.uses_slots %}
-            {{ _cast_menu(spell, slots, cast_url) }}
+            {{ _cast_menu(row, slots, cast_url, free_cast_url, free_uses) }}
           {% endif %}
         </span>
         <span class="choice-detail">{{ spell.stat_line }}</span>
         {% if notes.get(spell.id) %}<span class="muted spell-note">{{ notes[spell.id] }}</span>{% endif %}
+        {% if row.note is defined and row.note %}<span class="muted spell-note">{{ row.granted_by.name }} · {{ row.note }}</span>{% endif %}
         <span class="muted">{{ spell.summary }}</span>
       </li>
       {% endfor %}
@@ -63,14 +69,24 @@
 {% endmacro %}
 
 {# A dropdown of the slot levels this spell can be cast with (its level or higher, with a slot
-   left). Picking one spends that slot. #}
-{% macro _cast_menu(spell, slots, cast_url) %}
+   left). Picking one spends that slot. A free_cast spell also offers a free cast while its
+   feature has a use left. #}
+{% macro _cast_menu(row, slots, cast_url, free_cast_url, free_uses) %}
+{% set spell = row.spell %}
 {% set usable = slots.values() | selectattr("level", "ge", spell.level) | selectattr("remaining", "gt", 0) | list %}
-{% if usable %}
+{% set free = free_uses.get(row.granted_by.id) if row.free_cast is defined and row.free_cast and free_cast_url else none %}
+{% set free = free if free and free.remaining > 0 else none %}
+{% if usable or free %}
 <details class="cast-menu">
   <summary class="cast-button">Cast</summary>
   <form hx-post="{{ cast_url }}" class="cast-options">
     <input type="hidden" name="spell" value="{{ spell.id }}">
+    {% if free %}
+    <button type="submit" class="secondary-button" hx-post="{{ free_cast_url }}"
+            hx-vals='{{ {"feature": row.granted_by.id} | tojson }}'>
+      Free · {{ row.granted_by.name }}
+    </button>
+    {% endif %}
     {% for s in usable %}
     <button type="submit" name="slot_level" value="{{ s.level }}" class="secondary-button">
       Level {{ s.level }} · {{ s.remaining }} left

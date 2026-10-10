@@ -1,6 +1,7 @@
 slug: goliath
 name: Goliath
 summary: Towering folk with the gifts of giant ancestors.
+speed: 35
 features:
 - slug: size-speed
   name: Size and Speed

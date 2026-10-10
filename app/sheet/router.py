@@ -33,6 +33,8 @@ from app.sheet.service import (
     COPY_SEARCH_MIN,
     ability_modifier,
     ability_rows,
+    attributes,
+    granted_spells,
     ac_spells,
     apply_ac_spell,
     armor_class,
@@ -72,15 +74,18 @@ def render_sheet(
     """The sheet. `resting` shows the Short rest panel, which holds every short-rest action
     (hit dice, Arcane Recovery) so they stay off the main sheet."""
     uses = feature_uses(db, character)
+    attrs = attributes(db, character)
     context = {
         "user": user,
         "character": character,
         "hp": hp_view(db, character),
-        "abilities": ability_rows(db, character),
+        "abilities": ability_rows(db, character, attrs),
+        "attributes": attrs,
         "ac": armor_class(db, character),
         "ac_spells": ac_spells(db, character),
         # Rest-only features (like Arcane Recovery) appear only in the Short rest panel.
         "resources": [u for u in uses if not u.rest_only],
+        "free_uses": {u.feature.id: u for u in uses},
         "play_choices": play_choices(db, character),
         "castable": castable_spells(db, character),
         "slots": spell_slots(db, character),
@@ -346,6 +351,9 @@ def _render_prepared_editor(
     question is showing."""
     warnings = spell_warnings(db, character)
     notes = spellbook_notes(db, character)
+    # A granted spell is prepared anyway, so preparing it from the book would waste a pick.
+    for spell_id, (_, feature) in granted_spells(db, character).items():
+        notes[spell_id] = f"Always prepared ({feature.name})"
     options = [
         replace(
             KINDS["spell"].view(entry.spell),
@@ -479,6 +487,31 @@ def cast_spell(
     found, error = _spend_slot(db, character, spell, slot_level)
     if error:
         return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post("/characters/{character_id}/sheet/cast-free", response_class=HTMLResponse)
+def cast_free(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    spell: Annotated[str, Form()] = "",
+    feature: Annotated[str, Form()] = "",
+):
+    """Cast a spell a feature grants without a slot (Wondrous Alteration's Alter Self),
+    spending one use of that feature."""
+    granted = granted_spells(db, character).get(int(spell)) if spell.isdigit() else None
+    uses = next((u for u in feature_uses(db, character) if str(u.feature.id) == feature), None)
+    error = None
+    if granted is None or not granted[0].free_cast or uses is None or uses.feature != granted[1]:
+        error = "That spell can't be cast for free."
+    elif uses.remaining == 0:
+        error = f"{uses.feature.name}'s free cast is used. It comes back on a long rest."
+    if error:
+        return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
+    set_uses_remaining(db, character, uses, uses.remaining - 1)
     db.commit()
     return refresh_sheet(request, db, user, character)
 

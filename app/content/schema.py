@@ -9,12 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.features.schema import Ability, FeatureDef, School, Slug, Text50, Text80, Text120, Text255
+from app.features.schema import Ability, DamageType, FeatureDef, School, Slug, Text50, Text80, Text120, Text255
 
-DamageType = Literal[
-    "acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing",
-    "poison", "psychic", "radiant", "slashing", "thunder",
-]
 
 # "8d6", "1d4+1", "2d4 + 4", or a flat number like "5".
 DICE = re.compile(r"^\s*(\d+d\d+(\s*[+-]\s*\d+)?|\d+)\s*$")
@@ -50,6 +46,7 @@ class SpeciesDef(Strict):
     slug: Slug
     name: Text50
     summary: Text255
+    speed: int = Field(default=30, ge=0, le=120)  # walking speed in feet
     features: list[FeatureDef] = []
 
 

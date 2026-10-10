@@ -55,12 +55,34 @@ class Feature(Base):
     uses: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     # Slot recovery on a short rest: {"budget": "half_class_level", "max_slot_level": 5}.
     slot_recovery: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    # Attributes it always gives: {"darkvision": 60, "resistances": ["poison"], ...}; see
+    # app/features/schema.py:GrantsDef.
+    grants: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     position: Mapped[int] = mapped_column(default=0)
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 
     choices: Mapped[list["Choice"]] = relationship(
         back_populates="feature", order_by="Choice.position", lazy="selectin"
     )
+    spells: Mapped[list["FeatureSpell"]] = relationship(
+        cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class FeatureSpell(Base):
+    """A spell a feature makes always prepared, like Wondrous Alteration's Alter Self. With
+    `free_cast`, one cast spends a use of the feature instead of a spell slot."""
+
+    __tablename__ = "feature_spells"
+
+    feature_id: Mapped[int] = mapped_column(
+        ForeignKey("features.id", ondelete="CASCADE"), primary_key=True
+    )
+    spell_id: Mapped[int] = mapped_column(ForeignKey("spells.id"), primary_key=True)
+    free_cast: Mapped[bool] = mapped_column(default=False, server_default=text("0"))
+    note: Mapped[str | None] = mapped_column(String(255))  # shown on the spell
+
+    spell: Mapped["Spell"] = relationship(lazy="joined")  # noqa: F821
 
 
 class Choice(Base):

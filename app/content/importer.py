@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.classes.models import CharacterClass, Subclass
 from app.content.loader import Pack, discover, import_order, resolve, split_ref
 from app.content.models import Source
-from app.features.models import Choice, ChoiceOption, Feature
+from app.features.models import Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.schema import ChoiceDef, FeatureDef
 from app.skills.models import Skill
 from app.species.models import Species
@@ -107,11 +107,25 @@ class _Importer:
             feature.applies_to = fdef.applies_to
             feature.uses = fdef.uses.model_dump() if fdef.uses else None
             feature.slot_recovery = fdef.slot_recovery.model_dump() if fdef.slot_recovery else None
+            feature.grants = fdef.grants.stored() if fdef.grants else None
+            self._sync_feature_spells(feature, fdef)
             feature.position = position
             feature.retired_at = None
             self._sync_choices(feature, fdef)
         for feature in existing.values():
             self._retire(feature)
+
+    def _sync_feature_spells(self, feature: Feature, fdef: FeatureDef) -> None:
+        """Keep rows for spells still listed (matched by spell), add new ones, drop the rest."""
+        existing = {fs.spell_id: fs for fs in feature.spells}
+        rows = []
+        for sdef in fdef.spells:
+            spell_id = self._id(Spell, sdef.spell, "spells")
+            row = existing.get(spell_id) or FeatureSpell(spell_id=spell_id)
+            row.free_cast = sdef.free_cast
+            row.note = sdef.note
+            rows.append(row)
+        feature.spells = rows
 
     def _sync_choices(self, feature: Feature, fdef: FeatureDef) -> None:
         existing = {c.slug: c for c in feature.choices}
@@ -143,7 +157,7 @@ class _Importer:
                     if odef.damage_reaction
                     else None
                 )
-                option.grants = odef.grants.model_dump() if odef.grants else None
+                option.grants = odef.grants.stored() if odef.grants else None
                 option.position = opt_position
                 option.retired_at = None
             for option in options.values():
@@ -177,7 +191,9 @@ class _Importer:
 
         self._sync_rows(Skill, self.pack.skills, lambda d: {"name": d.name, "ability": d.ability})
         species = self._sync_rows(
-            Species, self.pack.species, lambda d: {"name": d.name, "summary": d.summary}
+            Species,
+            self.pack.species,
+            lambda d: {"name": d.name, "summary": d.summary, "speed": d.speed},
         )
         classes = self._sync_rows(
             CharacterClass,

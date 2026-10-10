@@ -3,12 +3,12 @@ from dataclasses import dataclass
 from sqlalchemy import case, delete, select
 from sqlalchemy.orm import Session
 
-from app.abilities.rules import modifier
+from app.abilities.rules import ABILITIES, modifier
 from app.abilities.service import AbilityView, ability_views
 from app.characters.models import Character
 from app.content.queries import available
-from app.features.models import CharacterChoicePick, Choice, ChoiceOption
-from app.features.service import applicable_choice
+from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature, FeatureSpell
+from app.features.service import applicable_choice, feature_groups
 from app.leveling.service import hit_points
 from app.sheet.models import (
     CharacterAcEffect,
@@ -104,35 +104,106 @@ class AbilityRow:
     sources: tuple[str, ...] = ()
 
 
-def save_proficiency_sources(db: Session, character: Character) -> dict[str, list[str]]:
-    """Ability abbreviation -> what makes the character proficient in its saves: the starting
-    class (2024 multiclassing rules give only it), then picked options that grant them (the
-    Transmuter's Stone)."""
-    sources: dict[str, list[str]] = {}
-    starting = next((cc for cc in character.classes if cc.is_starting_class), None)
-    if starting:
-        for abbr in starting.character_class.saving_throws:
-            sources.setdefault(abbr, []).append(starting.character_class.name)
-
-    rows = db.execute(
+def _grant_sources(db: Session, character: Character) -> list[tuple[str, dict]]:
+    """(source name, grants) for everything giving the character attributes: features they
+    have, and picked options (only while picked, like the Transmuter's Stone benefit)."""
+    found = [
+        (fv.feature.name, fv.feature.grants)
+        for group in feature_groups(db, character)
+        for fv in group.features
+        if fv.feature.grants
+    ]
+    picks = db.execute(
         select(ChoiceOption.grants, Choice)
         .join(CharacterChoicePick, CharacterChoicePick.option_id == ChoiceOption.id)
         .join(Choice, Choice.id == ChoiceOption.choice_id)
         .where(CharacterChoicePick.character_id == character.id, ChoiceOption.grants.is_not(None))
     )
-    for grants, choice in rows:
+    for grants, choice in picks:
         if applicable_choice(db, character, choice.id) is not None:
-            for abbr in grants.get("save_proficiencies", []):
-                sources.setdefault(abbr, []).append(choice.feature.name)
-    return sources
+            found.append((choice.feature.name, grants))
+    return found
 
 
-def ability_rows(db: Session, character: Character) -> list[AbilityRow] | None:
-    """Each ability with its saving throw, or None until scores are set."""
+def _by_source(sources: dict[str, list[str]], order: list[str]) -> list[tuple[list[str], str]]:
+    """{item: [sources]} regrouped as ([items], "source, source"), in `order`, so the sheet
+    can say "Intelligence, Wisdom · Wizard"."""
+    groups: dict[str, list[str]] = {}
+    for item in order:
+        if item in sources:
+            groups.setdefault(", ".join(sources[item]), []).append(item)
+    return [(items, label) for label, items in groups.items()]
+
+
+@dataclass(frozen=True)
+class Attributes:
+    """Passive character data for the Play sheet, each part with where it comes from."""
+
+    saves: dict[str, list[str]]  # ability abbreviation -> sources
+    speed: int  # walking speed in feet
+    speed_parts: list[str]  # ["35 Goliath", "+10 Transmuter's Stone"]
+    darkvision: int  # range in feet; 0 without Darkvision
+    darkvision_sources: list[str]
+    resistances: dict[str, list[str]]  # damage type -> sources
+
+    @property
+    def save_groups(self) -> list[tuple[list[str], str]]:
+        names = {a.abbr: a.name for a in ABILITIES}
+        return [
+            ([names[abbr] for abbr in abbrs], label)
+            for abbrs, label in _by_source(self.saves, [a.abbr for a in ABILITIES])
+        ]
+
+    @property
+    def resistance_groups(self) -> list[tuple[list[str], str]]:
+        return [
+            ([t.title() for t in types], label)
+            for types, label in _by_source(self.resistances, sorted(self.resistances))
+        ]
+
+
+def attributes(db: Session, character: Character) -> Attributes:
+    """Saves (the starting class's, by 2024 multiclassing rules, plus granted ones), speed
+    (the species' plus bonuses), Darkvision (the best range plus bonuses) and resistances."""
+    saves: dict[str, list[str]] = {}
+    starting = next((cc for cc in character.classes if cc.is_starting_class), None)
+    if starting:
+        for abbr in starting.character_class.saving_throws:
+            saves.setdefault(abbr, []).append(starting.character_class.name)
+
+    speed = character.species.speed
+    speed_parts = [f"{speed} {character.species.name}"]
+    ranges: list[tuple[int, str]] = []
+    bonuses: list[tuple[int, str]] = []
+    resistances: dict[str, list[str]] = {}
+    for source, grants in _grant_sources(db, character):
+        for abbr in grants.get("save_proficiencies", []):
+            saves.setdefault(abbr, []).append(source)
+        for damage_type in grants.get("resistances", []):
+            resistances.setdefault(damage_type, []).append(source)
+        if grants.get("speed_bonus"):
+            speed += grants["speed_bonus"]
+            speed_parts.append(f"+{grants['speed_bonus']} {source}")
+        if grants.get("darkvision"):
+            ranges.append((grants["darkvision"], source))
+        if grants.get("darkvision_bonus"):
+            bonuses.append((grants["darkvision_bonus"], source))
+
+    best = max(ranges, default=(0, ""))
+    darkvision = best[0] + sum(n for n, _ in bonuses)
+    darkvision_sources = ([best[1]] if best[1] else []) + [source for _, source in bonuses]
+    return Attributes(saves, speed, speed_parts, darkvision, darkvision_sources, resistances)
+
+
+def ability_rows(
+    db: Session, character: Character, attrs: Attributes | None = None
+) -> list[AbilityRow] | None:
+    """Each ability with its saving throw, or None until scores are set. Pass `attrs` if
+    they're already worked out."""
     abilities = ability_views(db, character)
     if abilities is None:
         return None
-    sources = save_proficiency_sources(db, character)
+    sources = (attrs or attributes(db, character)).saves
     pb = proficiency_bonus(character.level)
     return [
         AbilityRow(
@@ -286,6 +357,11 @@ class CastableSpell:
     prepared: bool = False
     # Listed under Rituals: cast as a ritual (10 minutes longer, no slot), never with a slot.
     in_ritual_section: bool = False
+    # The feature that keeps it always prepared (Wondrous Alteration), and whether one cast
+    # can spend a use of that feature instead of a slot.
+    granted_by: Feature | None = None
+    free_cast: bool = False
+    note: str = ""  # from the granting feature, e.g. what Wondrous Alteration adds
 
     @property
     def group(self) -> str:
@@ -315,17 +391,45 @@ def castable_spells(db: Session, character: Character) -> list[CastableSpell]:
     prepared = prepared_spell_ids(db, character)
     found = _spellcasting(character)
     rituals_from_book = bool(found) and found[1].get("ritual_casting") == "spellbook"
+    granted = granted_spells(db, character)
 
     rows = [
         CastableSpell(cs.spell) for cs in character_spells(db, character.id) if cs.spell.level == 0
     ]
     for entry in spellbook(db, character.id):
+        if entry.spell_id in granted:
+            continue  # listed below as always prepared
         is_prepared = entry.spell_id in prepared
         if is_prepared:
             rows.append(CastableSpell(entry.spell, prepared=True))
         if entry.spell.ritual and (is_prepared or rituals_from_book):
             rows.append(CastableSpell(entry.spell, prepared=is_prepared, in_ritual_section=True))
+    for feature_spell, feature in granted.values():
+        spell = feature_spell.spell
+        rows.append(
+            CastableSpell(
+                spell,
+                prepared=True,
+                granted_by=feature,
+                free_cast=feature_spell.free_cast,
+                note=feature_spell.note or "",
+            )
+        )
+        if spell.ritual:
+            rows.append(CastableSpell(spell, prepared=True, in_ritual_section=True))
     return sorted(rows, key=lambda r: r.order)
+
+
+def granted_spells(db: Session, character: Character) -> dict[int, tuple[FeatureSpell, Feature]]:
+    """{spell id: (its FeatureSpell, the feature)} for spells the character's features keep
+    always prepared. They don't count toward the prepare limit."""
+    return {
+        fs.spell_id: (fs, fv.feature)
+        for group in feature_groups(db, character)
+        for fv in group.features
+        for fs in fv.feature.spells
+        if fs.spell.retired_at is None
+    }
 
 
 # --- Spell slots --------------------------------------------------------------------------

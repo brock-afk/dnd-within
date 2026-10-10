@@ -170,7 +170,7 @@ def resolve(ref: str, kind: str, pack: Pack, by_slug: dict[str, Pack]) -> str | 
 
 
 def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
-    singular = {"classes": "class", "skills": "skill"}
+    singular = {"classes": "class", "skills": "skill", "spells": "spell"}
 
     def check(ref: str, kind: str, where: str):
         if resolve(ref, kind, pack, by_slug) is None:
@@ -184,6 +184,8 @@ def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
 
     def check_features(features: list[FeatureDef], owner: str):
         for feature in features:
+            for granted in feature.spells:
+                check(granted.spell, "spells", f"{owner} > {feature.slug} > spells")
             for choice in feature.choices:
                 where = f"{owner} > {feature.slug} > {choice.slug}"
                 if choice.kind == "skill":

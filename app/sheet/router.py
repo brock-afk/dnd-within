@@ -42,6 +42,7 @@ from app.sheet.rests import (
 )
 from app.sheet.rules import heal, hit_die_healing, set_temp_hp, take_damage
 from app.sheet.service import (
+    active_ac_spell_ids,
     COPY_SEARCH_MIN,
     ability_modifier,
     ability_rows,
@@ -122,7 +123,7 @@ def render_sheet(
         "inventory_digest": inventory_digest(db, character, items),
         "max_attuned": MAX_ATTUNED,
         "healing_uses": healing_uses(items),
-        "ac_scrolls": ac_scrolls(items),
+        "ac_scrolls": ac_scrolls(items, active_ac_spell_ids(db, character)),
         "notices": notices or {},
         "read_only": read_only,
         "base_url": base_url or f"/characters/{character.id}",

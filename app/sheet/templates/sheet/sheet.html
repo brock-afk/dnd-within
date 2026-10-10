@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ character.name }} · Play · DnD Within{% endblock %}
 {% block body_class %}wide{% endblock %}
+{% block scripts %}{% if read_only %}<script src="{{ static_url('live.js') }}" defer></script>{% endif %}{% endblock %}
 {% from "partials/page_tabs.html" import page_tabs %}
 {% from "partials/dice.html" import roll_button %}
 {% macro signed(n) %}{{ "+" if n >= 0 else "−" }}{{ n | abs }}{% endmacro %}
@@ -46,7 +47,7 @@
     <p class="subtitle">{{ character.species.name }} {{ character.class_summary }} · Level {{ character.level }}</p>
   </div>
   {% if read_only %}
-  <span class="muted view-only-note">View only · updates automatically</span>
+  <span class="muted view-only-note">View only · live</span>
   {% else %}
   <div class="page-header-actions">
     {% include "sharing/partials/share_control.html" %}

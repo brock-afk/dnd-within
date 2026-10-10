@@ -35,7 +35,7 @@ from app.inventory.service import (
 )
 from app.inventory.rules import gain, spend
 from app.sheet.rules import current_hp, heal, roll_detail, set_temp_hp
-from app.sheet.service import apply_ac_spell, max_hp, play_state
+from app.sheet.service import active_ac_spell_ids, apply_ac_spell, max_hp, play_state
 from app.sheet.router import refresh_sheet
 from app.spells.models import Spell
 
@@ -225,8 +225,8 @@ def cast_ac_scroll(
     """Read a scroll of an AC spell (Mage Armor) from the AC card: its effect starts and the
     scroll is used up."""
     row = _row(db, character, row_id)
-    if not ac_scrolls([row]):
-        raise HTTPException(status_code=400)
+    if not ac_scrolls([row], active_ac_spell_ids(db, character)):
+        raise HTTPException(status_code=400)  # not an AC scroll, or its effect is already on
     apply_ac_spell(db, character, row.spell)
     use_one(db, row)
     db.commit()

@@ -366,11 +366,9 @@ class AcSpell:
         return self.spell.details["ac_effect"]
 
 
-def ac_spells(db: Session, character: Character) -> list[AcSpell]:
-    """Prepared spells with an AC effect, each with its usable slot levels. Spells whose effect
-    is already active are left out: it's listed with an End button instead."""
-    slots = spell_slots(db, character)
-    active = set(
+def active_ac_spell_ids(db: Session, character: Character) -> set[int]:
+    """Spells whose AC effect is on right now (Mage Armor cast, or read from a scroll)."""
+    return set(
         db.scalars(
             select(CharacterAcEffect.spell_id).where(
                 CharacterAcEffect.character_id == character.id,
@@ -378,6 +376,13 @@ def ac_spells(db: Session, character: Character) -> list[AcSpell]:
             )
         )
     )
+
+
+def ac_spells(db: Session, character: Character) -> list[AcSpell]:
+    """Prepared spells with an AC effect, each with its usable slot levels. Spells whose effect
+    is already active are left out: it's listed with an End button instead."""
+    slots = spell_slots(db, character)
+    active = active_ac_spell_ids(db, character)
     return [
         AcSpell(
             row.spell,

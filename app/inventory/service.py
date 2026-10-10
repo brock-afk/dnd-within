@@ -65,9 +65,16 @@ def healing_uses(rows: list[CharacterItem]) -> list[HealingUse]:
     return uses
 
 
-def ac_scrolls(rows: list[CharacterItem]) -> list[CharacterItem]:
-    """Carried scrolls of spells that change AC (Mage Armor), read from the AC card."""
-    return [row for row in rows if row.spell and row.spell.details.get("ac_effect")]
+def ac_scrolls(rows: list[CharacterItem], active_spell_ids: set[int]) -> list[CharacterItem]:
+    """Carried scrolls of spells that change AC (Mage Armor), read from the AC card. Like the
+    prepared spell, a scroll isn't offered while its effect is already on."""
+    return [
+        row
+        for row in rows
+        if row.spell
+        and row.spell.details.get("ac_effect")
+        and row.spell_id not in active_spell_ids
+    ]
 
 
 def character_item(db: Session, character: Character, row_id: int) -> CharacterItem | None:

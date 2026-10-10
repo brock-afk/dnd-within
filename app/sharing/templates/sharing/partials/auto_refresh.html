@@ -1,4 +1,5 @@
-{#- The shared view keeps itself current: every 30 seconds it re-fetches the page and morphs
-    `refresh_selector` into place, so HP, charges and slots change as the owner plays. -#}
-<div hidden hx-get="{{ refresh_url }}" hx-trigger="every 30s"
+{#- The shared view keeps itself current. static/live.js listens to the server's change events
+    (`refresh_url`/events) and fires `refresh` here, which re-fetches the page and morphs
+    `refresh_selector` into place right away; the once-a-minute poll is just a safety net. -#}
+<div hidden data-live-events="{{ base_url }}/events" hx-get="{{ refresh_url }}" hx-trigger="refresh, every 60s"
      hx-select="{{ refresh_selector }}" hx-target="{{ refresh_selector }}" hx-swap="outerMorph"></div>

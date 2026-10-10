@@ -1,6 +1,7 @@
+import re
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -19,6 +20,7 @@ from app.homebrew.router import router as homebrew_router
 from app.inventory.router import router as inventory_router
 from app.leveling.router import router as leveling_router
 from app.sharing.router import router as sharing_router
+from app.sharing.live import publish, publish_all
 from app.sheet.router import router as sheet_router
 from app.species.router import router as species_router
 
@@ -40,6 +42,21 @@ app.add_middleware(
     https_only=settings.session_https_only,
 )
 app.add_exception_handler(LoginRequired, login_required_handler)
+
+CHARACTER_PATH = re.compile(r"^/characters/(\d+)/")
+
+
+@app.middleware("http")
+async def notify_shared_views(request: Request, call_next):
+    """After any successful change to a character, tell its open shared views (see
+    app/sharing/live.py). One place for every route that changes something."""
+    response = await call_next(request)
+    if request.method != "GET" and response.status_code < 400:
+        if match := CHARACTER_PATH.match(request.url.path):
+            publish(int(match[1]))
+        elif request.url.path.startswith("/homebrew/"):
+            publish_all()
+    return response
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 
 app.include_router(auth_router)

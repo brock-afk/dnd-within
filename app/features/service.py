@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.abilities.models import CharacterAbilityBonus
 from app.characters.models import Character
 from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
+from app.content.queries import available
 from app.features.kinds import KINDS, OptionView
 from app.features.models import Choice, Feature
 
@@ -65,7 +66,7 @@ def _views(
                     level_name=level_name,
                 )
                 for c in f.choices
-                if c.level <= level
+                if c.level <= level and c.retired_at is None
             ],
         )
         for f in features
@@ -74,10 +75,15 @@ def _views(
 
 def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
     """The species' features (by character level), then for each class its features and its
-    subclass's features (both by that class's level)."""
+    subclass's features (both by that class's level). Features and choices retired from their
+    pack aren't shown, though picks already made for them are kept."""
     species_features = db.scalars(
         select(Feature)
-        .where(Feature.species_id == character.species_id, Feature.level <= character.level)
+        .where(
+            Feature.species_id == character.species_id,
+            Feature.level <= character.level,
+            available(Feature),
+        )
         .order_by(Feature.position)
     ).all()
     groups = [
@@ -90,7 +96,9 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
     for cc in character.classes:
         class_features = db.scalars(
             select(Feature)
-            .where(Feature.class_id == cc.class_id, Feature.level <= cc.level)
+            .where(
+                Feature.class_id == cc.class_id, Feature.level <= cc.level, available(Feature)
+            )
             .order_by(Feature.position)
         ).all()
         applicable = [f for f in class_features if _applies(f.applies_to, cc)]
@@ -104,7 +112,11 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
         if cc.subclass_id is not None:
             subclass_features = db.scalars(
                 select(Feature)
-                .where(Feature.subclass_id == cc.subclass_id, Feature.level <= cc.level)
+                .where(
+                    Feature.subclass_id == cc.subclass_id,
+                    Feature.level <= cc.level,
+                    available(Feature),
+                )
                 .order_by(Feature.position)
             ).all()
             name = db.get(Subclass, cc.subclass_id).name
@@ -113,6 +125,33 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
             )
             groups.append(FeatureGroup(name, views))
     return groups
+
+
+@dataclass
+class PlayChoice:
+    """A choice made on the Play sheet (Choice.in_play), with every option it offers."""
+
+    feature: Feature
+    choice: Choice
+    options: list[OptionView]
+    picked: OptionView | None
+
+
+def play_choices(db: Session, character: Character) -> list[PlayChoice]:
+    """The character's in-play choices, following the same level, subclass and retired rules
+    as feature_groups."""
+    return [
+        PlayChoice(
+            fv.feature,
+            cv.choice,
+            KINDS[cv.choice.kind].options(db, cv.choice),
+            cv.picked[0] if cv.picked else None,
+        )
+        for group in feature_groups(db, character)
+        for fv in group.features
+        for cv in fv.choices
+        if cv.choice.in_play
+    ]
 
 
 def choice_level_label(db: Session, choice: Choice) -> str:

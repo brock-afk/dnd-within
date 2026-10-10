@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.abilities.rules import modifier
 from app.abilities.service import AbilityView, ability_views
 from app.characters.models import Character
+from app.content.queries import available
 from app.features.models import Choice
 from app.leveling.service import hit_points
 from app.sheet.models import (
@@ -416,7 +417,7 @@ def search_copyable(db: Session, query: str) -> list[Spell]:
             select(Spell)
             .where(
                 Spell.level >= 1,
-                Spell.retired_at.is_(None),
+                available(Spell),
                 Spell.name.icontains(query, autoescape=True),
             )
             .order_by(starts, Spell.name)

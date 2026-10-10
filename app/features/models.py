@@ -8,7 +8,9 @@ from sqlalchemy import (
     ForeignKey,
     SmallInteger,
     String,
+    Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -43,6 +45,7 @@ class Feature(Base):
     slug: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(80))
     summary: Mapped[str] = mapped_column(String(500))
+    description: Mapped[str | None] = mapped_column(Text)  # full text: private packs, homebrew
     # Gained at this class level (class and subclass features) or character level (species).
     level: Mapped[int] = mapped_column(default=1)
     # Class features only: "starting_class" features (like the full starting proficiencies)
@@ -81,6 +84,8 @@ class Choice(Base):
     # Wizard's two new spellbook spells per level.
     level: Mapped[int] = mapped_column(SmallInteger, default=1, server_default="1")
     criteria: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    # Picked on the Play sheet rather than the Build page, because it changes during play.
+    in_play: Mapped[bool] = mapped_column(default=False, server_default=text("0"))
     position: Mapped[int] = mapped_column(default=0)
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 

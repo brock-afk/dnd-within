@@ -102,6 +102,7 @@ class _Importer:
                 self.db.add(feature)
             feature.name = fdef.name
             feature.summary = fdef.summary
+            feature.description = fdef.description
             feature.level = fdef.level
             feature.applies_to = fdef.applies_to
             feature.uses = fdef.uses.model_dump() if fdef.uses else None
@@ -124,6 +125,7 @@ class _Importer:
             choice.count = cdef.count
             choice.level = cdef.level
             choice.criteria = self._criteria(cdef)
+            choice.in_play = cdef.in_play
             choice.position = position
             choice.retired_at = None
 

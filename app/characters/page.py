@@ -27,7 +27,14 @@ def render_character_page(
     request: Request, db: Session, user: User, character: Character
 ) -> HTMLResponse:
     groups = feature_groups(db, character)
-    pending = [cv for g in groups for fv in g.features for cv in fv.choices if not cv.done]
+    # In-play choices are optional and made on the Play sheet, so they're never pending.
+    pending = [
+        cv
+        for g in groups
+        for fv in g.features
+        for cv in fv.choices
+        if not cv.done and not cv.choice.in_play
+    ]
     warnings = spell_warnings(db, character)
     # Copied spells are listed under the first feature with spellbook choices (Spellcasting).
     copied_under = next(

@@ -12,6 +12,7 @@ from sqlalchemy import Select, delete, select
 from sqlalchemy.orm import Session
 
 from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
+from app.content.queries import available
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.skills.models import CharacterSkill, Skill
 from app.spells.models import CharacterSpell, Spell, SpellbookEntry
@@ -19,7 +20,7 @@ from app.spells.models import CharacterSpell, Spell, SpellbookEntry
 
 @dataclass(frozen=True)
 class OptionView:
-    slug: str
+    key: str  # the row's id: what forms submit, since slugs are only unique within a source
     name: str
     summary: str = ""
     detail: str = ""
@@ -62,10 +63,11 @@ class ChoiceKind:
         )
         return [self.view(obj) for obj in db.scalars(query)]
 
-    def save(self, db: Session, choice: Choice, character_id: int, slugs: list[str]) -> str | None:
+    def save(self, db: Session, choice: Choice, character_id: int, keys: list[str]) -> str | None:
         """Replace this choice's picks. Returns an error message instead if they aren't valid."""
-        targets = db.scalars(self.options_query(choice).where(self.target.slug.in_(slugs))).all()
-        if len(targets) != len(slugs):
+        ids = [int(k) for k in keys if k.isdigit()]
+        targets = db.scalars(self.options_query(choice).where(self.target.id.in_(ids))).all()
+        if len(targets) != len(keys):
             return "That isn't one of the options."
 
         fk = getattr(self.pick, self.target_fk)
@@ -99,17 +101,17 @@ class ChoiceKind:
         return None
 
     def already_have(self, db: Session, choice: Choice, character_id: int) -> set[str]:
-        """Slugs of options the character has from anything other than this choice."""
+        """Keys of options the character has from anything other than this choice."""
         fk = getattr(self.pick, self.target_fk)
         query = (
-            select(self.target.slug)
+            select(self.target.id)
             .join(self.pick, fk == self.target.id)
             .where(
                 self.pick.character_id == character_id,
                 self.pick.choice_id.is_distinct_from(choice.id),
             )
         )
-        return set(db.scalars(query))
+        return {str(i) for i in db.scalars(query)}
 
     def picked_choice_ids(self, db: Session, character_id: int) -> set[int]:
         """Every choice of this kind the character has picks for."""
@@ -133,12 +135,12 @@ class OptionKind(ChoiceKind):
     def options_query(self, choice):
         return (
             select(ChoiceOption)
-            .where(ChoiceOption.choice_id == choice.id)
+            .where(ChoiceOption.choice_id == choice.id, available(ChoiceOption))
             .order_by(ChoiceOption.position)
         )
 
     def view(self, option):
-        return OptionView(option.slug, option.name, option.summary)
+        return OptionView(str(option.id), option.name, option.summary)
 
 
 class SkillKind(ChoiceKind):
@@ -149,11 +151,13 @@ class SkillKind(ChoiceKind):
 
     def options_query(self, choice):
         return (
-            select(Skill).where(Skill.id.in_(choice.criteria["skill_ids"])).order_by(Skill.name)
+            select(Skill)
+            .where(Skill.id.in_(choice.criteria["skill_ids"]), available(Skill))
+            .order_by(Skill.name)
         )
 
     def view(self, skill):
-        return OptionView(skill.slug, skill.name, detail=skill.ability)
+        return OptionView(str(skill.id), skill.name, detail=skill.ability)
 
 
 class SpellKind(ChoiceKind):
@@ -166,7 +170,11 @@ class SpellKind(ChoiceKind):
 
     def options_query(self, choice):
         criteria = choice.criteria
-        query = select(Spell).join(Spell.classes).where(CharacterClass.id == criteria["class_id"])
+        query = (
+            select(Spell)
+            .join(Spell.classes)
+            .where(CharacterClass.id == criteria["class_id"], available(Spell))
+        )
         if "level" in criteria:
             query = query.where(Spell.level == criteria["level"])
         else:
@@ -178,7 +186,7 @@ class SpellKind(ChoiceKind):
     def view(self, spell):
         group = "Cantrips" if spell.level == 0 else f"Level {spell.level}"
         return OptionView(
-            spell.slug, spell.name, spell.summary, spell.detail, group, spell.school, spell.ritual
+            str(spell.id), spell.name, spell.summary, spell.detail, group, spell.school, spell.ritual
         )
 
 
@@ -203,12 +211,12 @@ class SubclassKind(ChoiceKind):
     def options_query(self, choice):
         return (
             select(Subclass)
-            .where(Subclass.class_id == choice.feature.class_id)
+            .where(Subclass.class_id == choice.feature.class_id, available(Subclass))
             .order_by(Subclass.name)
         )
 
     def view(self, subclass):
-        return OptionView(subclass.slug, subclass.name, subclass.summary)
+        return OptionView(str(subclass.id), subclass.name, subclass.summary)
 
     def _class_row(self, db, class_id, character_id) -> CharacterClassLevel | None:
         return db.scalar(
@@ -224,8 +232,9 @@ class SubclassKind(ChoiceKind):
             return []
         return [self.view(db.get(Subclass, row.subclass_id))]
 
-    def save(self, db, choice, character_id, slugs):
-        subclass = db.scalar(self.options_query(choice).where(Subclass.slug.in_(slugs)))
+    def save(self, db, choice, character_id, keys):
+        ids = [int(k) for k in keys if k.isdigit()]
+        subclass = db.scalar(self.options_query(choice).where(Subclass.id.in_(ids)))
         row = self._class_row(db, choice.feature.class_id, character_id)
         if subclass is None or row is None:
             return "That isn't one of the options."

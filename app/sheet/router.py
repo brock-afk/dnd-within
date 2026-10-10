@@ -11,9 +11,11 @@ from app.auth.dependencies import CurrentUser
 from app.auth.models import User
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
+from app.content.queries import available
 from app.core.db import DbSession
 from app.core.templates import morph_in_place, templates
 from app.features.kinds import KINDS
+from app.features.service import applicable_choice, play_choices
 from app.leveling.service import constitution_modifier
 from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
 from app.sheet.rests import (
@@ -79,6 +81,7 @@ def render_sheet(
         "ac_spells": ac_spells(db, character),
         # Rest-only features (like Arcane Recovery) appear only in the Short rest panel.
         "resources": [u for u in uses if not u.rest_only],
+        "play_choices": play_choices(db, character),
         "castable": castable_spells(db, character),
         "slots": spell_slots(db, character),
         "prepared_count": len(prepared_spell_ids(db, character)),
@@ -278,7 +281,7 @@ def cast_ac_spell(
 ):
     """Cast a prepared AC spell on yourself (Mage Armor, Barkskin): spend the slot and
     apply its effect. Casting from the spell list doesn't, since the target may be someone else."""
-    if spell not in {a.spell.slug for a in ac_spells(db, character)}:
+    if spell not in {str(a.spell.id) for a in ac_spells(db, character)}:
         found, error = None, "Only prepared spells that change your AC can be cast here."
     else:
         found, error = _spend_slot(db, character, spell, slot_level)
@@ -372,7 +375,7 @@ def _render_prepared_editor(
 @router.get("/characters/{character_id}/sheet/prepared/edit", response_class=HTMLResponse)
 def edit_prepared(request: Request, db: DbSession, character: OwnedCharacter):
     prepared = prepared_spell_ids(db, character)
-    selected = [e.spell.slug for e in spellbook(db, character.id) if e.spell_id in prepared]
+    selected = [str(e.spell_id) for e in spellbook(db, character.id) if e.spell_id in prepared]
     return _render_prepared_editor(request, db, character, selected)
 
 
@@ -385,13 +388,13 @@ def save_prepared(
     picks: Annotated[list[str], Form()] = [],
 ):
     picks = list(dict.fromkeys(picks))
-    book = {entry.spell.slug: entry.spell_id for entry in spellbook(db, character.id)}
+    book = {str(entry.spell_id): entry.spell_id for entry in spellbook(db, character.id)}
     limit = prepared_limit(character)
 
     error = None
     if limit is None:
         error = "This character doesn't prepare spells."
-    elif any(slug not in book for slug in picks):
+    elif any(key not in book for key in picks):
         error = "You can only prepare spells in your spellbook."
     elif len(picks) > limit:
         error = f"You can prepare at most {limit}. You picked {len(picks)}."
@@ -402,7 +405,7 @@ def save_prepared(
         delete(CharacterPreparedSpell).where(CharacterPreparedSpell.character_id == character.id)
     )
     db.add_all(
-        CharacterPreparedSpell(character_id=character.id, spell_id=book[slug]) for slug in picks
+        CharacterPreparedSpell(character_id=character.id, spell_id=book[key]) for key in picks
     )
     db.commit()
     return refresh_sheet(request, db, user, character)
@@ -431,7 +434,7 @@ def remove_copied_spell(
 ):
     """Remove a copied spell from the spellbook (added by mistake). Preparing it is undone by
     the database (character_prepared_spells cascades from spellbook_entries)."""
-    entry = next((e for e in spellbook(db, character.id) if e.spell.slug == remove), None)
+    entry = next((e for e in spellbook(db, character.id) if str(e.spell_id) == remove), None)
     if entry is None or entry.acquired_via != "copied":
         error = "Only copied spells can be removed here. Change level-up spells on the Build page."
         return _render_prepared_editor(request, db, character, picks, error, status_code=400)
@@ -480,12 +483,12 @@ def cast_spell(
     return refresh_sheet(request, db, user, character)
 
 
-def _spend_slot(db, character, spell_slug: str, slot_level: str) -> tuple[Spell | None, str | None]:
+def _spend_slot(db, character, spell_key: str, slot_level: str) -> tuple[Spell | None, str | None]:
     """Spend the slot for casting a prepared spell at `slot_level` (its level or higher).
     Returns (the spell, None), or (None, what's wrong) without spending anything."""
     # A prepared ritual is listed twice (as a ritual and at its level); casting uses the slot row.
     row = next(
-        (r for r in castable_spells(db, character) if r.spell.slug == spell_slug and r.uses_slots),
+        (r for r in castable_spells(db, character) if str(r.spell.id) == spell_key and r.uses_slots),
         None,
     )
     slots = spell_slots(db, character)
@@ -498,6 +501,34 @@ def _spend_slot(db, character, spell_slug: str, slot_level: str) -> tuple[Spell 
         return None, f"You have no level {level} slots left."
     set_slots_remaining(db, character, level, slots[level].remaining - 1)
     return row.spell, None
+
+
+# --- Choices made in play -----------------------------------------------------------------
+
+
+@router.post("/characters/{character_id}/sheet/choices/{choice_id}", response_class=HTMLResponse)
+def set_play_choice(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    choice_id: int,
+    pick: Annotated[str, Form()] = "",
+):
+    """Pick (or with no `pick`, clear) an in-play choice, like the Transmuter's Stone benefit."""
+    choice = applicable_choice(db, character, choice_id)
+    if choice is None or not choice.in_play:
+        raise HTTPException(status_code=404)
+    kind = KINDS[choice.kind]
+    if pick:
+        error = kind.save(db, choice, character.id, [pick])
+        if error:
+            errors = {"play_choice": error}
+            return refresh_sheet(request, db, user, character, errors, status_code=400)
+    else:
+        kind.clear(db, [choice.id], character.id)
+        db.commit()
+    return refresh_sheet(request, db, user, character)
 
 
 # --- Limited-use features -----------------------------------------------------------------
@@ -691,8 +722,10 @@ def _confirm_context(db, character, spell: Spell, query: str) -> dict:
     }
 
 
-def _copyable(db, slug: str) -> Spell | None:
-    found = db.scalar(select(Spell).where(Spell.slug == slug, Spell.retired_at.is_(None)))
+def _copyable(db, key: str) -> Spell | None:
+    if not key.isdigit():
+        return None
+    found = db.scalar(select(Spell).where(Spell.id == int(key), available(Spell)))
     return found if found is not None and found.level >= 1 else None
 
 

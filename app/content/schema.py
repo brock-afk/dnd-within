@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.features.schema import FeatureDef, School
+from app.features.schema import FeatureDef, School, Slug, Text50, Text80, Text120, Text255
 
 Ability = Literal["STR", "DEX", "CON", "INT", "WIS", "CHA"]
 DamageType = Literal[
@@ -34,23 +34,23 @@ def _check_dice(value: str) -> str:
 
 
 class PackMeta(Strict):
-    slug: str
-    name: str
+    slug: Slug
+    name: Text120
     kind: Literal["official", "third_party", "homebrew"]
     version: int | str
     requires: list[str] = []
 
 
 class SkillDef(Strict):
-    slug: str
-    name: str
+    slug: Slug
+    name: Text50
     ability: Ability
 
 
 class SpeciesDef(Strict):
-    slug: str
-    name: str
-    summary: str
+    slug: Slug
+    name: Text50
+    summary: Text255
     features: list[FeatureDef] = []
 
 
@@ -68,9 +68,9 @@ class Spellcasting(Strict):
 
 
 class ClassDef(Strict):
-    slug: str
-    name: str
-    summary: str
+    slug: Slug
+    name: Text50
+    summary: Text255
     hit_die: Literal[6, 8, 10, 12]
     # Saving throw proficiencies, granted by the starting class only (2024 multiclassing).
     saving_throws: list[Ability] = Field(min_length=2, max_length=2)
@@ -81,10 +81,10 @@ class ClassDef(Strict):
 class SubclassDef(Strict):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    slug: str
-    name: str
+    slug: Slug
+    name: Text50
     class_: str = Field(alias="class")  # class slug, e.g. "wizard" or "phb-2024/wizard"
-    summary: str
+    summary: Text255
     features: list[FeatureDef] = []
 
 
@@ -211,8 +211,8 @@ class AcEffectDef(Strict):
 
 
 class SpellDef(Strict):
-    slug: str
-    name: str
+    slug: Slug
+    name: Text80
     level: int = Field(ge=0, le=9)
     school: School
     classes: list[str]
@@ -231,7 +231,7 @@ class SpellDef(Strict):
     higher_slots: HigherSlots | None = None
     ac_effect: AcEffectDef | None = None
     note: str | None = None
-    summary: str  # required, in our own words
+    summary: Text255  # required, in our own words
     description: str | None = None  # full rules text: only in private packs (copyright)
     page: int | None = None
 

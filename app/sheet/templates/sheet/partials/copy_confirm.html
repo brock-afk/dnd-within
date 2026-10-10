@@ -1,7 +1,7 @@
 {# The confirm step for one spell: its cost, rule markers and an optional note. #}
 {% set c = copy_confirm %}
 <form hx-post="/characters/{{ character.id }}/sheet/spellbook/copy" novalidate class="copy-confirm">
-  <input type="hidden" name="spell" value="{{ c.spell.slug }}">
+  <input type="hidden" name="spell" value="{{ c.spell.id }}">
   <input type="hidden" name="q" value="{{ c.query }}">
   <div class="copy-pick">
     <span class="choice-name">{{ c.spell.name }}</span>

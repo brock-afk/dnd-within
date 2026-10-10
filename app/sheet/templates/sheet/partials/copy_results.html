@@ -16,7 +16,7 @@
     <span class="choice-known">In your spellbook</span>
     {% else %}
     <button type="button" class="secondary-button"
-            hx-get="/characters/{{ character.id }}/sheet/spellbook/copy/confirm?{{ {'spell': spell.slug, 'q': copy.query} | urlencode }}"
+            hx-get="/characters/{{ character.id }}/sheet/spellbook/copy/confirm?{{ {'spell': spell.id, 'q': copy.query} | urlencode }}"
             hx-target="#copy-step">Copy</button>
     {% endif %}
   </li>

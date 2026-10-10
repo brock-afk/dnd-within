@@ -114,7 +114,21 @@ def _parse(folder: Path) -> Pack:
         pack.skills = load_list(folder / "skills.yaml", SkillDef)
     pack.species = load_each("species/*.yaml", SpeciesDef)
     pack.classes = load_each("classes/*.yaml", ClassDef)
-    pack.subclasses = load_each("subclasses/*/*.yaml", SubclassDef)
+    seen_subclasses = set()
+    for file in sorted(folder.glob("subclasses/*/*.yaml")):
+        row = _read(pack, file)
+        if row is None or not (sub := _validate(pack, file, SubclassDef, row)):
+            continue
+        # subclasses/<class>/x.yaml: the folder names the class, so a file can't be misfiled.
+        class_slug = split_ref(sub.class_)[1]
+        if file.parent.name != class_slug:
+            pack.errors.append(
+                f"{file}: class is {sub.class_!r} but the folder is for {file.parent.name!r}"
+            )
+        if (class_slug, sub.slug) in seen_subclasses:
+            pack.errors.append(f"{folder}: duplicate {class_slug} subclass slug {sub.slug!r}")
+        seen_subclasses.add((class_slug, sub.slug))
+        pack.subclasses.append(sub)
     for file in sorted(folder.glob("spells/*.yaml")):
         pack.spells.extend(load_list(file, SpellDef))
 

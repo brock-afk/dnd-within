@@ -9,6 +9,7 @@ from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
 from app.characters.page import render_character_page
 from app.classes.models import CharacterClass, CharacterClassLevel
+from app.content.queries import available
 from app.core.db import DbSession
 from app.core.templates import hx_redirect, templates
 from app.leveling.models import CharacterLevel
@@ -34,8 +35,12 @@ def list_characters(request: Request, db: DbSession, user: CurrentUser):
 
 def _form_options(db: DbSession) -> dict:
     return {
-        "classes": db.scalars(select(CharacterClass).order_by(CharacterClass.name)).all(),
-        "species": db.scalars(select(Species).order_by(Species.name)).all(),
+        "classes": db.scalars(
+            select(CharacterClass).where(available(CharacterClass)).order_by(CharacterClass.name)
+        ).all(),
+        "species": db.scalars(
+            select(Species).where(available(Species)).order_by(Species.name)
+        ).all(),
     }
 
 
@@ -68,9 +73,11 @@ def create_character(
     errors = {}
     if error := _name_error(name):
         errors["name"] = error
-    if class_id is None or db.get(CharacterClass, class_id) is None:
+    character_class = db.get(CharacterClass, class_id) if class_id is not None else None
+    if character_class is None or character_class.retired_at is not None:
         errors["class_id"] = "Choose a class."
-    if species_id is None or db.get(Species, species_id) is None:
+    species = db.get(Species, species_id) if species_id is not None else None
+    if species is None or species.retired_at is not None:
         errors["species_id"] = "Choose a species."
 
     if errors:

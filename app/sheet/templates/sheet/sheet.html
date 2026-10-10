@@ -63,7 +63,7 @@
             <span class="muted">{{ ac_effect_text(a.effect.kind, a.effect.value) }}</span></span>
           {% if a.slots %}
           <form hx-post="/characters/{{ character.id }}/sheet/ac-effects/cast" class="ac-cast-slots">
-            <input type="hidden" name="spell" value="{{ a.spell.slug }}">
+            <input type="hidden" name="spell" value="{{ a.spell.id }}">
             {% for slot in a.slots %}
             <button type="submit" name="slot_level" value="{{ slot.level }}" class="secondary-button">
               Level {{ slot.level }} · {{ slot.remaining }} left
@@ -213,9 +213,24 @@
   {% endif %}
 </section>
 
-{% if resources %}
+{% if resources or play_choices %}
 <section class="sheet-section">
   <h2>Resources</h2>
+  {#- Choices that change during play, like the Transmuter's Stone benefit. Picking saves. -#}
+  {% for pc in play_choices %}
+  <div class="resource">
+    <form class="slot-row" hx-post="/characters/{{ character.id }}/sheet/choices/{{ pc.choice.id }}" hx-trigger="change">
+      <label class="resource-label" for="play-choice-{{ pc.choice.id }}">{{ pc.feature.name }}</label>
+      <select id="play-choice-{{ pc.choice.id }}" name="pick" class="play-choice-select" aria-label="{{ pc.choice.name }}">
+        <option value="">None</option>
+        {% for o in pc.options %}
+        <option value="{{ o.key }}" {% if pc.picked and pc.picked.key == o.key %}selected{% endif %}>{{ o.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% if pc.picked %}<p class="resource-detail">{{ pc.picked.summary }}</p>{% endif %}
+  </div>
+  {% endfor %}
   {% for r in resources %}
   <div class="resource">
   <div class="slot-row">
@@ -239,6 +254,7 @@
   </div>
   {% endfor %}
   {% if errors.uses %}<p class="error" role="alert">{{ errors.uses }}</p>{% endif %}
+  {% if errors.play_choice %}<p class="error" role="alert">{{ errors.play_choice }}</p>{% endif %}
 </section>
 {% endif %}
 

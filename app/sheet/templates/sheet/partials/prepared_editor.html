@@ -13,7 +13,7 @@
   {{ filter_bar(filter_schools, noun) }}
   {# Copied spells can be removed from the book (a spell added by mistake). Unsaved picks are
      posted along and kept. #}
-  {{ choice_grid("picks", options, selected=selected, multiple=true, value_key="slug", noun=noun,
+  {{ choice_grid("picks", options, selected=selected, multiple=true, value_key="key", noun=noun,
                  removal={"ask_url": "/characters/%d/sheet/prepared/edit" % character.id,
                           "url": "/characters/%d/sheet/spellbook/remove" % character.id,
                           "target": "#prepared-editor", "asking": asking,

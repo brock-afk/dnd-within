@@ -85,10 +85,20 @@
     <li>
       <span class="feature-name">{{ fv.feature.name }}</span>
       <span class="muted">{{ fv.feature.summary }}</span>
+      {% if fv.feature.description %}
+      <details class="feature-text">
+        <summary>Full text</summary>
+        <p>{{ fv.feature.description }}</p>
+      </details>
+      {% endif %}
       {% for cv in fv.choices if cv.done and cv.choice.kind not in ("spell", "spellbook") %}
       <div class="feature-choice" id="choice-{{ cv.choice.id }}">
         <span>{{ cv.choice.name }}: <strong>{{ cv.picked | map(attribute="name") | join(", ") }}</strong></span>
+        {% if cv.choice.in_play %}
+        <span class="muted">· changed on the Play sheet</span>
+        {% else %}
         {{ choose_button(cv.choice, "Change") }}
+        {% endif %}
         {% if cv.choice.kind in ("option", "subclass") %}
         <span class="muted feature-choice-summary">{{ cv.picked[0].summary }}</span>
         {% endif %}

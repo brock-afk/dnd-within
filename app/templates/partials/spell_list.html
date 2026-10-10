@@ -70,7 +70,7 @@
 <details class="cast-menu">
   <summary class="cast-button">Cast</summary>
   <form hx-post="{{ cast_url }}" class="cast-options">
-    <input type="hidden" name="spell" value="{{ spell.slug }}">
+    <input type="hidden" name="spell" value="{{ spell.id }}">
     {% for s in usable %}
     <button type="submit" name="slot_level" value="{{ s.level }}" class="secondary-button">
       Level {{ s.level }} · {{ s.remaining }} left

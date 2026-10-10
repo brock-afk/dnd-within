@@ -11,7 +11,7 @@
 
   {{ filter_bar(filter_schools, noun) }}
 
-  {{ choice_grid("picks", options, selected=selected, multiple=choice.count > 1, value_key="slug",
+  {{ choice_grid("picks", options, selected=selected, multiple=choice.count > 1, value_key="key",
                  known=known, known_label=known_label, noun=noun) }}
 
   <div class="form-actions">

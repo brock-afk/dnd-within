@@ -54,7 +54,7 @@ def _render_form(request, db, character, choice, selected, error=None, status_co
 def choice_form(request: Request, db: DbSession, character: OwnedCharacter, choice_id: int):
     choice = _get_choice(db, character, choice_id)
     picked = KINDS[choice.kind].picked(db, choice, character.id)
-    return _render_form(request, db, character, choice, [o.slug for o in picked])
+    return _render_form(request, db, character, choice, [o.key for o in picked])
 
 
 @router.post("/characters/{character_id}/choices/{choice_id}")

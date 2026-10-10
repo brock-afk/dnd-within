@@ -46,27 +46,26 @@
     <details class="vital-menu" data-popover {% if errors.temp_hp or errors.effect %}open{% endif %}>
       <summary class="vital" title="Hit points: temp HP and max HP effects">
         <span class="vital-label">HP</span> <strong>{{ hp.current }}</strong><span class="muted">/{{ hp.maximum }}</span>
-        {%- if hp.temp %} <span class="vital-temp">+{{ hp.temp }} temp</span>{% endif %}
+        {%- if hp.temp %} <span class="vital-temp" title="Temporary hit points">+{{ hp.temp }}<span class="wide-only"> temp</span></span>{% endif %}
         <span class="vital-caret" aria-hidden="true">▾</span>
       </summary>
-      <div class="vital-panel card">
-        {% if hp.temp %}<p class="muted">{{ hp.temp }} temporary hit points{% if hp.temp_source %} · {{ hp.temp_source }}{% endif %}</p>{% endif %}
-        {% if hp.effects %}
-        <p class="muted">Max {{ hp.maximum }}: {{ hp.base }} base{% for e in hp.effects %} {{ signed(e.max_hp_delta) }} {{ e.label }}{% endfor %}</p>
-        {% endif %}
-        <form hx-post="/characters/{{ character.id }}/sheet/temp-hp" novalidate class="hp-form">
-          <label for="temp-amount">Temp HP</label>
-          <input id="temp-amount" name="amount" type="text" inputmode="numeric" maxlength="3"
-                 value="{{ hp.temp }}" {% if errors.temp_hp %}aria-invalid="true"{% endif %}>
-          <input name="source" type="text" maxlength="80" placeholder="Source (optional)" aria-label="Temp HP source"
-                 value="{{ hp.temp_source or '' }}">
-          <button type="submit" class="secondary-button">Set</button>
-        </form>
-        {% if errors.temp_hp %}<p class="error" role="alert">{{ errors.temp_hp }}</p>{% endif %}
-        <div class="hp-effects">
-          <h3 class="group-title">Max HP effects</h3>
+      <div class="vital-panel card hp-panel">
+        <div class="panel-group">
+          <h3 class="group-title"><label for="temp-amount">Temp HP</label></h3>
+          <form hx-post="/characters/{{ character.id }}/sheet/temp-hp" novalidate class="inline-form temp-hp-form">
+            <input id="temp-amount" name="amount" type="text" inputmode="numeric" maxlength="3"
+                   value="{{ hp.temp }}" {% if errors.temp_hp %}aria-invalid="true"{% endif %}>
+            <input name="source" type="text" maxlength="80" placeholder="Source (optional)" aria-label="Temp HP source"
+                   value="{{ hp.temp_source or '' }}">
+            <button type="submit" class="secondary-button">Set</button>
+          </form>
+          {% if errors.temp_hp %}<p class="error" role="alert">{{ errors.temp_hp }}</p>{% endif %}
+        </div>
+        <div class="panel-group">
+          <h3 class="group-title">Max HP effects
+            {%- if hp.effects %} <span class="group-title-note">· {{ hp.base }} base, {{ hp.maximum }} with effects</span>{% endif %}</h3>
           {% if hp.effects %}
-          <ul class="plain-list">
+          <ul class="plain-list effect-list">
             {% for e in hp.effects %}
             <li class="hp-effect">
               <span><strong>{{ e.label }}</strong> <span class="muted">{{ signed(e.max_hp_delta) }} max HP</span></span>
@@ -76,15 +75,13 @@
             {% endfor %}
           </ul>
           {% endif %}
-          <div class="add-effect">
-            <form hx-post="/characters/{{ character.id }}/sheet/hp-effects" novalidate class="hp-form">
-              <input name="label" type="text" maxlength="80" placeholder="Name, e.g. Aid" aria-label="Effect name">
-              <input name="delta" type="text" inputmode="numeric" maxlength="4" placeholder="+5 or −4"
-                     aria-label="Change to max HP" class="delta-input">
-              <button type="submit" class="secondary-button">Add</button>
-            </form>
-            {% if errors.effect %}<p class="error" role="alert">{{ errors.effect }}</p>{% endif %}
-          </div>
+          <form hx-post="/characters/{{ character.id }}/sheet/hp-effects" novalidate class="inline-form hp-effect-form">
+            <input name="label" type="text" maxlength="80" placeholder="Name, e.g. Aid" aria-label="Effect name">
+            <input name="delta" type="text" inputmode="numeric" maxlength="4" placeholder="+5 or −4"
+                   aria-label="Change to max HP">
+            <button type="submit" class="secondary-button">Add</button>
+          </form>
+          {% if errors.effect %}<p class="error" role="alert">{{ errors.effect }}</p>{% endif %}
         </div>
       </div>
     </details>

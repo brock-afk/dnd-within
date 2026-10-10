@@ -321,7 +321,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .hp-form input[type="text"] { width: 6.5rem; }
 .hp-form input[name="source"], .hp-form input[name="label"] { width: auto; flex: 1 1 10rem; }
 .hp-form .delta-input { width: 6rem; }
-.hp-effects .group-title { margin-top: 0.5rem; }
 .hp-effect { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
 .add-effect { display: grid; gap: 0.5rem; }
 #prepared-section .section-heading { margin-bottom: 0.5rem; }
@@ -515,6 +514,19 @@ details[open] > .section-summary .section-digest { display: none; }
 .vital-panel p { margin: 0; }
 .vital-panel .group-title { margin: 0.25rem 0 0.4rem; }
 .vital-panel .error { margin: 0; }
+/* Panel contents: groups (heading, list, one-line form) spaced apart, tight inside. */
+.vital-panel.hp-panel { gap: 1.25rem; }
+.panel-group { display: grid; gap: 0.5rem; }
+.panel-group > .group-title { margin: 0; }
+.panel-group > .group-title label { margin: 0; font-size: inherit; }
+.group-title-note { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.effect-list { gap: 0.35rem; padding: 0.25rem 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.effect-list li { padding: 0.2rem 0; }
+.inline-form { display: grid; gap: 0.5rem; align-items: center; }
+.inline-form input[type="text"] { width: 100%; min-width: 0; padding: 0.5rem 0.65rem; }
+.inline-form .secondary-button { padding: 0.5rem 0.9rem; }
+.temp-hp-form { grid-template-columns: 4.5rem 1fr auto; }
+.hp-effect-form { grid-template-columns: 1fr 5.5rem auto; }
 .vital-hp-form input[type="text"] { width: 5.5rem; padding: 0.4rem 0.6rem; }
 .vital-hp-form button { padding: 0.45rem 0.9rem; font-size: 0.9rem; }
 .vitals-bar .rest-bar { margin-left: auto; }
@@ -571,7 +583,10 @@ details[open] > .section-summary .section-digest { display: none; }
 .feature-body { display: grid; gap: 0.15rem; padding: 0 0 0.75rem; }
 /* Phones: HP, AC and rests on one line, the damage box under them, so the pinned bar stays short. */
 @media (max-width: 640px) {
-  .vitals-bar { gap: 0.5rem 0.75rem; }
+  .vitals-bar { gap: 0.5rem 0.4rem; }
+  .vital-menu > summary { padding: 0.15rem 0.25rem; }
+  .vitals-bar .rest-bar { gap: 0.35rem; }
+  .vitals-bar .rest-bar .secondary-button { padding: 0.35rem 0.65rem; }
   .vital-group { display: contents; }
   .vital-hp-form { order: 1; flex-basis: 100%; }
   .vital-hp-form input[type="text"] { flex: 1; }

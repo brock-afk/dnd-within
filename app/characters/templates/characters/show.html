@@ -148,7 +148,7 @@
   <h2>Skills</h2>
   <ul class="tag-list">
     {% for cs in skills %}
-    <li>{{ cs.skill.name }} <span class="muted">{{ cs.skill.ability }}</span></li>
+    <li>{{ cs.skill.name }} <span class="muted">{{ cs.skill.ability }}{% if cs.skill_id in expertise %} · Expertise{% endif %}</span></li>
     {% endfor %}
   </ul>
 </section>

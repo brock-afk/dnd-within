@@ -1,11 +1,12 @@
 {% from "partials/option_filters.html" import filter_attrs %}
 {# A grid of selectable cards. Radio buttons for a single pick, checkboxes for several.
    `options` need .name, plus optional .summary / .detail; `value_key` picks the value attribute.
-   Options whose value is in `known` are shown with `known_label` and can't be picked.
+   `known` ({value: label}) marks options that can't be picked, each shown with its label
+   (e.g. "Already proficient").
    `removal` puts a two-step Remove link on options with .removable: a dict with `ask_url`
    (asks "Remove X?"), `url` (removes), `target`, `asking` (the value being asked about) and
    `from_label` (e.g. "your spellbook"). Both requests post the enclosing form. #}
-{% macro choice_grid(field, options, selected=[], multiple=false, value_key="id", known=[], known_label="",
+{% macro choice_grid(field, options, selected=[], multiple=false, value_key="id", known={},
                      noun=("option", "options"), removal=none) %}
 {#- Options with a `group` (e.g. spell level) get one collapsible section per group, in the
     order they come in. A single group needs no section. -#}
@@ -16,15 +17,15 @@
   <details class="choice-group" data-filter-group="{{ group }}" open>
     <summary><span class="choice-group-name">{{ group }}</span>
       <span class="muted">{{ in_group | length }} {{ noun[0] if in_group | length == 1 else noun[1] }}</span></summary>
-    {{ _cards(field, in_group, selected, multiple, value_key, known, known_label, removal) }}
+    {{ _cards(field, in_group, selected, multiple, value_key, known, removal) }}
   </details>
   {% endfor %}
 {% else %}
-  {{ _cards(field, options, selected, multiple, value_key, known, known_label, removal) }}
+  {{ _cards(field, options, selected, multiple, value_key, known, removal) }}
 {% endif %}
 {% endmacro %}
 
-{% macro _cards(field, options, selected, multiple, value_key, known, known_label, removal) %}
+{% macro _cards(field, options, selected, multiple, value_key, known, removal) %}
 <div class="choices">
   {% for option in options %}
   {% set is_known = option[value_key] in known %}
@@ -34,7 +35,7 @@
     <input type="{{ 'checkbox' if multiple else 'radio' }}" name="{{ field }}" value="{{ option[value_key] }}"
            {% if option[value_key] in selected %}checked{% endif %} {% if is_known %}disabled{% endif %}>
     <span class="choice-name">{{ option.name }}</span>
-    {% if is_known %}<span class="choice-known">{{ known_label }}</span>{% endif %}
+    {% if is_known %}<span class="choice-known">{{ known[option[value_key]] }}</span>{% endif %}
     {% if option.warnings is defined %}{% for w in option.warnings %}<span class="spell-tag warning">{{ w }}</span>{% endfor %}{% endif %}
     {% if option.detail %}<span class="choice-detail">{{ option.detail }}</span>{% endif %}
     {% if option.summary %}<span class="choice-summary">{{ option.summary }}</span>{% endif %}

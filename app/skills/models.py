@@ -27,3 +27,18 @@ class CharacterSkill(Base):
     choice_id: Mapped[int | None] = mapped_column(ForeignKey("choices.id"))
 
     skill: Mapped[Skill] = relationship(lazy="joined")
+
+
+class CharacterSkillExpertise(Base):
+    """A skill a character has Expertise in (proficiency bonus doubled), and the choice that
+    granted it, like the Wizard's Scholar. Only counts while they're proficient in the skill."""
+
+    __tablename__ = "character_skill_expertise"
+    __table_args__ = (UniqueConstraint("character_id", "skill_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    character_id: Mapped[int] = mapped_column(ForeignKey("characters.id", ondelete="CASCADE"))
+    skill_id: Mapped[int] = mapped_column(ForeignKey("skills.id"))
+    choice_id: Mapped[int | None] = mapped_column(ForeignKey("choices.id"))
+
+    skill: Mapped[Skill] = relationship(lazy="joined")

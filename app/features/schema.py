@@ -104,7 +104,7 @@ class ChoiceDef(BaseModel):
 
     slug: Slug
     name: Text80
-    kind: Literal["option", "skill", "spell", "spellbook", "subclass"]
+    kind: Literal["option", "skill", "expertise", "spell", "spellbook", "subclass"]
     count: int = Field(default=1, ge=1)
     level: int = Field(default=1, ge=1, le=20)  # class/character level the choice unlocks at
     criteria: dict[str, Any] = {}
@@ -123,6 +123,14 @@ class ChoiceDef(BaseModel):
             raise ValueError(f"{self.slug}: in_play is for option choices with count 1")
         if self.kind == "skill" and not self.criteria.get("from"):
             raise ValueError(f"{self.slug}: skill choices need criteria {{'from': [skill slugs]}}")
+        if self.kind == "expertise":
+            # Without `from`, any skill the character is proficient in (Rogue, Bard).
+            if self.criteria.keys() - {"from"} or (
+                "from" in self.criteria and not self.criteria["from"]
+            ):
+                raise ValueError(
+                    f"{self.slug}: expertise choices take only criteria {{'from': [skill slugs]}}"
+                )
         if self.kind in ("spell", "spellbook"):
             keys = self.criteria.keys()
             if "class" not in keys or ("level" in keys) == ("max_level" in keys):

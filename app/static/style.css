@@ -460,6 +460,14 @@ a { color: var(--accent); }
   border-radius: 0; font-size: 0.85rem; font-weight: 400; color: var(--muted); white-space: nowrap; }
 .ability-save:hover { border-radius: 0 0 6px 6px; }
 .ability-save.proficient { color: var(--text); font-weight: 600; }
+.skill-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.15rem 1.25rem; }
+.skill-list li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.5rem; }
+.skill-roll { display: grid; grid-template-columns: 1rem 1fr auto; gap: 0.35rem; align-items: baseline; width: 100%; text-align: left; color: var(--muted); }
+.skill-list li.proficient .skill-roll { color: var(--text); font-weight: 600; }
+.skill-list .skill-mark { color: var(--accent); font-size: 0.75rem; }
+.skill-list .skill-bonus { font-variant-numeric: tabular-nums; }
+.skill-list .roll-result { font-size: 0.75rem; }
+.skill-list .roll-result:empty { display: none; }
 .attributes { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1.25rem; margin: 0; }
 .attributes dt { font-weight: 600; }
 .attributes dd { display: grid; gap: 0.2rem; margin: 0; }

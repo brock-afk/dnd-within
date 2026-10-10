@@ -182,6 +182,24 @@ features:
   name: Ritual Adept
   summary: >-
     Cast any Ritual spell in your spellbook as a ritual, even if it isn't prepared.
+- slug: scholar
+  name: Scholar
+  level: 2
+  summary: >-
+    Gain Expertise in one skill you're proficient in: Arcana, History, Investigation,
+    Medicine, Nature, or Religion.
+  choices:
+  - slug: scholar
+    name: Scholar
+    kind: expertise
+    criteria:
+      from:
+      - arcana
+      - history
+      - investigation
+      - medicine
+      - nature
+      - religion
 - slug: subclass
   name: Wizard Subclass
   summary: Specialize in a school of magic.

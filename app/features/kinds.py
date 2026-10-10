@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
 from app.content.queries import available
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
-from app.skills.models import CharacterSkill, Skill
+from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.spells.models import CharacterSpell, Spell, SpellbookEntry
 
 
@@ -113,6 +113,10 @@ class ChoiceKind:
         )
         return {str(i) for i in db.scalars(query)}
 
+    def unavailable(self, db: Session, choice: Choice, character_id: int) -> dict[str, str]:
+        """{key: why} for options the character can't pick, shown on the choice form."""
+        return {key: self.known_label for key in self.already_have(db, choice, character_id)}
+
     def picked_choice_ids(self, db: Session, character_id: int) -> set[int]:
         """Every choice of this kind the character has picks for."""
         query = select(self.pick.choice_id).where(self.pick.character_id == character_id)
@@ -158,6 +162,56 @@ class SkillKind(ChoiceKind):
 
     def view(self, skill):
         return OptionView(str(skill.id), skill.name, detail=skill.ability)
+
+
+class ExpertiseKind(SkillKind):
+    """Expertise in a skill the character is already proficient in (Scholar). criteria:
+    {"skill_ids": [...]} resolved from slugs on import, or {} for any skill."""
+
+    pick = CharacterSkillExpertise
+    known_label = "Already have Expertise"
+
+    def options_query(self, choice):
+        query = select(Skill).where(available(Skill))
+        if "skill_ids" in choice.criteria:
+            query = query.where(Skill.id.in_(choice.criteria["skill_ids"]))
+        return query.order_by(Skill.name)
+
+    def _proficient(self, db: Session, character_id: int) -> set[int]:
+        query = select(CharacterSkill.skill_id).where(CharacterSkill.character_id == character_id)
+        return set(db.scalars(query))
+
+    def unavailable(self, db, choice, character_id):
+        result = super().unavailable(db, choice, character_id)
+        proficient = self._proficient(db, character_id)
+        for skill in db.scalars(self.options_query(choice)):
+            if skill.id not in proficient:
+                result.setdefault(str(skill.id), "Not proficient")
+        return result
+
+    def save(self, db, choice, character_id, keys):
+        proficient = self._proficient(db, character_id)
+        ids = [int(k) for k in keys if k.isdigit()]
+        lacking = db.scalars(
+            select(Skill.name).where(Skill.id.in_(ids), Skill.id.not_in(proficient))
+        ).all()
+        if lacking:
+            return f"You need proficiency in {', '.join(lacking)} first."
+        return super().save(db, choice, character_id, keys)
+
+    def remove_unproficient(self, db: Session, character_id: int) -> None:
+        """Drop Expertise in skills the character is no longer proficient in, e.g. after
+        re-picking their class skills. Doesn't commit."""
+        db.execute(
+            delete(CharacterSkillExpertise).where(
+                CharacterSkillExpertise.character_id == character_id,
+                CharacterSkillExpertise.skill_id.not_in(
+                    select(CharacterSkill.skill_id).where(
+                        CharacterSkill.character_id == character_id
+                    )
+                ),
+            )
+        )
 
 
 class SpellKind(ChoiceKind):
@@ -268,6 +322,7 @@ class SubclassKind(ChoiceKind):
 KINDS: dict[str, ChoiceKind] = {
     "option": OptionKind(),
     "skill": SkillKind(),
+    "expertise": ExpertiseKind(),
     "spell": SpellKind(),
     "spellbook": SpellbookKind(),
     "subclass": SubclassKind(),

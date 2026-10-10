@@ -83,7 +83,7 @@ class _Importer:
 
     def _criteria(self, choice: ChoiceDef) -> dict:
         """Choice rules as written in YAML use slugs; the database stores resolved ids."""
-        if choice.kind == "skill":
+        if choice.kind in ("skill", "expertise") and "from" in choice.criteria:
             return {"skill_ids": [self._id(Skill, ref, "skills") for ref in choice.criteria["from"]]}
         if choice.kind in ("spell", "spellbook"):
             rest = {k: v for k, v in choice.criteria.items() if k != "class"}

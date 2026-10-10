@@ -145,6 +145,28 @@
 </section>
 {% endif %}
 
+{% if skills %}
+{#- Each skill's bonus is a roll button: ● proficient, ◆ Expertise (proficiency bonus doubled). -#}
+<section class="sheet-section">
+  <h2>Skills</h2>
+  <ul class="skill-list">
+    {% for row in skills %}
+    {% set label = "Expertise (%s)" % row.expertise_source if row.expertise else ("Proficient" if row.proficient else "") %}
+    <li class="{% if row.proficient %}proficient{% endif %}">
+      <button type="button" class="roll-number skill-roll" data-roll="1d20{{ '%+d' | format(row.bonus) }}"
+              title="Roll {{ row.skill.name }}{% if label %} · {{ label }}{% endif %}"
+              aria-label="Roll {{ row.skill.name }}{% if label %}, {{ label }}{% endif %}">
+        <span class="skill-mark" aria-hidden="true">{{ "◆" if row.expertise else ("●" if row.proficient else "") }}</span>
+        <span class="skill-name">{{ row.skill.name }} <span class="muted">{{ row.skill.ability }}</span></span>
+        <span class="skill-bonus">{{ signed(row.bonus) }}</span>
+      </button>
+      <span class="roll-result muted" aria-live="polite"></span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 {#- Passive data: what the character is, each part with where it comes from. Spells and
     Resources (below) are the active side: what they do. -#}
 <section class="sheet-section">

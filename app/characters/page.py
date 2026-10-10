@@ -16,7 +16,7 @@ from app.core.templates import morph_in_place, templates
 from app.features.service import feature_groups
 from app.leveling.service import hit_points
 from app.sheet.service import spell_warnings
-from app.skills.queries import character_skills
+from app.skills.queries import character_skills, expertise_skill_ids
 from app.spells.queries import spellbook
 
 # The element in characters/show.html that a refresh replaces.
@@ -57,6 +57,7 @@ def render_character_page(
             "feature_groups": groups,
             "pending": pending,
             "skills": character_skills(db, character.id),
+            "expertise": expertise_skill_ids(db, character.id),
             "copied_under": copied_under,
             # Spells copied into the book (not from a level up), with their rule markers.
             "copied": [

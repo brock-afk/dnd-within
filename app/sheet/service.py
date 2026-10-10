@@ -17,7 +17,8 @@ from app.sheet.models import (
     CharacterPreparedSpell,
     CharacterSpellSlot,
 )
-from app.sheet.rules import apply_max_change, current_hp, proficiency_bonus
+from app.sheet.rules import apply_max_change, current_hp, proficiency_bonus, skill_bonus
+from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.sheet.slots import slot_maximums
 from app.spells.models import Spell
 from app.spells.queries import character_spells, spellbook
@@ -212,6 +213,50 @@ def ability_rows(
         )
         for a in abilities
     ]
+
+
+@dataclass(frozen=True)
+class SkillRow:
+    skill: Skill
+    bonus: int
+    proficient: bool
+    expertise: bool
+    expertise_source: str = ""  # the feature that gave it, e.g. "Scholar"
+
+
+def skill_rows(db: Session, character: Character) -> list[SkillRow] | None:
+    """Every skill with the character's bonus, or None until ability scores are set."""
+    abilities = ability_views(db, character)
+    if abilities is None:
+        return None
+    mods = {a.abbr: a.mod for a in abilities}
+    pb = proficiency_bonus(character.level)
+    proficient = set(
+        db.scalars(select(CharacterSkill.skill_id).where(CharacterSkill.character_id == character.id))
+    )
+    expertise = {
+        row.skill_id: row
+        for row in db.scalars(
+            select(CharacterSkillExpertise).where(
+                CharacterSkillExpertise.character_id == character.id
+            )
+        )
+    }
+    rows = []
+    for skill in db.scalars(select(Skill).where(available(Skill)).order_by(Skill.name)):
+        is_proficient = skill.id in proficient
+        found = expertise.get(skill.id) if is_proficient else None
+        source = db.get(Choice, found.choice_id).feature.name if found and found.choice_id else ""
+        rows.append(
+            SkillRow(
+                skill,
+                skill_bonus(mods.get(skill.ability, 0), pb, is_proficient, found is not None),
+                is_proficient,
+                found is not None,
+                source,
+            )
+        )
+    return rows
 
 
 @dataclass(frozen=True)

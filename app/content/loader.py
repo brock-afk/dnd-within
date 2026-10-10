@@ -188,8 +188,8 @@ def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
                 check(granted.spell, "spells", f"{owner} > {feature.slug} > spells")
             for choice in feature.choices:
                 where = f"{owner} > {feature.slug} > {choice.slug}"
-                if choice.kind == "skill":
-                    for ref in choice.criteria["from"]:
+                if choice.kind in ("skill", "expertise"):
+                    for ref in choice.criteria.get("from", []):
                         check(ref, "skills", where)
                 elif choice.kind in ("spell", "spellbook"):
                     check(choice.criteria["class"], "classes", where)

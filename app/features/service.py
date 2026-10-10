@@ -205,7 +205,7 @@ class _AbilityBonusPicks:
 
 def remove_inapplicable_picks(db: Session, character: Character) -> None:
     """Delete picks for choices the character no longer has, e.g. after losing a level or
-    switching subclass.
+    switching subclass, plus Expertise in skills they're no longer proficient in.
 
     Repeats until nothing changes, because clearing one pick can make others stale: clearing
     a subclass removes its features, so their picks go too. Doesn't commit; the caller does,
@@ -224,5 +224,7 @@ def remove_inapplicable_picks(db: Session, character: Character) -> None:
                 source.clear(db, stale, character.id)
                 changed = True
         if not changed:
-            return
+            break
         db.flush()
+    # Expertise needs proficiency, which a changed skill pick may have just removed.
+    KINDS["expertise"].remove_unproficient(db, character.id)

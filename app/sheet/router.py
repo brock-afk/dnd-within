@@ -47,6 +47,7 @@ from app.sheet.service import (
     prepared_spell_ids,
     search_copyable,
     set_slots_remaining,
+    skill_rows,
     spell_slots,
     spell_warnings,
     spellbook_notes,
@@ -81,6 +82,7 @@ def render_sheet(
         "hp": hp_view(db, character),
         "abilities": ability_rows(db, character, attrs),
         "attributes": attrs,
+        "skills": skill_rows(db, character),
         "ac": armor_class(db, character),
         "ac_spells": ac_spells(db, character),
         # Rest-only features (like Arcane Recovery) appear only in the Short rest panel.

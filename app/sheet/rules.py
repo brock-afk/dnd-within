@@ -70,6 +70,14 @@ def proficiency_bonus(character_level: int) -> int:
     return 2 + (character_level - 1) // 4
 
 
+def skill_bonus(ability_mod: int, pb: int, proficient: bool, expertise: bool) -> int:
+    """Ability modifier, plus the proficiency bonus if proficient, or twice it with Expertise.
+    Expertise only counts in a skill you're proficient in."""
+    if not proficient:
+        return ability_mod
+    return ability_mod + pb * (2 if expertise else 1)
+
+
 def hit_die_healing(roll: int, con_mod: int) -> int:
     """HP regained from one spent hit die: the roll plus Constitution modifier, at least 1."""
     return max(roll + con_mod, 1)

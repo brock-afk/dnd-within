@@ -146,6 +146,8 @@ a { color: var(--accent); }
 
 .pending-choice { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; border-color: var(--accent); }
 .pending-choice:has(form) { display: block; }
+/* The Play sheet's in-play choices keep their dropdown on the same row. */
+.pending-choice.play-pending { display: flex; }
 
 .feature-list li, .spell-list li { display: grid; gap: 0.15rem; }
 .feature-name { font-weight: 600; }

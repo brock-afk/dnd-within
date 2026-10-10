@@ -9,6 +9,19 @@
 
 {% from "partials/spell_list.html" import spell_groups %}
 
+{#- An in-play choice's dropdown (Choice.in_play). Changing it saves; the empty entry clears it. -#}
+{% macro play_choice_select(pc, empty_label, form_class="") %}
+<form {% if form_class %}class="{{ form_class }}" {% endif %}hx-post="/characters/{{ character.id }}/sheet/choices/{{ pc.choice.id }}" hx-trigger="change">
+  {% if form_class %}<label class="resource-label" for="play-choice-{{ pc.choice.id }}">{{ pc.feature.name }}</label>{% endif %}
+  <select id="play-choice-{{ pc.choice.id }}" name="pick" class="play-choice-select" aria-label="{{ pc.choice.name }}">
+    <option value="">{{ empty_label }}</option>
+    {% for o in pc.options %}
+    <option value="{{ o.key }}" {% if pc.picked and pc.picked.key == o.key %}selected{% endif %}>{{ o.name }}</option>
+    {% endfor %}
+  </select>
+</form>
+{% endmacro %}
+
 {% block content %}
 <div id="sheet-page">
 <div class="page-header">
@@ -20,6 +33,27 @@
 </div>
 {{ page_tabs(character, "play") }}
 {% include "sheet/partials/rest_bar.html" %}
+
+{#- Like the Build page's "Choices to make": in-play choices not made yet. Once picked, they
+    move to Resources. -#}
+{% set unchosen = play_choices | rejectattr("picked") | list %}
+{% if unchosen %}
+<section class="sheet-section">
+  <h2>Choices to make</h2>
+  <ul class="plain-list">
+    {% for pc in unchosen %}
+    <li class="card pending-choice play-pending">
+      <div>
+        <span class="character-name">{{ pc.feature.name }}</span>
+        <span class="muted">· {{ pc.choice.name }}</span>
+      </div>
+      {{ play_choice_select(pc, "Choose…") }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% if errors.play_choice %}<p class="error" role="alert">{{ errors.play_choice }}</p>{% endif %}
+</section>
+{% endif %}
 
 {% if abilities %}
 {#- AC and abilities: the numbers looked at most in play. The modifiers and saves are roll
@@ -213,22 +247,15 @@
   {% endif %}
 </section>
 
-{% if resources or play_choices %}
+{% set chosen = play_choices | selectattr("picked") | list %}
+{% if resources or chosen %}
 <section class="sheet-section">
   <h2>Resources</h2>
   {#- Choices that change during play, like the Transmuter's Stone benefit. Picking saves. -#}
-  {% for pc in play_choices %}
+  {% for pc in chosen %}
   <div class="resource">
-    <form class="slot-row" hx-post="/characters/{{ character.id }}/sheet/choices/{{ pc.choice.id }}" hx-trigger="change">
-      <label class="resource-label" for="play-choice-{{ pc.choice.id }}">{{ pc.feature.name }}</label>
-      <select id="play-choice-{{ pc.choice.id }}" name="pick" class="play-choice-select" aria-label="{{ pc.choice.name }}">
-        <option value="">None</option>
-        {% for o in pc.options %}
-        <option value="{{ o.key }}" {% if pc.picked and pc.picked.key == o.key %}selected{% endif %}>{{ o.name }}</option>
-        {% endfor %}
-      </select>
-    </form>
-    {% if pc.picked %}<p class="resource-detail">{{ pc.picked.summary }}</p>{% endif %}
+    {{ play_choice_select(pc, "None", "slot-row") }}
+    <p class="resource-detail">{{ pc.picked.summary }}</p>
   </div>
   {% endfor %}
   {% for r in resources %}
@@ -254,7 +281,7 @@
   </div>
   {% endfor %}
   {% if errors.uses %}<p class="error" role="alert">{{ errors.uses }}</p>{% endif %}
-  {% if errors.play_choice %}<p class="error" role="alert">{{ errors.play_choice }}</p>{% endif %}
+  {% if errors.play_choice and not unchosen %}<p class="error" role="alert">{{ errors.play_choice }}</p>{% endif %}
 </section>
 {% endif %}
 

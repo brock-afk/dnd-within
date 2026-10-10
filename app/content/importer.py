@@ -12,9 +12,11 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.backgrounds.models import Background
 from app.classes.models import CharacterClass, Subclass
 from app.content.loader import Pack, discover, import_order, resolve, split_ref
 from app.content.models import Source
+from app.feats.models import Feat
 from app.features.models import Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.schema import ChoiceDef, FeatureDef
 from app.skills.models import Skill
@@ -237,18 +239,45 @@ class _Importer:
                 for ref in d.classes
             ]
 
+        feats = self._sync_rows(
+            Feat,
+            self.pack.feats,
+            lambda d: {
+                "name": d.name,
+                "category": d.category,
+                "summary": d.summary,
+                "description": d.description,
+            },
+        )
+        backgrounds = self._sync_rows(
+            Background,
+            self.pack.backgrounds,
+            lambda d: {
+                "name": d.name,
+                "summary": d.summary,
+                "description": d.description,
+                "feat_id": self._id(Feat, d.feat, "feats"),
+            },
+        )
+
         for d in self.pack.species:
             self._sync_features("species_id", species[d.slug].id, d.features)
         for d in self.pack.classes:
             self._sync_features("class_id", classes[d.slug].id, d.features)
         for d in self.pack.subclasses:
             self._sync_features("subclass_id", subclasses[d.slug].id, d.features)
+        for d in self.pack.feats:
+            self._sync_features("feat_id", feats[d.slug].id, d.features)
+        for d in self.pack.backgrounds:
+            self._sync_features("background_id", backgrounds[d.slug].id, d.features)
 
         # Parents retired from the pack take their features with them.
         for model, column in [
             (Species, "species_id"),
             (CharacterClass, "class_id"),
             (Subclass, "subclass_id"),
+            (Feat, "feat_id"),
+            (Background, "background_id"),
         ]:
             retired = self.db.scalars(
                 select(model.id).where(

@@ -36,7 +36,7 @@ There is no test suite, linter, or formatter configured.
 ## Architecture
 
 ### Domain packages
-`app/<domain>/` holds one area each (`auth`, `characters`, `abilities`, `classes`, `species`, `skills`, `spells`, `features`, `leveling`, `sheet`, `content`). A domain has some of these modules:
+`app/<domain>/` holds one area each (`auth`, `characters`, `abilities`, `classes`, `species`, `backgrounds`, `feats`, `skills`, `spells`, `features`, `leveling`, `sheet`, `content`). A domain has some of these modules:
 - `models.py`: SQLAlchemy tables
 - `router.py`: routes, registered in `app/main.py`
 - `service.py` / `queries.py`: DB-backed logic and view dataclasses
@@ -47,7 +47,7 @@ There is no test suite, linter, or formatter configured.
 
 ### Data-driven content
 Game content (classes, subclasses, species, skills, spells, and their features/choices) lives as YAML in **content packs**, not in code:
-- `content/<pack>/pack.yaml` plus `classes/`, `subclasses/<class>/`, `species/`, `spells/level-N.yaml`, `skills.yaml`.
+- `content/<pack>/pack.yaml` plus `classes/`, `subclasses/<class>/`, `species/`, `backgrounds/`, `feats/`, `spells/level-N.yaml`, `skills.yaml`.
 - `content-private/` holds third-party, copyrighted packs. It is gitignored and never built into the image. `CONTENT_PATHS` (default `content:content-private`) controls where packs are discovered.
 - `app/content/loader.py` parses packs into Pydantic models (`app/content/schema.py`, `app/features/schema.py`; all `extra="forbid"`) and checks cross-references. A reference can be a plain slug, which is looked up in this pack and then its `requires`, or `pack/slug`. It never touches the DB.
 - `app/content/importer.py` upserts each pack in one transaction on app startup, but only when the pack's checksum changed. Rows are matched by slug within their `Source` and updated in place, so IDs survive re-imports. Rows that disappear from a pack are **retired, not deleted**, because characters reference them.
@@ -55,7 +55,7 @@ Game content (classes, subclasses, species, skills, spells, and their features/c
 Adding a new content capability usually means changing these together: the YAML schema (`*/schema.py`), the loader's reference checks, the importer, the DB model, and a migration.
 
 ### Features and choices
-`Feature` rows belong to exactly one of a class, species, or subclass (enforced by a check constraint). Features carry mechanics like `uses`, `rolled_dice`, `slot_recovery`, and damage reactions. A `Choice` on a feature has a `kind` (`option`, `skill`, `spell`, `spellbook`, `subclass`). `app/features/kinds.py` maps each kind to the table its options come from and the table picks are saved in. To add a new kind of choice (languages, feats, …), subclass `ChoiceKind` and register it in `KINDS`.
+`Feature` rows belong to exactly one of a class, species, subclass, background, or feat (enforced by a check constraint). A background's origin feat applies through `characters.background_id`; species, background and feat features unlock by character level. Features carry mechanics like `uses`, `rolled_dice`, `slot_recovery`, and damage reactions. A `Choice` on a feature has a `kind` (`option`, `skill`, `expertise`, `spell`, `spellbook`, `subclass`, `ability_scores`). A choice offering exactly as many options as it asks for is auto-picked by `fill_fixed_choices` when a background is set. `app/features/kinds.py` maps each kind to the table its options come from and the table picks are saved in. To add a new kind of choice (languages, feats, …), subclass `ChoiceKind` and register it in `KINDS`.
 
 ### Two character views
 - **Build** (`/characters/{id}`, `characters/page.py`): leveling, ability scores, and feature choices.

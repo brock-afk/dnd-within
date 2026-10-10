@@ -338,6 +338,10 @@
     <dt>Resistances</dt>
     <dd>{% for types, source in attributes.resistance_groups %}<span>{{ types | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
     {% endif %}
+    {% if attributes.tools %}
+    <dt>Tools</dt>
+    <dd>{% for tools, source in attributes.tool_groups %}<span>{{ tools | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
+    {% endif %}
   </dl>
 {% endcall %}
 </div>

@@ -13,7 +13,16 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ValidationError
 
-from app.content.schema import ClassDef, PackMeta, SkillDef, SpeciesDef, SpellDef, SubclassDef
+from app.content.schema import (
+    BackgroundDef,
+    ClassDef,
+    FeatDef,
+    PackMeta,
+    SkillDef,
+    SpeciesDef,
+    SpellDef,
+    SubclassDef,
+)
 from app.core.config import settings
 from app.features.schema import FeatureDef
 
@@ -28,6 +37,8 @@ class Pack:
     classes: list[ClassDef] = field(default_factory=list)
     subclasses: list[SubclassDef] = field(default_factory=list)
     spells: list[SpellDef] = field(default_factory=list)
+    feats: list[FeatDef] = field(default_factory=list)
+    backgrounds: list[BackgroundDef] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -131,12 +142,16 @@ def _parse(folder: Path) -> Pack:
         pack.subclasses.append(sub)
     for file in sorted(folder.glob("spells/*.yaml")):
         pack.spells.extend(load_list(file, SpellDef))
+    pack.feats = load_each("feats/*.yaml", FeatDef)
+    pack.backgrounds = load_each("backgrounds/*.yaml", BackgroundDef)
 
     for kind, items in [
         ("skill", pack.skills),
         ("species", pack.species),
         ("class", pack.classes),
         ("spell", pack.spells),
+        ("feat", pack.feats),
+        ("background", pack.backgrounds),
     ]:
         seen = set()
         for item in items:
@@ -170,7 +185,7 @@ def resolve(ref: str, kind: str, pack: Pack, by_slug: dict[str, Pack]) -> str | 
 
 
 def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
-    singular = {"classes": "class", "skills": "skill", "spells": "spell"}
+    singular = {"classes": "class", "skills": "skill", "spells": "spell", "feats": "feat"}
 
     def check(ref: str, kind: str, where: str):
         if resolve(ref, kind, pack, by_slug) is None:
@@ -201,6 +216,11 @@ def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
     for sub in pack.subclasses:
         check(sub.class_, "classes", f"subclasses/{sub.slug}")
         check_features(sub.features, f"subclasses/{sub.slug}")
+    for feat in pack.feats:
+        check_features(feat.features, f"feats/{feat.slug}")
+    for bg in pack.backgrounds:
+        check(bg.feat, "feats", f"backgrounds/{bg.slug}")
+        check_features(bg.features, f"backgrounds/{bg.slug}")
     for spell in pack.spells:
         for ref in spell.classes:
             check(ref, "classes", f"spells/{spell.slug}")

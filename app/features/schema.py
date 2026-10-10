@@ -67,6 +67,7 @@ class GrantsDef(BaseModel):
 
     darkvision:       a range; the highest source wins (a species' Darkvision 60)
     darkvision_bonus: added on top, or from 0 without Darkvision (the Transmuter's Stone)
+    tool_proficiencies: tool names, e.g. "Thieves' Tools" or a picked "Playing Cards"
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -76,6 +77,7 @@ class GrantsDef(BaseModel):
     darkvision: int | None = Field(default=None, ge=5, le=300)
     darkvision_bonus: int | None = Field(default=None, ge=5, le=300)
     speed_bonus: int | None = Field(default=None, ge=5, le=120)
+    tool_proficiencies: list[Text50] = []
 
     @model_validator(mode="after")
     def check(self):
@@ -104,7 +106,9 @@ class ChoiceDef(BaseModel):
 
     slug: Slug
     name: Text80
-    kind: Literal["option", "skill", "expertise", "spell", "spellbook", "subclass"]
+    kind: Literal[
+        "option", "skill", "expertise", "spell", "spellbook", "subclass", "ability_scores"
+    ]
     count: int = Field(default=1, ge=1)
     level: int = Field(default=1, ge=1, le=20)  # class/character level the choice unlocks at
     criteria: dict[str, Any] = {}
@@ -121,15 +125,30 @@ class ChoiceDef(BaseModel):
             raise ValueError(f"{self.slug}: only kind 'option' lists its own options")
         if self.in_play and (self.kind != "option" or self.count != 1):
             raise ValueError(f"{self.slug}: in_play is for option choices with count 1")
-        if self.kind == "skill" and not self.criteria.get("from"):
-            raise ValueError(f"{self.slug}: skill choices need criteria {{'from': [skill slugs]}}")
-        if self.kind == "expertise":
-            # Without `from`, any skill the character is proficient in (Rogue, Bard).
+        if self.kind in ("skill", "expertise"):
+            # Without `from`, any skill: a background's free pick, or for Expertise any skill
+            # the character is proficient in (Rogue, Bard).
             if self.criteria.keys() - {"from"} or (
                 "from" in self.criteria and not self.criteria["from"]
             ):
                 raise ValueError(
-                    f"{self.slug}: expertise choices take only criteria {{'from': [skill slugs]}}"
+                    f"{self.slug}: {self.kind} choices take only criteria {{'from': [skill slugs]}}"
+                )
+        if self.kind == "ability_scores":
+            # A background's increases: +2 to one of these and +1 to another, or +1 to all three.
+            abilities = self.criteria.get("from")
+            valid = get_args(Ability)
+            if (
+                self.criteria.keys() != {"from"}
+                or not isinstance(abilities, list)
+                or len(set(abilities)) != 3
+                or len(abilities) != 3
+                or any(a not in valid for a in abilities)
+                or self.count != 1
+            ):
+                raise ValueError(
+                    f"{self.slug}: ability_scores choices need count 1 and criteria "
+                    "{'from': [three different abilities]}"
                 )
         if self.kind in ("spell", "spellbook"):
             keys = self.criteria.keys()

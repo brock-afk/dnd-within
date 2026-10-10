@@ -4,6 +4,7 @@ from sqlalchemy import CheckConstraint, DateTime, ForeignKey, SmallInteger, Stri
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.abilities.rules import ABILITIES
+from app.backgrounds.models import Background
 from app.classes.models import CharacterClassLevel
 from app.core.db import Base
 from app.leveling.models import CharacterLevel
@@ -35,6 +36,8 @@ class Character(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(60))
     species_id: Mapped[int] = mapped_column(ForeignKey("species.id"))
+    # NULL until the player picks one on the Build page.
+    background_id: Mapped[int | None] = mapped_column(ForeignKey("backgrounds.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Base ability scores, before bonuses (see app/abilities). NULL until the player sets them.
@@ -47,6 +50,7 @@ class Character(Base):
     charisma: Mapped[int | None] = mapped_column(SmallInteger)
 
     species: Mapped[Species] = relationship(lazy="joined")
+    background: Mapped[Background | None] = relationship(lazy="joined")
     classes: Mapped[list[CharacterClassLevel]] = relationship(
         back_populates="character",
         order_by=CharacterClassLevel.position,

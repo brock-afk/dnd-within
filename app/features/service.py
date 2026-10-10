@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.abilities.models import CharacterAbilityBonus
 from app.characters.models import Character
 from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
 from app.content.queries import available
@@ -15,7 +14,7 @@ from app.features.models import Choice, Feature
 class ChoiceView:
     choice: Choice
     picked: list[OptionView]
-    level: int = 1  # the class level (character level for species) it unlocks at
+    level: int = 1  # the class level (character level for species, backgrounds, feats)
     level_name: str = "Level"  # "Wizard" for class and subclass choices, so "Wizard 2"
 
     @property
@@ -36,7 +35,8 @@ class FeatureView:
 
 @dataclass
 class FeatureGroup:
-    """Features from one source: the species, or one of the character's classes."""
+    """Features from one source: the species, background, origin feat, or one of the
+    character's classes or subclasses."""
 
     name: str
     features: list[FeatureView]
@@ -73,25 +73,35 @@ def _views(
     ]
 
 
+def _origin_feat_id(character: Character) -> int | None:
+    """The origin feat the character's background gives, if they've picked one."""
+    return character.background.feat_id if character.background else None
+
+
 def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
-    """The species' features (by character level), then for each class its features and its
-    subclass's features (both by that class's level). Features and choices retired from their
-    pack aren't shown, though picks already made for them are kept."""
-    species_features = db.scalars(
-        select(Feature)
-        .where(
-            Feature.species_id == character.species_id,
-            Feature.level <= character.level,
-            available(Feature),
-        )
-        .order_by(Feature.position)
-    ).all()
+    """The species', background's and origin feat's features (by character level), then for
+    each class its features and its subclass's features (both by that class's level). Features
+    and choices retired from their pack aren't shown, though picks already made for them are
+    kept."""
+
+    def by_character_level(column, parent_id: int) -> list[FeatureView]:
+        features = db.scalars(
+            select(Feature)
+            .where(column == parent_id, Feature.level <= character.level, available(Feature))
+            .order_by(Feature.position)
+        ).all()
+        return _views(db, character, features, character.level)
+
     groups = [
-        FeatureGroup(
-            character.species.name,
-            _views(db, character, species_features, character.level),
-        )
+        FeatureGroup(character.species.name, by_character_level(Feature.species_id, character.species_id))
     ]
+    if background := character.background:
+        groups.append(
+            FeatureGroup(background.name, by_character_level(Feature.background_id, background.id))
+        )
+        groups.append(
+            FeatureGroup(background.feat.name, by_character_level(Feature.feat_id, background.feat_id))
+        )
 
     for cc in character.classes:
         class_features = db.scalars(
@@ -160,8 +170,8 @@ def choice_level_label(db: Session, choice: Choice) -> str:
     level = max(feature.level, choice.level)
     if level <= 1:
         return ""
-    if feature.species_id is not None:
-        return f"Level {level}"
+    if feature.class_id is None and feature.subclass_id is None:
+        return f"Level {level}"  # species, background and feat choices go by character level
     class_id = feature.class_id or db.get(Subclass, feature.subclass_id).class_id
     return f"{db.get(CharacterClass, class_id).name} {level}"
 
@@ -173,9 +183,14 @@ def applicable_choice(db: Session, character: Character, choice_id: int) -> Choi
         return None
     feature = choice.feature
     unlocks_at = max(feature.level, choice.level)
-    if feature.species_id is not None:
-        ok = feature.species_id == character.species_id and unlocks_at <= character.level
-        return choice if ok else None
+    for parent_id, character_has in [
+        (feature.species_id, character.species_id),
+        (feature.background_id, character.background_id),
+        (feature.feat_id, _origin_feat_id(character)),
+    ]:
+        if parent_id is not None:
+            ok = parent_id == character_has and unlocks_at <= character.level
+            return choice if ok else None
     for cc in character.classes:
         if feature.class_id is not None and cc.class_id == feature.class_id:
             ok = unlocks_at <= cc.level and _applies(feature.applies_to, cc)
@@ -183,24 +198,6 @@ def applicable_choice(db: Session, character: Character, choice_id: int) -> Choi
         if feature.subclass_id is not None and cc.subclass_id == feature.subclass_id:
             return choice if unlocks_at <= cc.level else None
     return None
-
-
-class _AbilityBonusPicks:
-    """Ability bonuses aren't a choice kind of their own yet, but are cleaned up the same way."""
-
-    def picked_choice_ids(self, db: Session, character_id: int) -> set[int]:
-        query = select(CharacterAbilityBonus.choice_id).where(
-            CharacterAbilityBonus.character_id == character_id
-        )
-        return set(db.scalars(query))
-
-    def clear(self, db: Session, choice_ids: list[int], character_id: int) -> None:
-        db.execute(
-            delete(CharacterAbilityBonus).where(
-                CharacterAbilityBonus.character_id == character_id,
-                CharacterAbilityBonus.choice_id.in_(choice_ids),
-            )
-        )
 
 
 def remove_inapplicable_picks(db: Session, character: Character) -> None:
@@ -211,10 +208,9 @@ def remove_inapplicable_picks(db: Session, character: Character) -> None:
     a subclass removes its features, so their picks go too. Doesn't commit; the caller does,
     together with whatever made the picks stale.
     """
-    pick_sources = [*KINDS.values(), _AbilityBonusPicks()]
     while True:
         changed = False
-        for source in pick_sources:
+        for source in KINDS.values():
             stale = [
                 cid
                 for cid in source.picked_choice_ids(db, character.id)
@@ -228,3 +224,18 @@ def remove_inapplicable_picks(db: Session, character: Character) -> None:
         db.flush()
     # Expertise needs proficiency, which a changed skill pick may have just removed.
     KINDS["expertise"].remove_unproficient(db, character.id)
+
+
+def fill_fixed_choices(db: Session, character: Character) -> None:
+    """Pick choices that offer exactly as many options as they ask for, like a background's
+    Animal Handling. A choice the save rejects (the character already has that skill from
+    elsewhere) is left to pick by hand, as the rules say to choose another. Commits."""
+    for group in feature_groups(db, character):
+        for fv in group.features:
+            for cv in fv.choices:
+                if cv.picked or cv.choice.in_play:
+                    continue
+                kind = KINDS[cv.choice.kind]
+                options = kind.options(db, cv.choice)
+                if len(options) == cv.choice.count:
+                    kind.save(db, cv.choice, character.id, [o.key for o in options])

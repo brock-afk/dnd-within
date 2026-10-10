@@ -25,7 +25,8 @@ def check() -> int:
         if pack.ok:
             print(
                 f"{pack.slug}: ok ({len(pack.classes)} classes, {len(pack.subclasses)} subclasses, "
-                f"{len(pack.species)} species, {len(pack.skills)} skills, {len(pack.spells)} spells)"
+                f"{len(pack.species)} species, {len(pack.backgrounds)} backgrounds, "
+                f"{len(pack.feats)} feats, {len(pack.skills)} skills, {len(pack.spells)} spells)"
             )
         else:
             failed = True

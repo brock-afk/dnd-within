@@ -146,6 +146,7 @@ class Attributes:
     darkvision: int  # range in feet; 0 without Darkvision
     darkvision_sources: list[str]
     resistances: dict[str, list[str]]  # damage type -> sources
+    tools: dict[str, list[str]]  # tool name -> sources
 
     @property
     def save_groups(self) -> list[tuple[list[str], str]]:
@@ -162,6 +163,10 @@ class Attributes:
             for types, label in _by_source(self.resistances, sorted(self.resistances))
         ]
 
+    @property
+    def tool_groups(self) -> list[tuple[list[str], str]]:
+        return _by_source(self.tools, sorted(self.tools))
+
 
 def attributes(db: Session, character: Character) -> Attributes:
     """Saves (the starting class's, by 2024 multiclassing rules, plus granted ones), speed
@@ -177,11 +182,14 @@ def attributes(db: Session, character: Character) -> Attributes:
     ranges: list[tuple[int, str]] = []
     bonuses: list[tuple[int, str]] = []
     resistances: dict[str, list[str]] = {}
+    tools: dict[str, list[str]] = {}
     for source, grants in _grant_sources(db, character):
         for abbr in grants.get("save_proficiencies", []):
             saves.setdefault(abbr, []).append(source)
         for damage_type in grants.get("resistances", []):
             resistances.setdefault(damage_type, []).append(source)
+        for tool in grants.get("tool_proficiencies", []):
+            tools.setdefault(tool, []).append(source)
         if grants.get("speed_bonus"):
             speed += grants["speed_bonus"]
             speed_parts.append(f"+{grants['speed_bonus']} {source}")
@@ -193,7 +201,9 @@ def attributes(db: Session, character: Character) -> Attributes:
     best = max(ranges, default=(0, ""))
     darkvision = best[0] + sum(n for n, _ in bonuses)
     darkvision_sources = ([best[1]] if best[1] else []) + [source for _, source in bonuses]
-    return Attributes(saves, speed, speed_parts, darkvision, darkvision_sources, resistances)
+    return Attributes(
+        saves, speed, speed_parts, darkvision, darkvision_sources, resistances, tools
+    )
 
 
 def ability_rows(

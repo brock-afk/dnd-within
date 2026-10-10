@@ -84,6 +84,37 @@ class SubclassDef(Strict):
     features: list[FeatureDef] = []
 
 
+class FeatDef(Strict):
+    slug: Slug
+    name: Text50
+    category: Literal["origin", "general"] = "origin"
+    summary: Text255
+    description: str | None = None  # full rules text: only in private packs (copyright)
+    # Each benefit is its own feature, so each can have its own uses (Familiar Friend's free
+    # Find Familiar and Helpful Friend recharge separately).
+    features: list[FeatureDef] = []
+
+
+class BackgroundDef(Strict):
+    """A 2024 background. Ability score increases, skills and tools are written as features
+    with choices (kinds ability_scores, skill, option), so backgrounds that bend the usual
+    pattern need no code."""
+
+    slug: Slug
+    name: Text50
+    summary: Text255
+    description: str | None = None
+    feat: str  # origin feat slug, e.g. "magic-initiate" or "phb-2024/magic-initiate"
+    features: list[FeatureDef] = []
+
+    @model_validator(mode="after")
+    def check(self):
+        kinds = [c.kind for f in self.features for c in f.choices]
+        if kinds.count("ability_scores") != 1:
+            raise ValueError("a background needs exactly one ability_scores choice")
+        return self
+
+
 # --- Spells -------------------------------------------------------------------------------
 
 

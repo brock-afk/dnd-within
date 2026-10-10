@@ -28,7 +28,7 @@
 {{ page_tabs(character, "build") }}
 <div id="level-up-slot"></div>
 
-{% if pending or not abilities %}
+{% if pending or not abilities or not character.background %}
 <section class="sheet-section">
   <h2>Choices to make</h2>
   <ul class="plain-list">
@@ -40,6 +40,16 @@
       </div>
       <button type="button" hx-get="/characters/{{ character.id }}/abilities/edit"
               hx-target="#abilities-pending">Set</button>
+    </li>
+    {% endif %}
+    {% if not character.background %}
+    <li class="card pending-choice" id="background-pending">
+      <div>
+        <span class="character-name">Background</span>
+        <span class="muted">· ability score increases, skills, a tool and an origin feat</span>
+      </div>
+      <button type="button" hx-get="/characters/{{ character.id }}/background"
+              hx-target="#background-pending">Choose</button>
     </li>
     {% endif %}
     {% for cv in pending %}
@@ -87,6 +97,13 @@
 {#- Each source (species, class, subclass) collapses, and so does each feature: closed, a feature
     shows its name and what was picked for it; open, its summary, full text and Change buttons. -#}
 {% call section("features", "Traits & features", feature_groups | map(attribute="name") | join(" · ")) %}
+  {% if character.background %}
+  <div class="section-actions">
+    <button type="button" class="link-button" hx-get="/characters/{{ character.id }}/background"
+            hx-target="#background-slot">Change background</button>
+  </div>
+  <div id="background-slot"></div>
+  {% endif %}
   {% for group in feature_groups %}
   <details class="feature-group" data-collapse="group-{{ group.name | lower | replace(" ", "-") }}" open>
     <summary>

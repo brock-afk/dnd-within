@@ -17,6 +17,7 @@ from app.features.service import (
     choice_level_label,
     remove_inapplicable_picks,
 )
+from app.sheet.service import max_hp, track_max_change
 
 router = APIRouter(tags=["features"])
 
@@ -68,6 +69,7 @@ def save_choice(
     choice = _get_choice(db, character, choice_id)
     picks = list(dict.fromkeys(picks))  # drop duplicates, keep order
 
+    old_max = max_hp(db, character)
     if len(picks) != choice.count:
         wanted = "one" if choice.count == 1 else f"exactly {choice.count}"
         error = f"Choose {wanted}." + (f" You picked {len(picks)}." if picks else "")
@@ -78,5 +80,7 @@ def save_choice(
         return _render_form(request, db, character, choice, picks, error, status_code=400)
     # A new pick can make others stale, e.g. switching subclass drops the old one's picks.
     remove_inapplicable_picks(db, character)
+    # A pick can change max HP, e.g. a background's Constitution increase.
+    track_max_change(db, character, old_max, heal=True)
     db.commit()
     return refresh_character_page(request, db, user, character)

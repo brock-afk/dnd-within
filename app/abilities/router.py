@@ -2,12 +2,13 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from app.abilities.rules import (
     ABILITIES,
+    MAX_SCORE,
     METHODS,
     POINT_BUY_BUDGET,
     POINT_BUY_COSTS,
@@ -21,12 +22,16 @@ from app.abilities.rules import (
     unassigned,
     validate,
 )
+from app.abilities.service import ability_views
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
 from app.characters.page import refresh_character_page
 from app.core.db import DbSession
 from app.core.templates import templates
+from app.features.kinds import KINDS, source_name
+from app.features.models import Choice
+from app.features.service import applicable_choice, remove_inapplicable_picks
 from app.sheet.service import max_hp, track_max_change
 
 router = APIRouter(tags=["abilities"])
@@ -185,6 +190,133 @@ def save_abilities(
     for column, score in scores.items():
         setattr(character, column, score)
     # A Constitution change moves max HP: an increase raises current HP too, a decrease caps it.
+    track_max_change(db, character, old_max, heal=True)
+    db.commit()
+    return refresh_character_page(request, db, user, character)
+
+
+# --- Ability score increases (a background's +2/+1 or +1/+1/+1) ---------------------------
+
+
+class IncreaseForm(BaseModel):
+    split: str = "uneven"  # "uneven" (+2 and +1) or "even" (+1 to each)
+    plus2: str = ""
+    plus1: str = ""
+    changed: str = ""  # preview: which column was just clicked, "plus2" or "plus1"
+
+
+@dataclass
+class IncreaseRow:
+    abbr: str
+    name: str
+    before: int | None  # with every other bonus; None until ability scores are set
+    amount: int
+
+    @property
+    def after(self) -> int | None:
+        return None if self.before is None else min(self.before + self.amount, MAX_SCORE)
+
+    @property
+    def capped(self) -> bool:
+        return self.before is not None and self.before + self.amount > MAX_SCORE
+
+
+def _increase_choice(db: DbSession, character: Character, choice_id: int) -> Choice:
+    choice = applicable_choice(db, character, choice_id)
+    if choice is None or choice.kind != "ability_scores":
+        raise HTTPException(status_code=404)
+    return choice
+
+
+def render_increase_form(
+    request: Request,
+    db: DbSession,
+    character: Character,
+    choice: Choice,
+    form: IncreaseForm,
+    error: str | None = None,
+    status_code: int = 200,
+):
+    """The +2/+1 editor: one row per ability with a +2 and a +1 radio, or just +1 each."""
+    even = form.split == "even"
+    amounts = KINDS["ability_scores"].split(choice, form.plus2, form.plus1, even) or {}
+    if not even:  # show a half-made pick too, e.g. only the +2 chosen so far
+        amounts = {form.plus1: 1, form.plus2: 2} | amounts
+    before = {a.abbr: a.total for a in ability_views(db, character, choice.id) or []}
+    names = {a.abbr: a.name for a in ABILITIES}
+    rows = [
+        IncreaseRow(abbr, names[abbr], before.get(abbr), amounts.get(abbr, 0))
+        for abbr in choice.criteria["from"]
+    ]
+    return templates.TemplateResponse(
+        request,
+        "abilities/partials/increase_form.html",
+        {
+            "character": character,
+            "choice": choice,
+            "source": source_name(db, choice.feature),
+            "even": even,
+            "form": form,
+            "rows": rows,
+            "max_score": MAX_SCORE,
+            "error": error,
+        },
+        status_code=status_code,
+    )
+
+
+def increase_form_for(request: Request, db: DbSession, character: Character, choice: Choice):
+    """The editor opened from a Choose or Change button, starting from the saved pick."""
+    saved = KINDS["ability_scores"].picked_amounts(db, choice, character.id)
+    if saved and set(saved.values()) == {1}:
+        form = IncreaseForm(split="even")
+    else:
+        by_amount = {n: abbr for abbr, n in saved.items()}
+        form = IncreaseForm(plus2=by_amount.get(2, ""), plus1=by_amount.get(1, ""))
+    return render_increase_form(request, db, character, choice, form)
+
+
+@router.post(
+    "/characters/{character_id}/ability-increases/{choice_id}/preview",
+    response_class=HTMLResponse,
+)
+def preview_increases(
+    request: Request,
+    db: DbSession,
+    character: OwnedCharacter,
+    choice_id: int,
+    form: Annotated[IncreaseForm, Form()],
+):
+    choice = _increase_choice(db, character, choice_id)
+    # One ability can't take both: the column just clicked wins, the other is cleared.
+    if form.plus2 and form.plus2 == form.plus1:
+        if form.changed == "plus2":
+            form.plus1 = ""
+        else:
+            form.plus2 = ""
+    return render_increase_form(request, db, character, choice, form)
+
+
+@router.post("/characters/{character_id}/ability-increases/{choice_id}")
+def save_increases(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    choice_id: int,
+    form: Annotated[IncreaseForm, Form()],
+):
+    choice = _increase_choice(db, character, choice_id)
+    kind = KINDS["ability_scores"]
+    split = kind.split(choice, form.plus2, form.plus1, form.split == "even")
+    if split is None:
+        error = "Choose where the +2 and the +1 go."
+        return render_increase_form(request, db, character, choice, form, error, status_code=400)
+
+    old_max = max_hp(db, character)
+    kind.save(db, choice, character.id, [kind.key(split)])
+    remove_inapplicable_picks(db, character)
+    # A Constitution increase raises max HP, and current HP with it.
     track_max_change(db, character, old_max, heal=True)
     db.commit()
     return refresh_character_page(request, db, user, character)

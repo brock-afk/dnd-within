@@ -257,6 +257,25 @@ details[open] > .section-summary .section-digest { display: none; }
 
 .editor-status { margin: 0; }
 
+/* Ability score increases: name, amount (a fixed +1, or a +2 / +1 toggle), resulting score. */
+.increase-rows { display: grid; gap: 0.2rem; max-width: 26rem; }
+.increase-row {
+  display: grid; grid-template-columns: minmax(7rem, 1fr) 4.5rem 6rem;
+  align-items: center; gap: 0.5rem; padding: 0.3rem 0;
+}
+.increase-amount { padding: 0.1rem 0.4rem; font-weight: 600; color: var(--accent); }
+.increase-toggle { display: inline-flex; gap: 0.15rem; }
+.increase-option {
+  /* A label, so undo the form-label margin and size: rows match the "+1 to each" ones. */
+  position: relative; margin: 0; padding: 0.1rem 0.4rem; border-radius: 4px;
+  font-size: inherit; font-weight: 600; color: var(--muted); cursor: pointer;
+}
+.increase-option:hover { color: var(--text); background: var(--surface); }
+.increase-option input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+.increase-option:has(input:checked) { color: var(--accent); }
+.increase-option:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+.increase-score { font-variant-numeric: tabular-nums; }
+
 @media (max-width: 30rem) {
   .ability-row { grid-template-columns: 1fr auto 2.5rem; }
   .row-cost { grid-column: 2 / -1; text-align: right; margin-top: -0.35rem; }

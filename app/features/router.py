@@ -4,6 +4,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
+from app.abilities.router import increase_form_for
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
@@ -53,6 +54,9 @@ def _render_form(request, db, character, choice, selected, error=None, status_co
 @router.get("/characters/{character_id}/choices/{choice_id}", response_class=HTMLResponse)
 def choice_form(request: Request, db: DbSession, character: OwnedCharacter, choice_id: int):
     choice = _get_choice(db, character, choice_id)
+    if choice.kind == "ability_scores":
+        # Picked with a +2 column and a +1 column, not one card per combination.
+        return increase_form_for(request, db, character, choice)
     picked = KINDS[choice.kind].picked(db, choice, character.id)
     return _render_form(request, db, character, choice, [o.key for o in picked])
 

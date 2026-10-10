@@ -1,0 +1,60 @@
+{% from "partials/refresh.html" import refresh_button %}
+{# A background's ability score increases. Every click redraws the editor from the server,
+   so the scores on the right always show the result. #}
+{% set url = "/characters/%d/ability-increases/%d" % (character.id, choice.id) %}
+{% set editor_swap = 'hx-target="#increase-editor-%d" hx-swap="outerHTML"' % choice.id %}
+<div id="increase-editor-{{ choice.id }}" class="ability-editor">
+  <div class="choice-form-header">
+    <h3 class="section-title">{{ choice.name }}</h3>
+    <span class="muted">{{ source }}</span>
+  </div>
+  <div class="tabs" role="tablist">
+    {% for key, label in [("uneven", "+2 and +1"), ("even", "+1 to each")] %}
+    {% set active = (key == "even") == even %}
+    <button type="button" role="tab" class="tab{% if active %} active{% endif %}"
+            aria-selected="{{ 'true' if active else 'false' }}"
+            hx-post="{{ url }}/preview" hx-include="#increase-form-{{ choice.id }}"
+            hx-vals='{"split": "{{ key }}"}' {{ editor_swap | safe }}>{{ label }}</button>
+    {% endfor %}
+  </div>
+
+  <form id="increase-form-{{ choice.id }}" hx-post="{{ url }}" {{ editor_swap | safe }} novalidate
+        class="ability-form">
+    <input type="hidden" name="split" value="{{ 'even' if even else 'uneven' }}">
+    <div class="increase-rows">
+      {% for row in rows %}
+      <div class="increase-row">
+        <span class="row-name">{{ row.name }}</span>
+        {% if even %}
+        <span class="increase-amount">+1</span>
+        {% else %}
+        {#- Two radio groups (plus2, plus1), shown per row as a +2 / +1 toggle. -#}
+        <span class="increase-toggle">
+          {% for field, n in [("plus2", 2), ("plus1", 1)] %}
+          <label class="increase-option">
+            <input type="radio" name="{{ field }}" value="{{ row.abbr }}" aria-label="+{{ n }} to {{ row.name }}"
+                   {% if form[field] == row.abbr %}checked{% endif %}
+                   hx-post="{{ url }}/preview" hx-vals='{"changed": "{{ field }}"}' {{ editor_swap | safe }}>
+            +{{ n }}
+          </label>
+          {% endfor %}
+        </span>
+        {% endif %}
+        <span class="increase-score">
+          {% if row.before is not none %}
+            {% if row.amount %}{{ row.before }} → <strong>{{ row.after }}</strong>{% else %}<span class="muted">{{ row.before }}</span>{% endif %}
+            {% if row.capped %}<span class="muted">max</span>{% endif %}
+          {% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="muted method-hint">No score can go above {{ max_score }}.</p>
+
+    <div class="form-actions">
+      <button type="submit">Save</button>
+      {{ refresh_button(character) }}
+      {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    </div>
+  </form>
+</div>

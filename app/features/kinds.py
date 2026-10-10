@@ -12,12 +12,29 @@ from sqlalchemy import Select, delete, select
 from sqlalchemy.orm import Session
 
 from app.abilities.models import CharacterAbilityBonus
-from app.abilities.rules import ABILITIES
+from app.backgrounds.models import Background
 from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
 from app.content.queries import available
+from app.feats.models import Feat
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
+from app.species.models import Species
 from app.spells.models import CharacterSpell, Spell, SpellbookEntry
+
+
+def source_name(db: Session, feature: Feature) -> str:
+    """What a feature belongs to, as the player knows it: "Wizard", "Goliath", "Familiar
+    Trainer", "Transmuter" or "Familiar Friend"."""
+    for model, parent_id in [
+        (CharacterClass, feature.class_id),
+        (Subclass, feature.subclass_id),
+        (Species, feature.species_id),
+        (Background, feature.background_id),
+        (Feat, feature.feat_id),
+    ]:
+        if parent_id is not None:
+            return db.get(model, parent_id).name
+    return feature.name
 
 
 @dataclass(frozen=True)
@@ -38,8 +55,11 @@ class ChoiceKind:
     target: type  # table the options come from
     pick: type  # table a character's picks are saved in
     target_fk: str  # column on `pick` pointing at `target`
-    # Shown on options the character already has from somewhere else (they can't be picked).
+    # Shown on options the character already has from somewhere else (they can't be picked):
+    # "<known_from> Wizard" when the pick came from a choice (and known_from is set), else
+    # known_label.
     known_label = "Already known"
+    known_from: str | None = "Known from"
     noun = ("option", "options")  # for counts like "31 spells"
 
     def pick_values(self, choice: Choice) -> dict:
@@ -102,22 +122,25 @@ class ChoiceKind:
         db.commit()
         return None
 
-    def already_have(self, db: Session, choice: Choice, character_id: int) -> set[str]:
-        """Keys of options the character has from anything other than this choice."""
+    def unavailable(self, db: Session, choice: Choice, character_id: int) -> dict[str, str]:
+        """{key: why} for options the character can't pick, shown on the choice form, naming
+        where they already have it from (e.g. "Proficient from Familiar Trainer")."""
         fk = getattr(self.pick, self.target_fk)
-        query = (
-            select(self.target.id)
+        rows = db.execute(
+            select(self.target.id, self.pick.choice_id)
             .join(self.pick, fk == self.target.id)
             .where(
                 self.pick.character_id == character_id,
                 self.pick.choice_id.is_distinct_from(choice.id),
             )
         )
-        return {str(i) for i in db.scalars(query)}
-
-    def unavailable(self, db: Session, choice: Choice, character_id: int) -> dict[str, str]:
-        """{key: why} for options the character can't pick, shown on the choice form."""
-        return {key: self.known_label for key in self.already_have(db, choice, character_id)}
+        result = {}
+        for target_id, choice_id in rows:
+            other = db.get(Choice, choice_id) if choice_id and self.known_from else None
+            result[str(target_id)] = (
+                f"{self.known_from} {source_name(db, other.feature)}" if other else self.known_label
+            )
+        return result
 
     def picked_choice_ids(self, db: Session, character_id: int) -> set[int]:
         """Every choice of this kind the character has picks for."""
@@ -155,6 +178,7 @@ class SkillKind(ChoiceKind):
 
     target, pick, target_fk = Skill, CharacterSkill, "skill_id"
     known_label = "Already proficient"
+    known_from = "Proficient from"
 
     def options_query(self, choice):
         query = select(Skill).where(available(Skill))
@@ -172,6 +196,7 @@ class ExpertiseKind(SkillKind):
 
     pick = CharacterSkillExpertise
     known_label = "Already have Expertise"
+    known_from = "Expertise from"
 
     def _proficient(self, db: Session, character_id: int) -> set[int]:
         query = select(CharacterSkill.skill_id).where(CharacterSkill.character_id == character_id)
@@ -247,6 +272,7 @@ class SpellbookKind(SpellKind):
 
     pick = SpellbookEntry
     known_label = "In your spellbook"
+    known_from = None  # always the Wizard's book; naming it adds nothing
 
     def pick_values(self, choice):
         return {"acquired_via": choice.criteria.get("acquired_via", "level_up")}
@@ -292,8 +318,8 @@ class SubclassKind(ChoiceKind):
         db.commit()
         return None
 
-    def already_have(self, db, choice, character_id):
-        return set()  # one subclass slot per class; nothing to mark
+    def unavailable(self, db, choice, character_id):
+        return {}  # one subclass slot per class; nothing to mark
 
     def picked_choice_ids(self, db, character_id):
         query = (
@@ -317,46 +343,59 @@ class SubclassKind(ChoiceKind):
 
 class AbilityScoresKind(ChoiceKind):
     """A background's ability score increases: +2 to one of criteria["from"] and +1 to
-    another, or +1 to all three. Each way of splitting them is one option, keyed like
-    "INT2.CON1", and a pick is one character_ability_bonuses row per ability. Scores still
-    can't go above 20; AbilityView applies the cap."""
+    another, or +1 to all three. A pick is one character_ability_bonuses row per ability.
+    Scores still can't go above 20; AbilityView applies the cap.
+
+    It has its own form (app/abilities/router.py) rather than the option grid. For the
+    generic code, each way of splitting the increases is one option, keyed like "INT2.CON1"."""
 
     pick = CharacterAbilityBonus
     noun = ("split", "splits")
+
+    def split(self, choice: Choice, plus2: str, plus1: str, even: bool) -> dict[str, int] | None:
+        """{ability: amount} for +2/+1 (or +1 to each with `even`), or None if that isn't a
+        valid split for this choice."""
+        abilities = choice.criteria["from"]
+        if even:
+            return {a: 1 for a in abilities}
+        if plus2 in abilities and plus1 in abilities and plus2 != plus1:
+            return {plus2: 2, plus1: 1}
+        return None
 
     def _splits(self, choice: Choice) -> list[dict[str, int]]:
         abilities = choice.criteria["from"]
         splits = [{two: 2, one: 1} for two in abilities for one in abilities if one != two]
         return splits + [{a: 1 for a in abilities}]
 
+    def key(self, amounts: dict[str, int]) -> str:
+        return ".".join(f"{abbr}{n}" for abbr, n in amounts.items())
+
     def _view(self, amounts: dict[str, int]) -> OptionView:
-        names = {a.abbr: a.name for a in ABILITIES}
         return OptionView(
-            ".".join(f"{abbr}{n}" for abbr, n in amounts.items()),
-            ", ".join(f"{names[abbr]} +{n}" for abbr, n in amounts.items()),
+            self.key(amounts), ", ".join(f"{abbr} +{n}" for abbr, n in amounts.items())
         )
 
     def options(self, db, choice):
         return [self._view(split) for split in self._splits(choice)]
 
-    def picked(self, db, choice, character_id):
+    def picked_amounts(self, db: Session, choice: Choice, character_id: int) -> dict[str, int]:
+        """{ability: amount} saved for this choice, the +2 first; empty if not picked."""
         rows = db.scalars(
             select(CharacterAbilityBonus).where(
                 CharacterAbilityBonus.character_id == character_id,
                 CharacterAbilityBonus.choice_id == choice.id,
             )
         ).all()
-        if not rows:
-            return []
-        # Same order as the options (the +2 first), so the form shows the pick as checked.
         order = choice.criteria["from"]
         rows = sorted(rows, key=lambda r: (-r.amount, order.index(r.ability)))
-        return [self._view({r.ability: r.amount for r in rows})]
+        return {r.ability: r.amount for r in rows}
+
+    def picked(self, db, choice, character_id):
+        amounts = self.picked_amounts(db, choice, character_id)
+        return [self._view(amounts)] if amounts else []
 
     def save(self, db, choice, character_id, keys):
-        split = next(
-            (s for s in self._splits(choice) if [self._view(s).key] == keys), None
-        )
+        split = next((s for s in self._splits(choice) if [self.key(s)] == keys), None)
         if split is None:
             return "That isn't one of the options."
         self.clear(db, [choice.id], character_id)
@@ -369,8 +408,8 @@ class AbilityScoresKind(ChoiceKind):
         db.commit()
         return None
 
-    def already_have(self, db, choice, character_id):
-        return set()  # bonuses from other choices stack
+    def unavailable(self, db, choice, character_id):
+        return {}  # bonuses from other choices stack
 
 
 KINDS: dict[str, ChoiceKind] = {

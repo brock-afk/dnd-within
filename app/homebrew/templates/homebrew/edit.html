@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name if item else "New item" }} · Homebrew · DnD Within{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ "Edit " ~ item.name if item else "New homebrew item" }}</h1>
+  <a href="{{ '/characters/%d/sheet' % character.id if character else '/homebrew' }}">Cancel</a>
+</div>
+{% include "homebrew/partials/item_form.html" %}
+{% endblock %}

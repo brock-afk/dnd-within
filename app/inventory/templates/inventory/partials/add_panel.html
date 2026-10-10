@@ -14,5 +14,7 @@
              autocomplete="off" autofocus placeholder="e.g. Potion of Healing">
     </form>
     <div id="add-results" aria-live="polite">{% include "inventory/partials/add_results.html" %}</div>
+    <p class="add-custom"><a href="/homebrew/items/new?character={{ character.id }}">Create a custom item</a>
+      <span class="muted">· saved to your homebrew, then added here</span></p>
   </div>
 </div>

@@ -143,6 +143,9 @@ class ItemDef(Strict):
     requires_attunement: bool = False
     spell_level: int | None = Field(default=None, ge=0, le=9)
     contents: list[PackItem] = []
+    # A magic item's charges and benefits. They apply while it's attuned, or while it's carried
+    # if it doesn't need attunement.
+    features: list[FeatureDef] = []
 
     @field_validator("cost")
     @classmethod
@@ -157,6 +160,8 @@ class ItemDef(Strict):
             raise ValueError("spell scrolls need spell_level, and only they have one")
         if (self.category == "pack") != bool(self.contents):
             raise ValueError("packs list their contents, and only packs have contents")
+        if self.features and self.category in ("pack", "scroll"):
+            raise ValueError("packs and scrolls can't have features")
         if self.category in ("consumable", "scroll"):
             self.consumable = True
         return self

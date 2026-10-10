@@ -27,60 +27,18 @@ from app.spells.models import Spell
 log = logging.getLogger("uvicorn.error")  # shows up in the app's log output
 
 
-class _Importer:
-    def __init__(self, db: Session, pack: Pack, by_slug: dict[str, Pack]):
-        self.db = db
-        self.pack = pack
-        self.by_slug = by_slug
-        self.now = datetime.now()
-        self.source: Source | None = None
+class FeatureSync:
+    """Writing features (with their uses, granted spells, choices and options) for one parent
+    row: a class, species, subclass, background, feat or item. Shared by the pack importer and
+    the homebrew editor, which differ only in how they resolve slug references (`_id`)."""
 
-    # --- lookups --------------------------------------------------------------------------
+    def __init__(self, db: Session):
+        self.db = db
+        self.now = datetime.now()
 
     def _id(self, model, ref: str, kind: str) -> int:
-        """Database id for a slug reference, in this pack or one it requires."""
-        pack_slug = resolve(ref, kind, self.pack, self.by_slug)
-        _, slug = split_ref(ref)
-        row = self.db.scalar(
-            select(model.id)
-            .join(Source, Source.id == model.source_id)
-            .where(Source.slug == pack_slug, model.slug == slug)
-        )
-        if row is None:  # the loader checked references, so the required pack wasn't imported
-            raise LookupError(f"{ref!r} isn't in the database; import {pack_slug!r} first")
-        return row
-
-    # --- generic upsert -------------------------------------------------------------------
-
-    def _sync_rows(self, model, defs, values, scope=None) -> dict[str, object]:
-        """Upsert one content table for this source and retire rows missing from the pack.
-
-        `values(def)` gives the columns to set; `scope` narrows matching (e.g. subclasses
-        are unique per class). Returns slug -> row.
-        """
-        query = select(model).where(model.source_id == self.source.id)
-        existing = {self._key(row, scope): row for row in self.db.scalars(query)}
-        seen = {}
-        for d in defs:
-            cols = values(d)
-            key = (cols.get(scope), d.slug) if scope else d.slug
-            row = existing.get(key)
-            if row is None:
-                row = model(source_id=self.source.id, slug=d.slug)
-                self.db.add(row)
-            for column, value in cols.items():
-                setattr(row, column, value)
-            row.retired_at = None
-            seen[key] = row
-        for key, row in existing.items():
-            if key not in seen and row.retired_at is None:
-                row.retired_at = self.now
-        self.db.flush()
-        return {key[1] if scope else key: row for key, row in seen.items()}
-
-    @staticmethod
-    def _key(row, scope):
-        return (getattr(row, scope), row.slug) if scope else row.slug
+        """Database id for a reference like "disguise-self" or "phb-2024/disguise-self"."""
+        raise NotImplementedError
 
     # --- features -------------------------------------------------------------------------
 
@@ -108,7 +66,7 @@ class _Importer:
             feature.description = fdef.description
             feature.level = fdef.level
             feature.applies_to = fdef.applies_to
-            feature.uses = fdef.uses.model_dump() if fdef.uses else None
+            feature.uses = fdef.uses.model_dump(exclude_none=True) if fdef.uses else None
             feature.slot_recovery = fdef.slot_recovery.model_dump() if fdef.slot_recovery else None
             feature.grants = fdef.grants.stored() if fdef.grants else None
             self._sync_feature_spells(feature, fdef)
@@ -179,6 +137,61 @@ class _Importer:
             select(Feature).where(getattr(Feature, fk_column).in_(parent_ids))
         ):
             self._retire(feature)
+
+
+class _Importer(FeatureSync):
+    def __init__(self, db: Session, pack: Pack, by_slug: dict[str, Pack]):
+        super().__init__(db)
+        self.pack = pack
+        self.by_slug = by_slug
+        self.source: Source | None = None
+
+    # --- lookups --------------------------------------------------------------------------
+
+    def _id(self, model, ref: str, kind: str) -> int:
+        """Database id for a slug reference, in this pack or one it requires."""
+        pack_slug = resolve(ref, kind, self.pack, self.by_slug)
+        _, slug = split_ref(ref)
+        row = self.db.scalar(
+            select(model.id)
+            .join(Source, Source.id == model.source_id)
+            .where(Source.slug == pack_slug, model.slug == slug)
+        )
+        if row is None:  # the loader checked references, so the required pack wasn't imported
+            raise LookupError(f"{ref!r} isn't in the database; import {pack_slug!r} first")
+        return row
+
+    # --- generic upsert -------------------------------------------------------------------
+
+    def _sync_rows(self, model, defs, values, scope=None) -> dict[str, object]:
+        """Upsert one content table for this source and retire rows missing from the pack.
+
+        `values(def)` gives the columns to set; `scope` narrows matching (e.g. subclasses
+        are unique per class). Returns slug -> row.
+        """
+        query = select(model).where(model.source_id == self.source.id)
+        existing = {self._key(row, scope): row for row in self.db.scalars(query)}
+        seen = {}
+        for d in defs:
+            cols = values(d)
+            key = (cols.get(scope), d.slug) if scope else d.slug
+            row = existing.get(key)
+            if row is None:
+                row = model(source_id=self.source.id, slug=d.slug)
+                self.db.add(row)
+            for column, value in cols.items():
+                setattr(row, column, value)
+            row.retired_at = None
+            seen[key] = row
+        for key, row in existing.items():
+            if key not in seen and row.retired_at is None:
+                row.retired_at = self.now
+        self.db.flush()
+        return {key[1] if scope else key: row for key, row in seen.items()}
+
+    @staticmethod
+    def _key(row, scope):
+        return (getattr(row, scope), row.slug) if scope else row.slug
 
     # --- the pack -------------------------------------------------------------------------
 
@@ -294,6 +307,8 @@ class _Importer:
             self._sync_features("feat_id", feats[d.slug].id, d.features)
         for d in self.pack.backgrounds:
             self._sync_features("background_id", backgrounds[d.slug].id, d.features)
+        for d in self.pack.items:
+            self._sync_features("item_id", items[d.slug].id, d.features)
 
         # Parents retired from the pack take their features with them.
         for model, column in [
@@ -302,6 +317,7 @@ class _Importer:
             (Subclass, "subclass_id"),
             (Feat, "feat_id"),
             (Background, "background_id"),
+            (Item, "item_id"),
         ]:
             retired = self.db.scalars(
                 select(model.id).where(

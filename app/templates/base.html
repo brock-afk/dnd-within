@@ -13,7 +13,10 @@
 <body class="{% block body_class %}{% endblock %}">
   {% if user %}
   <header class="topbar">
-    <a class="brand" href="/characters">DnD Within</a>
+    <nav class="topbar-nav">
+      <a class="brand" href="/characters">DnD Within</a>
+      <a href="/homebrew">Homebrew</a>
+    </nav>
     <div class="topbar-user">
       <span>{{ user.username }}</span>
       <form hx-post="/logout">

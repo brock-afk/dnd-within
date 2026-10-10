@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 
 DICE = re.compile(r"^\d+d\d+$")
+DICE_BONUS = re.compile(r"^\s*\d+d\d+(\s*[+-]\s*\d+)?\s*$")  # "1d3", "1d6 + 1"
 
 # Lowercase words joined by hyphens, like "potent-cantrip". At most 50 characters, the
 # smallest slug column.
@@ -68,6 +69,7 @@ class GrantsDef(BaseModel):
     darkvision:       a range; the highest source wins (a species' Darkvision 60)
     darkvision_bonus: added on top, or from 0 without Darkvision (the Transmuter's Stone)
     tool_proficiencies: tool names, e.g. "Thieves' Tools" or a picked "Playing Cards"
+    ac_bonus:         added to AC (a magic item's +1)
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -78,6 +80,7 @@ class GrantsDef(BaseModel):
     darkvision_bonus: int | None = Field(default=None, ge=5, le=300)
     speed_bonus: int | None = Field(default=None, ge=5, le=120)
     tool_proficiencies: list[Text50] = []
+    ac_bonus: int | None = Field(default=None, ge=1, le=10)
 
     @model_validator(mode="after")
     def check(self):
@@ -172,12 +175,25 @@ class ChoiceDef(BaseModel):
 
 
 class UsesDef(BaseModel):
-    """A feature you can use a limited number of times between rests."""
+    """A feature you can use a limited number of times between rests, or a magic item's
+    charges. "dawn" is a long rest on the sheet; with `regain` dice ("1d3") a long rest rolls
+    them and gives back that many instead of all."""
 
     model_config = ConfigDict(extra="forbid")
 
     max: int | Literal["proficiency_bonus"]
-    recharge: Literal["short_rest", "long_rest"]
+    recharge: Literal["short_rest", "long_rest", "dawn"]
+    regain: str | None = None
+
+    @model_validator(mode="after")
+    def check(self):
+        if self.regain is not None:
+            if self.recharge != "dawn":
+                raise ValueError("regain dice are for charges regained at dawn")
+            if not DICE_BONUS.match(self.regain):
+                raise ValueError(f"{self.regain!r} isn't dice notation like 1d3 or 1d6+1")
+            self.regain = self.regain.replace(" ", "")
+        return self
 
 
 class SlotRecoveryDef(BaseModel):

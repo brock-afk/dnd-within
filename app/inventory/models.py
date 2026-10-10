@@ -64,6 +64,9 @@ class Item(ContentMixin, Base):
     spell_level: Mapped[int | None] = mapped_column(SmallInteger)  # spell scrolls only
     # Packs only: [{"item_id": 3, "quantity": 10}, ...], resolved from slugs on import.
     contents: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    # Homebrew only: the item as entered in the editor (an ItemDef), to reopen it for editing.
+    # Its row and features are derived from this, like a pack's rows from its YAML.
+    definition: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
 
 class CharacterItem(Base):

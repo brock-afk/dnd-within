@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.characters.models import Character
-from app.content.queries import available
+from app.content.queries import available, visible
 from app.inventory.models import CharacterItem, Item
 from app.sheet.models import CharacterPlayState
 from app.sheet.service import play_state
@@ -48,15 +48,20 @@ def item_detail(item: Item) -> str:
     return " · ".join(part for part in [rarity, price(item.cost_cp)] if part)
 
 
-def search_items(db: Session, query: str) -> list[Item]:
-    """Catalog items named like `query`, once it's long enough."""
+def search_items(db: Session, query: str, user_id: int) -> list[Item]:
+    """Catalog items named like `query`, once it's long enough: published ones and this
+    user's homebrew."""
     query = query.strip()
     if len(query) < SEARCH_MIN_LENGTH:
         return []
     return list(
         db.scalars(
             select(Item)
-            .where(available(Item), Item.name.contains(query, autoescape=True))
+            .where(
+                available(Item),
+                visible(Item, user_id),
+                Item.name.contains(query, autoescape=True),
+            )
             .order_by(Item.name)
             .limit(SEARCH_LIMIT)
         )

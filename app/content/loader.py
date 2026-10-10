@@ -230,6 +230,7 @@ def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
     for item in pack.items:
         for content in item.contents:
             check(content.item, "items", f"items/{item.slug} > contents")
+        check_features(item.features, f"items/{item.slug}")
     for spell in pack.spells:
         for ref in spell.classes:
             check(ref, "classes", f"spells/{spell.slug}")

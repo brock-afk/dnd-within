@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.db import SessionLocal
 from app.core.templates import APP_DIR
 from app.features.router import router as features_router
+from app.homebrew.router import router as homebrew_router
 from app.inventory.router import router as inventory_router
 from app.leveling.router import router as leveling_router
 from app.sheet.router import router as sheet_router
@@ -49,3 +50,4 @@ app.include_router(abilities_router)
 app.include_router(leveling_router)
 app.include_router(sheet_router)
 app.include_router(inventory_router)
+app.include_router(homebrew_router)

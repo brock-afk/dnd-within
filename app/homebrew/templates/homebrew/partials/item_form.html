@@ -1,0 +1,173 @@
+{#- The custom item editor. Add spell / Add ability / Remove redraw it from the server with
+    what's typed kept (POST /homebrew/items/preview); Save validates and either shows problems
+    here or goes back to the library (or the character it was opened from). -#}
+{% macro field_error(key) %}{% if errors[key] %}<p class="error field-error">{{ errors[key] }}</p>{% endif %}{% endmacro %}
+{% set editor = 'hx-target="#item-editor" hx-swap="outerHTML"' %}
+<form id="item-editor" class="homebrew-form" novalidate
+      hx-post="{{ '/homebrew/items/%d' % item.id if item else '/homebrew/items' }}" {{ editor | safe }}>
+  <input type="hidden" name="character" value="{{ form.character }}">
+  <input type="hidden" name="item_id" value="{{ item.id if item else '' }}">
+  {% if character %}<p class="muted">Once saved, it's added to {{ character.name }}'s inventory.</p>{% endif %}
+  {% if errors %}<p class="error" role="alert">{{ errors._form or "Fix the highlighted parts below." }}</p>{% endif %}
+
+  <fieldset class="homebrew-part">
+    <legend class="group-title">Basics</legend>
+    <div class="hb-field{% if errors.name %} has-error{% endif %}">
+      <label for="hb-name">Name</label>
+      <input id="hb-name" name="name" type="text" maxlength="80" value="{{ form.name }}" autocomplete="off">
+      {{ field_error("name") }}
+    </div>
+    <div class="hb-row">
+      <div class="hb-field">
+        <label for="hb-category">Type</label>
+        <select id="hb-category" name="category">
+          {% for key, label in categories.items() %}<option value="{{ key }}" {% if form.category == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="hb-field">
+        <label for="hb-rarity">Rarity</label>
+        <select id="hb-rarity" name="rarity">
+          {% for key, label in rarities.items() %}<option value="{{ key }}" {% if form.rarity == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <label class="hb-check"><input type="checkbox" name="attunement" value="1" {% if form.attunement %}checked{% endif %}> Requires attunement</label>
+    </div>
+    <div class="hb-field{% if errors.summary %} has-error{% endif %}">
+      <label for="hb-summary">Summary</label>
+      <input id="hb-summary" name="summary" type="text" maxlength="255" value="{{ form.summary }}" autocomplete="off"
+             placeholder="One sentence, shown in your inventory and in search">
+      {{ field_error("summary") }}
+    </div>
+    <div class="hb-field">
+      <label for="hb-description">Full text <span class="muted">· optional</span></label>
+      <textarea id="hb-description" name="description" rows="5">{{ form.description }}</textarea>
+    </div>
+  </fieldset>
+
+  <fieldset class="homebrew-part">
+    <legend class="group-title">Charges</legend>
+    <div class="hb-row">
+      <div class="hb-field{% if errors.charges %} has-error{% endif %}">
+        <label for="hb-charges">How many</label>
+        <input id="hb-charges" name="charges" type="text" inputmode="numeric" maxlength="2" value="{{ form.charges }}"
+               class="hb-number" placeholder="None">
+      </div>
+      <div class="hb-field">
+        <label for="hb-recharge">Come back</label>
+        <select id="hb-recharge" name="recharge">
+          {% for key, label in recharges.items() %}<option value="{{ key }}" {% if form.recharge == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="hb-field{% if errors.regain %} has-error{% endif %}">
+        <label for="hb-regain">How many come back <span class="muted">· at dawn</span></label>
+        <input id="hb-regain" name="regain" type="text" maxlength="10" value="{{ form.regain }}"
+               class="hb-number" placeholder="All" autocomplete="off">
+      </div>
+    </div>
+    {{ field_error("charges") }}{{ field_error("regain") }}
+    <p class="muted hb-hint">Dice like 1d3 roll on each long rest. Spend charges from the pips on the Play sheet.</p>
+  </fieldset>
+
+  <fieldset class="homebrew-part">
+    <legend class="group-title">Spells</legend>
+    {% for spell_id, cast, note in form.spell_rows() %}
+    <div class="hb-row hb-spell-row">
+      <select name="spell_id" aria-label="Spell">
+        <option value="">Choose a spell</option>
+        {% for level, by_level in spells | groupby("level") %}
+        <optgroup label="{{ 'Cantrips' if level == 0 else 'Level %d' % level }}">
+          {% for spell in by_level %}<option value="{{ spell.id }}" {% if spell_id == spell.id | string %}selected{% endif %}>{{ spell.name }}</option>{% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select>
+      <select name="spell_cast" aria-label="How it's cast">
+        {% for key, label in spell_casts.items() %}<option value="{{ key }}" {% if cast == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <input type="text" name="spell_note" maxlength="255" value="{{ note }}" autocomplete="off"
+             placeholder="Note, e.g. only as a dwarf" aria-label="Note">
+      <button type="button" class="link-button" hx-post="/homebrew/items/preview"
+              hx-vals='{"remove_row": "spell:{{ loop.index0 }}"}' {{ editor | safe }}>Remove</button>
+    </div>
+    {% else %}
+    <p class="muted hb-hint">No spells.</p>
+    {% endfor %}
+    {{ field_error("spells") }}
+    <button type="button" class="link-button" hx-post="/homebrew/items/preview"
+            hx-vals='{"add_row": "spell"}' {{ editor | safe }}>Add spell</button>
+  </fieldset>
+
+  <fieldset class="homebrew-part">
+    <legend class="group-title">While attuned</legend>
+    <p class="muted hb-hint">Always on while you're attuned, or while carried if it doesn't need attunement.</p>
+    <div class="hb-row">
+      {% for key, label, unit in [("ac_bonus", "AC bonus", "+"), ("darkvision", "Darkvision", "ft"), ("speed_bonus", "Speed bonus", "ft")] %}
+      <div class="hb-field{% if errors[key] %} has-error{% endif %}">
+        <label for="hb-{{ key }}">{{ label }} <span class="muted">· {{ unit }}</span></label>
+        <input id="hb-{{ key }}" name="{{ key }}" type="text" inputmode="numeric" maxlength="3"
+               value="{{ form[key] }}" class="hb-number" placeholder="None">
+      </div>
+      {% endfor %}
+    </div>
+    {{ field_error("ac_bonus") }}{{ field_error("darkvision") }}{{ field_error("speed_bonus") }}
+    <div class="hb-field">
+      <span class="hb-label">Resistances</span>
+      <div class="hb-checks">
+        {% for damage in damage_types %}
+        <label class="hb-check"><input type="checkbox" name="resistances" value="{{ damage }}" {% if damage in form.resistances %}checked{% endif %}> {{ damage | title }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="hb-field">
+      <span class="hb-label">Saving throw proficiencies</span>
+      <div class="hb-checks">
+        {% for abbr, label in abilities.items() %}
+        <label class="hb-check"><input type="checkbox" name="saves" value="{{ abbr }}" {% if abbr in form.saves %}checked{% endif %}> {{ label }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="hb-row{% if errors.tool %} has-error{% endif %}">
+      <div class="hb-field">
+        <label for="hb-tool-mode">Tool proficiency</label>
+        <select id="hb-tool-mode" name="tool_mode">
+          {% for key, label in tool_modes.items() %}<option value="{{ key }}" {% if form.tool_mode == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="hb-field">
+        <label for="hb-tool">Which tool <span class="muted">· for a set tool</span></label>
+        <select id="hb-tool" name="tool">
+          <option value="">—</option>
+          {% for tool in tools %}<option value="{{ tool }}" {% if form.tool == tool %}selected{% endif %}>{{ tool }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    {{ field_error("tool") }}
+  </fieldset>
+
+  <fieldset class="homebrew-part">
+    <legend class="group-title">Abilities</legend>
+    <p class="muted hb-hint">Anything else it lets you do. They're shown with the item on the sheet.</p>
+    {% for name, when, text in form.ability_rows() %}
+    <div class="hb-ability">
+      <div class="hb-row">
+        <input type="text" name="ability_name" maxlength="80" value="{{ name }}" placeholder="Name, e.g. Stonecunning"
+               aria-label="Ability name" autocomplete="off">
+        <input type="text" name="ability_when" maxlength="120" value="{{ when }}" placeholder="When, e.g. Bonus Action · 1 charge"
+               aria-label="When it's used" autocomplete="off">
+        <button type="button" class="link-button" hx-post="/homebrew/items/preview"
+                hx-vals='{"remove_row": "ability:{{ loop.index0 }}"}' {{ editor | safe }}>Remove</button>
+      </div>
+      <textarea name="ability_text" rows="2" placeholder="What it does" aria-label="What it does">{{ text }}</textarea>
+    </div>
+    {% else %}
+    <p class="muted hb-hint">No abilities.</p>
+    {% endfor %}
+    {{ field_error("abilities") }}
+    <button type="button" class="link-button" hx-post="/homebrew/items/preview"
+            hx-vals='{"add_row": "ability"}' {{ editor | safe }}>Add ability</button>
+  </fieldset>
+
+  <div class="form-actions">
+    <button type="submit">{{ "Save changes" if item else ("Create and add" if character else "Create item") }}</button>
+    <a href="{{ '/characters/%d/sheet' % character.id if character else '/homebrew' }}">Cancel</a>
+  </div>
+</form>

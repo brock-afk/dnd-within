@@ -20,7 +20,7 @@ from app.sheet.models import (
     CharacterHitDice,
     CharacterSpellSlot,
 )
-from app.sheet.rules import proficiency_bonus
+from app.sheet.rules import proficiency_bonus, roll
 from app.sheet.service import play_state
 
 
@@ -172,13 +172,28 @@ def finish_short_rest(db: Session, character: Character) -> None:
 def long_rest(db: Session, character: Character) -> None:
     """Full HP, no temporary HP, every hit die back (2024 rules), all spell slots and every
     feature use restored, and AC spells cast from the sheet ended. Max HP effects aren't ended:
-    their durations aren't tracked yet."""
+    their durations aren't tracked yet.
+
+    Charges regained "at dawn" count as a long rest. Ones that regain a roll (1d3) get that
+    many back instead of all."""
     state = play_state(db, character)
     state.current_hp = None  # at full
     state.temp_hp = 0
     state.temp_hp_source = None
-    for model in (CharacterHitDice, CharacterSpellSlot, CharacterFeatureUse):
+    partial = [u for u in feature_uses(db, character) if u.feature.uses.get("regain")]
+    for uses in partial:
+        row = db.get(CharacterFeatureUse, (character.id, uses.feature.id))
+        if row is not None:
+            row.expended = max(0, min(row.expended, uses.maximum) - roll(uses.feature.uses["regain"]))
+    keep = [u.feature.id for u in partial]
+    for model in (CharacterHitDice, CharacterSpellSlot):
         db.execute(delete(model).where(model.character_id == character.id))
+    db.execute(
+        delete(CharacterFeatureUse).where(
+            CharacterFeatureUse.character_id == character.id,
+            CharacterFeatureUse.feature_id.not_in(keep),
+        )
+    )
     # Spells like Mage Armor (8 hours) are over; AC effects added by hand stay.
     db.execute(
         delete(CharacterAcEffect).where(

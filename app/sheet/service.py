@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import case, delete, select
 from sqlalchemy.orm import Session
@@ -9,6 +9,7 @@ from app.characters.models import Character
 from app.content.queries import available
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.service import applicable_choice, feature_groups
+from app.inventory.models import Item
 from app.leveling.service import hit_points
 from app.sheet.models import (
     CharacterAcEffect,
@@ -107,11 +108,17 @@ class AbilityRow:
     sources: tuple[str, ...] = ()
 
 
+def _grant_label(db: Session, feature: Feature) -> str:
+    """Where a benefit comes from, as the sheet names it: the feature ("Transmuter's Stone"),
+    or for a magic item the item itself, not its "While attuned" feature."""
+    return db.get(Item, feature.item_id).name if feature.item_id else feature.name
+
+
 def _grant_sources(db: Session, character: Character) -> list[tuple[str, dict]]:
     """(source name, grants) for everything giving the character attributes: features they
     have, and picked options (only while picked, like the Transmuter's Stone benefit)."""
     found = [
-        (fv.feature.name, fv.feature.grants)
+        (_grant_label(db, fv.feature), fv.feature.grants)
         for group in feature_groups(db, character)
         for fv in group.features
         if fv.feature.grants
@@ -124,7 +131,7 @@ def _grant_sources(db: Session, character: Character) -> list[tuple[str, dict]]:
     )
     for grants, choice in picks:
         if applicable_choice(db, character, choice.id) is not None:
-            found.append((choice.feature.name, grants))
+            found.append((_grant_label(db, choice.feature), grants))
     return found
 
 
@@ -277,6 +284,9 @@ class ArmorClassView:
     base_label: str  # "No armor", or the base effect's name ("Mage Armor")
     dex: int
     effects: list[CharacterAcEffect]
+    # Always-on bonuses from features and items, like a magic item's +1: (value, source). Not
+    # effects, so they aren't ended from the AC card; they go when the item is unattuned.
+    granted: list[tuple[int, str]] = field(default_factory=list)
 
     @property
     def bonuses(self) -> list[CharacterAcEffect]:
@@ -291,7 +301,12 @@ class ArmorClassView:
 
     @property
     def calculated(self) -> int:
-        return self.base + self.dex + sum(e.value for e in self.bonuses)
+        return (
+            self.base
+            + self.dex
+            + sum(e.value for e in self.bonuses)
+            + sum(value for value, _ in self.granted)
+        )
 
     @property
     def minimum_wins(self) -> bool:
@@ -307,16 +322,16 @@ class ArmorClassView:
         of Faith", or "Barkskin 17 (minimum)" when a minimum beats the calculation."""
         if self.minimum_wins:
             return f"{self.minimum.label} {self.minimum.value} (minimum)"
-        parts = [(self.dex, "DEX"), *((e.value, e.label) for e in self.bonuses)]
+        parts = [(self.dex, "DEX"), *self.granted, *((e.value, e.label) for e in self.bonuses)]
         return f"{self.base_label} {self.base}" + "".join(
             f" {'+' if value >= 0 else '−'} {abs(value)} {label}" for value, label in parts
         )
 
 
 def armor_class(db: Session, character: Character) -> ArmorClassView | None:
-    """AC = base (10, or the highest base effect) + DEX modifier + bonus effects, raised to the
-    highest minimum effect. None until ability scores are set. Worn armor joins this once
-    inventory exists."""
+    """AC = base (10, or the highest base effect) + DEX modifier + bonus effects and granted
+    bonuses (a magic item's +1), raised to the highest minimum effect. None until ability
+    scores are set. Worn armor will join this once the sheet does armor."""
     abilities = ability_views(db, character)
     if abilities is None:
         return None
@@ -329,7 +344,13 @@ def armor_class(db: Session, character: Character) -> ArmorClassView | None:
         )
     )
     best = max((e for e in effects if e.kind == "base"), key=lambda e: e.value, default=None)
-    return ArmorClassView(best.value if best else 10, best.label if best else "No armor", dex, effects)
+    granted = [
+        (grants["ac_bonus"], source)
+        for source, grants in _grant_sources(db, character)
+        if grants.get("ac_bonus")
+    ]
+    base, label = (best.value, best.label) if best else (10, "No armor")
+    return ArmorClassView(base, label, dex, effects, granted)
 
 
 @dataclass(frozen=True)

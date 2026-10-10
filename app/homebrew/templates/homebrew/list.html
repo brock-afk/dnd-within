@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Homebrew · DnD Within{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Homebrew</h1>
+    <p class="subtitle">Items you've made. Only you can see them; add them from any character's inventory.</p>
+  </div>
+  <a class="button" href="/homebrew/items/new">New item</a>
+</div>
+
+{% if items %}
+<ul class="character-list">
+  {% for item, detail in items %}
+  <li class="card homebrew-item">
+    <div class="homebrew-item-text">
+      <a class="character-name" href="/homebrew/items/{{ item.id }}/edit">{{ item.name }}</a>
+      <span class="muted">{{ detail }}{% if item.requires_attunement %}{{ " · " if detail }}Requires attunement{% endif %}</span>
+      <p class="muted homebrew-item-summary">{{ item.summary }}</p>
+    </div>
+    <span class="homebrew-item-actions" id="homebrew-actions-{{ item.id }}">
+      <a href="/homebrew/items/{{ item.id }}/edit">Edit</a>
+      <button type="button" class="item-remove-button" hx-get="/homebrew/items/{{ item.id }}/delete"
+              hx-target="#homebrew-actions-{{ item.id }}" aria-label="Delete {{ item.name }}" title="Delete">×</button>
+    </span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="card empty">
+  <p>No homebrew items yet.</p>
+  <a href="/homebrew/items/new">Make your first one</a>
+</div>
+{% endif %}
+{% endblock %}

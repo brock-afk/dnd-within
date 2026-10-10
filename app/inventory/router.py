@@ -3,13 +3,16 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
+from app.content.queries import available, visible
 from app.core.db import DbSession
 from app.core.templates import templates
+from app.features.service import remove_inapplicable_picks
 from app.inventory.models import CharacterItem, Item
 from app.inventory.service import (
     COINS,
@@ -48,7 +51,9 @@ def _search_context(db: Session, character: Character, query: str) -> dict:
         "character": character,
         "query": query,
         "min_length": SEARCH_MIN_LENGTH,
-        "results": [(item, item_detail(item)) for item in search_items(db, query)],
+        "results": [
+            (item, item_detail(item)) for item in search_items(db, query, character.user_id)
+        ],
     }
 
 
@@ -94,16 +99,20 @@ def _render_confirm(
     )
 
 
-def _catalog_item(db: Session, key: str) -> Item | None:
-    item = db.get(Item, int(key)) if key.isdigit() else None
-    return item if item is not None and item.retired_at is None else None
+def _catalog_item(db: Session, key: str, user_id: int) -> Item | None:
+    """An item that can be added: not retired, and published or this user's homebrew."""
+    if not key.isdigit():
+        return None
+    return db.scalar(
+        select(Item).where(Item.id == int(key), available(Item), visible(Item, user_id))
+    )
 
 
 @router.get(BASE + "/add/confirm", response_class=HTMLResponse)
 def add_confirm(
     request: Request, db: DbSession, character: OwnedCharacter, item: str = "", q: str = ""
 ):
-    found = _catalog_item(db, item)
+    found = _catalog_item(db, item, character.user_id)
     if found is None:
         raise HTTPException(status_code=404)
     return _render_confirm(request, db, character, found, q)
@@ -120,7 +129,7 @@ def add(
     spell_id: Annotated[str, Form()] = "",
     q: Annotated[str, Form()] = "",
 ):
-    item = _catalog_item(db, item_id)
+    item = _catalog_item(db, item_id, character.user_id)
     if item is None:
         raise HTTPException(status_code=404)
     spell = db.get(Spell, int(spell_id)) if spell_id.isdigit() else None
@@ -185,6 +194,8 @@ def attune(
     error = set_attuned(db, character, _row(db, character, row_id), attuned == "1")
     if error:
         return refresh_sheet(request, db, user, character, {"inventory": error}, 400)
+    # Ending attunement ends the item's benefits, and picks made for them (its tool).
+    remove_inapplicable_picks(db, character)
     db.commit()
     return refresh_sheet(request, db, user, character)
 
@@ -215,6 +226,8 @@ def remove(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, row_id: int
 ):
     db.delete(_row(db, character, row_id))
+    db.flush()
+    remove_inapplicable_picks(db, character)
     db.commit()
     return refresh_sheet(request, db, user, character)
 

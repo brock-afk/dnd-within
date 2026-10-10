@@ -285,7 +285,7 @@
               title="{{ target }} left"></button>
       {% endfor %}
     </span>
-    <span class="muted">{{ r.remaining }} of {{ r.maximum }} · {{ "short rest" if r.recharge == "short_rest" else "long rest" }}</span>
+    <span class="muted">{{ r.remaining }} of {{ r.maximum }} · {% if r.recharge == "dawn" %}{{ "regains %s at dawn" % r.feature.uses.regain if r.feature.uses.regain else "dawn" }}{% else %}{{ "short rest" if r.recharge == "short_rest" else "long rest" }}{% endif %}</span>
   </div>
   {% for o in r.options %}
   <p class="resource-detail">{% if o.when %}<strong>{{ o.when }}:</strong> {% endif %}{{ o.summary }}</p>

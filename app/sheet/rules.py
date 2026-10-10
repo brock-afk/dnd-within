@@ -1,4 +1,4 @@
-"""Hit point rules from the 2024 Player's Handbook.
+"""Hit point rules from the 2024 Player's Handbook, and rolling dice.
 
 Current HP is stored (NULL means "at full"); max HP is calculated. Whenever max HP changes,
 `apply_max_change` adjusts current HP according to why it changed:
@@ -8,6 +8,9 @@ Current HP is stored (NULL means "at full"); max HP is calculated. Whenever max 
 | an effect ends, a level is removed, a drain starts | -X     | capped at the new max      |
 | a negative effect (drain) ends                     | +X     | unchanged: it doesn't heal |
 """
+
+import random
+import re
 
 from app.sheet.models import CharacterPlayState
 
@@ -81,3 +84,11 @@ def skill_bonus(ability_mod: int, pb: int, proficient: bool, expertise: bool) ->
 def hit_die_healing(roll: int, con_mod: int) -> int:
     """HP regained from one spent hit die: the roll plus Constitution modifier, at least 1."""
     return max(roll + con_mod, 1)
+
+
+def roll(dice: str, rng: random.Random | None = None) -> int:
+    """Roll "1d3" or "2d4+2" (validated content, so always well formed)."""
+    rng = rng or random.Random()
+    match = re.fullmatch(r"(\d+)d(\d+)([+-]\d+)?", dice.replace(" ", ""))
+    count, sides, flat = int(match[1]), int(match[2]), int(match[3] or 0)
+    return sum(rng.randint(1, sides) for _ in range(count)) + flat

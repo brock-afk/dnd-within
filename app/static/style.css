@@ -38,6 +38,9 @@ body.centered main { width: 100%; max-width: 380px; padding: 0; }
   border-bottom: 1px solid var(--border);
 }
 .brand { color: var(--accent); font-weight: 700; text-decoration: none; }
+.topbar-nav { display: flex; align-items: baseline; gap: 1.25rem; }
+.topbar-nav a:not(.brand) { color: var(--muted); font-size: 0.9rem; text-decoration: none; }
+.topbar-nav a:not(.brand):hover { color: var(--text); }
 .topbar-user { display: flex; align-items: center; gap: 1rem; color: var(--muted); font-size: 0.9rem; }
 
 .card {
@@ -681,3 +684,33 @@ details[open] > .section-summary .section-digest { display: none; }
 .add-fields { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
 .add-fields select { padding: 0.45rem 0.6rem; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }
 .add-fields input[name="quantity"] { width: 4.5rem; }
+
+.add-custom { margin: 0.75rem 0 0; font-size: 0.9rem; }
+
+/* Homebrew library and item editor */
+.homebrew-item { align-items: flex-start; flex-wrap: nowrap; }
+.homebrew-item-text { display: grid; gap: 0.15rem; min-width: 0; }
+.homebrew-item-summary { margin: 0.2rem 0 0; font-size: 0.9rem; }
+.homebrew-item-actions { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+.homebrew-form { display: grid; gap: 1.5rem; max-width: 52rem; }
+.homebrew-form > .error { margin: 0; }
+.homebrew-part { display: grid; gap: 0.75rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+.homebrew-part > legend { margin: 0 0 0.75rem; padding: 0; }
+.hb-field { display: grid; gap: 0.3rem; min-width: 0; }
+.hb-field label, .hb-label { margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+.hb-row { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem 1.25rem; }
+.hb-hint { margin: 0; font-size: 0.85rem; }
+.hb-check { display: inline-flex; align-items: center; gap: 0.35rem; margin: 0; font-size: 0.9rem; }
+.hb-checks { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
+.homebrew-form select, .homebrew-form textarea {
+  padding: 0.55rem 0.7rem; border: 1px solid var(--border-strong); border-radius: 6px;
+  background: var(--bg); color: inherit; font: inherit;
+}
+.homebrew-form textarea { width: 100%; resize: vertical; }
+.homebrew-form input.hb-number { width: 6rem; }
+.hb-spell-row select[name="spell_id"] { min-width: 13rem; }
+.hb-spell-row input[name="spell_note"] { width: auto; flex: 1 1 12rem; }
+.hb-ability { display: grid; gap: 0.4rem; padding-bottom: 0.75rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.hb-ability .hb-row input { width: auto; flex: 1 1 12rem; }
+.homebrew-form .has-error input, .homebrew-form .has-error select { border-color: var(--error); }
+.homebrew-form .field-error { margin: 0; }

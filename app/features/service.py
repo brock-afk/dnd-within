@@ -8,6 +8,7 @@ from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
 from app.content.queries import available
 from app.features.kinds import KINDS, OptionView
 from app.features.models import Choice, Feature
+from app.inventory.models import CharacterItem, Item
 
 
 @dataclass
@@ -89,14 +90,24 @@ def _views(
     ]
 
 
+def _active_item_ids(db: Session, character: Character) -> list[int]:
+    """Items whose features apply: attuned ones, and carried ones that don't need attunement."""
+    rows = db.scalars(
+        select(CharacterItem).where(CharacterItem.character_id == character.id)
+    ).all()
+    ids = {r.item_id for r in rows if r.attuned or not r.item.requires_attunement}
+    return sorted(ids)
+
+
 def _origin_feat_id(character: Character) -> int | None:
     """The origin feat the character's background gives, if they've picked one."""
     return character.background.feat_id if character.background else None
 
 
 def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
-    """The species', background's and origin feat's features (by character level), then for
-    each class its features and its subclass's features (both by that class's level). Features
+    """The species', background's and origin feat's features (by character level), then those
+    of magic items that are attuned (or carried, if they don't need it), then for each class
+    its features and its subclass's features (both by that class's level). Features
     and choices retired from their pack aren't shown, though picks already made for them are
     kept."""
 
@@ -130,6 +141,12 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
                 background.name, "Background", sections, f"/characters/{character.id}/background"
             )
         )
+
+    for item_id in _active_item_ids(db, character):
+        features = by_character_level(Feature.item_id, item_id)
+        if features:
+            item = db.get(Item, item_id)
+            groups.append(FeatureGroup(item.name, "Magic item", [FeatureSection("", features)]))
 
     for cc in character.classes:
         class_features = db.scalars(
@@ -220,6 +237,9 @@ def applicable_choice(db: Session, character: Character, choice_id: int) -> Choi
         return None
     feature = choice.feature
     unlocks_at = max(feature.level, choice.level)
+    if feature.item_id is not None:
+        ok = feature.item_id in _active_item_ids(db, character) and unlocks_at <= character.level
+        return choice if ok else None
     for parent_id, character_has in [
         (feature.species_id, character.species_id),
         (feature.background_id, character.background_id),

@@ -1,0 +1,6 @@
+{# Replaces a library item's buttons: deleting asks first. Cancel reloads the library. #}
+<span class="item-confirm">
+  <span>Delete {{ item.name }}? Characters carrying it keep it.</span>
+  <button type="button" class="danger-button small-button" hx-post="/homebrew/items/{{ item.id }}/delete">Delete</button>
+  <a href="/homebrew">Keep</a>
+</span>

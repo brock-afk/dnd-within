@@ -323,15 +323,24 @@ class AcSpell:
 
 
 def ac_spells(db: Session, character: Character) -> list[AcSpell]:
-    """Prepared spells with an AC effect, each with its usable slot levels."""
+    """Prepared spells with an AC effect, each with its usable slot levels. Spells whose effect
+    is already active are left out: it's listed with an End button instead."""
     slots = spell_slots(db, character)
+    active = set(
+        db.scalars(
+            select(CharacterAcEffect.spell_id).where(
+                CharacterAcEffect.character_id == character.id,
+                CharacterAcEffect.spell_id.is_not(None),
+            )
+        )
+    )
     return [
         AcSpell(
             row.spell,
             [s for s in slots.values() if s.level >= row.spell.level and s.remaining > 0],
         )
         for row in castable_spells(db, character)
-        if row.uses_slots and row.spell.details.get("ac_effect")
+        if row.uses_slots and row.spell.details.get("ac_effect") and row.spell.id not in active
     ]
 
 

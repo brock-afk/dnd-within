@@ -323,9 +323,7 @@ details[open] > .section-summary .section-digest { display: none; }
 .hp-form .delta-input { width: 6rem; }
 .hp-effects .group-title { margin-top: 0.5rem; }
 .hp-effect { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-.add-effect { margin-top: 0.5rem; }
-.add-effect summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; width: fit-content; }
-.add-effect form { margin-top: 0.6rem; }
+.add-effect { display: grid; gap: 0.5rem; }
 #prepared-section .section-heading { margin-bottom: 0.5rem; }
 #prepared-section .group-title { margin: 1.25rem 0 0; }
 
@@ -524,7 +522,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .vitals-error { flex-basis: 100%; margin: 0; }
 .damage-prompt { margin: 0 0 1.25rem; }
 .play-abilities { margin-bottom: 1.5rem; }
-.ac-panel .add-effect[open] { display: grid; gap: 0.5rem; }
 
 /* Play sheet columns: one column in order of use; from 1100px, spells get their own column. */
 .sheet-columns { display: flex; flex-direction: column; }

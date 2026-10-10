@@ -43,7 +43,7 @@
     <span class="muted">Set ability scores first. <a href="/characters/{{ character.id }}">Go to Build</a></span></span>
   {% else %}
   <div class="vital-group">
-    <details class="vital-menu" {% if errors.temp_hp or errors.effect %}open{% endif %}>
+    <details class="vital-menu" data-popover {% if errors.temp_hp or errors.effect %}open{% endif %}>
       <summary class="vital" title="Hit points: temp HP and max HP effects">
         <span class="vital-label">HP</span> <strong>{{ hp.current }}</strong><span class="muted">/{{ hp.maximum }}</span>
         {%- if hp.temp %} <span class="vital-temp">+{{ hp.temp }} temp</span>{% endif %}
@@ -76,8 +76,7 @@
             {% endfor %}
           </ul>
           {% endif %}
-          <details class="add-effect" {% if errors.effect %}open{% endif %}>
-            <summary>Add effect</summary>
+          <div class="add-effect">
             <form hx-post="/characters/{{ character.id }}/sheet/hp-effects" novalidate class="hp-form">
               <input name="label" type="text" maxlength="80" placeholder="Name, e.g. Aid" aria-label="Effect name">
               <input name="delta" type="text" inputmode="numeric" maxlength="4" placeholder="+5 or −4"
@@ -85,7 +84,7 @@
               <button type="submit" class="secondary-button">Add</button>
             </form>
             {% if errors.effect %}<p class="error" role="alert">{{ errors.effect }}</p>{% endif %}
-          </details>
+          </div>
         </div>
       </div>
     </details>
@@ -99,7 +98,7 @@
   </div>
   {% endif %}
   {% if abilities %}
-  <details class="vital-menu" {% if errors.ac_effect %}open{% endif %}>
+  <details class="vital-menu" data-popover {% if errors.ac_effect %}open{% endif %}>
     <summary class="vital" title="Armor class: breakdown and effects">
       <span class="vital-label">AC</span> <strong>{{ ac.total }}</strong>
       <span class="vital-caret" aria-hidden="true">▾</span>
@@ -126,8 +125,10 @@
         {% endfor %}
       </ul>
       {% endif %}
-      <details class="add-effect" {% if errors.ac_effect %}open{% endif %}>
-        <summary>Add effect</summary>
+      <div class="add-effect">
+        {%- if not ac_spells %}
+        <h3 class="group-title">Add effect</h3>
+        {%- endif %}
         {% if errors.ac_effect %}<p class="error" role="alert">{{ errors.ac_effect }}</p>{% endif %}
         {% if ac_spells %}
         {#- Prepared spells whose content declares an AC effect, cast on yourself: spends the slot
@@ -166,7 +167,7 @@
                  aria-label="Value" class="delta-input">
           <button type="submit" class="secondary-button">Add</button>
         </form>
-      </details>
+      </div>
     </div>
   </details>
   {% endif %}

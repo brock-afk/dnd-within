@@ -3,7 +3,7 @@
     here or goes back to the library (or the character it was opened from). -#}
 {% macro field_error(key) %}{% if errors[key] %}<p class="error field-error">{{ errors[key] }}</p>{% endif %}{% endmacro %}
 {% set editor = 'hx-target="#item-editor" hx-swap="outerHTML"' %}
-<form id="item-editor" class="homebrew-form" novalidate
+<form id="item-editor" class="homebrew-form" novalidate data-unsaved-guard
       hx-post="{{ '/homebrew/items/%d' % item.id if item else '/homebrew/items' }}" {{ editor | safe }}>
   <input type="hidden" name="character" value="{{ form.character }}">
   <input type="hidden" name="item_id" value="{{ item.id if item else '' }}">
@@ -70,21 +70,35 @@
 
   <fieldset class="homebrew-part">
     <legend class="group-title">Spells</legend>
-    {% for spell_id, cast, note in form.spell_rows() %}
+    {% for spell_id, spell_charges, spell_prepared, note in form.spell_rows() %}
     <div class="hb-row hb-spell-row">
-      <select name="spell_id" aria-label="Spell">
-        <option value="">Choose a spell</option>
-        {% for level, by_level in spells | groupby("level") %}
-        <optgroup label="{{ 'Cantrips' if level == 0 else 'Level %d' % level }}">
-          {% for spell in by_level %}<option value="{{ spell.id }}" {% if spell_id == spell.id | string %}selected{% endif %}>{{ spell.name }}</option>{% endfor %}
-        </optgroup>
-        {% endfor %}
-      </select>
-      <select name="spell_cast" aria-label="How it's cast">
-        {% for key, label in spell_casts.items() %}<option value="{{ key }}" {% if cast == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-      <input type="text" name="spell_note" maxlength="255" value="{{ note }}" autocomplete="off"
-             placeholder="Note, e.g. only as a dwarf" aria-label="Note">
+      <div class="hb-field">
+        {% if loop.first %}<label>Spell</label>{% endif %}
+        <select name="spell_id" aria-label="Spell">
+          <option value="">Choose a spell</option>
+          {% for level, by_level in spells | groupby("level") %}
+          <optgroup label="{{ 'Cantrips' if level == 0 else 'Level %d' % level }}">
+            {% for spell in by_level %}<option value="{{ spell.id }}" {% if spell_id == spell.id | string %}selected{% endif %}>{{ spell.name }}</option>{% endfor %}
+          </optgroup>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="hb-field">
+        {% if loop.first %}<label>Charges</label>{% endif %}
+        <input type="text" name="spell_charges" inputmode="numeric" maxlength="2" value="{{ spell_charges }}"
+               class="hb-number hb-small" placeholder="None" aria-label="Charges a cast spends">
+      </div>
+      <div class="hb-field">
+        {% if loop.first %}<label>Always prepared</label>{% endif %}
+        <select name="spell_prepared" aria-label="Always prepared">
+          {% for key, label in prepared.items() %}<option value="{{ key }}" {% if spell_prepared == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="hb-field hb-grow">
+        {% if loop.first %}<label>Note</label>{% endif %}
+        <input type="text" name="spell_note" maxlength="255" value="{{ note }}" autocomplete="off"
+               placeholder="e.g. only as a dwarf" aria-label="Note">
+      </div>
       <button type="button" class="link-button" hx-post="/homebrew/items/preview"
               hx-vals='{"remove_row": "spell:{{ loop.index0 }}"}' {{ editor | safe }}>Remove</button>
     </div>
@@ -145,14 +159,26 @@
 
   <fieldset class="homebrew-part">
     <legend class="group-title">Abilities</legend>
-    <p class="muted hb-hint">Anything else it lets you do. They're shown with the item on the sheet.</p>
-    {% for name, when, text in form.ability_rows() %}
+    <p class="muted hb-hint">Anything else it lets you do. On the Play sheet, abilities that spend charges get a Use button under the item's charges.</p>
+    {% for name, action, ability_charges, text in form.ability_rows() %}
     <div class="hb-ability">
       <div class="hb-row">
-        <input type="text" name="ability_name" maxlength="80" value="{{ name }}" placeholder="Name, e.g. Stonecunning"
-               aria-label="Ability name" autocomplete="off">
-        <input type="text" name="ability_when" maxlength="120" value="{{ when }}" placeholder="When, e.g. Bonus Action · 1 charge"
-               aria-label="When it's used" autocomplete="off">
+        <div class="hb-field hb-grow">
+          <label>Name</label>
+          <input type="text" name="ability_name" maxlength="80" value="{{ name }}" placeholder="e.g. Stonecunning"
+                 aria-label="Ability name" autocomplete="off">
+        </div>
+        <div class="hb-field">
+          <label>Takes</label>
+          <select name="ability_action" aria-label="What it takes">
+            {% for key, label in actions.items() %}<option value="{{ key }}" {% if action == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="hb-field">
+          <label>Charges</label>
+          <input type="text" name="ability_charges" inputmode="numeric" maxlength="2" value="{{ ability_charges }}"
+                 class="hb-number hb-small" placeholder="None" aria-label="Charges a use spends">
+        </div>
         <button type="button" class="link-button" hx-post="/homebrew/items/preview"
                 hx-vals='{"remove_row": "ability:{{ loop.index0 }}"}' {{ editor | safe }}>Remove</button>
       </div>

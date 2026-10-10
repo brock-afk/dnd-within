@@ -13,7 +13,7 @@ from app.abilities.service import ability_views
 from app.auth.models import User
 from app.characters.models import Character
 from app.core.templates import morph_in_place, templates
-from app.features.service import feature_groups
+from app.features.service import ChoiceView, FeatureGroup, feature_groups
 from app.leveling.service import hit_points
 from app.sheet.service import spell_warnings
 from app.skills.queries import character_skills, expertise_skill_ids
@@ -23,18 +23,31 @@ from app.spells.queries import spellbook
 PAGE_SELECTOR = "#character-page"
 
 
-def render_character_page(
-    request: Request, db: Session, user: User, character: Character
-) -> HTMLResponse:
-    groups = feature_groups(db, character)
-    # In-play choices are optional and made on the Play sheet, so they're never pending.
-    pending = [
+def pending_choices(groups: list[FeatureGroup]) -> list[ChoiceView]:
+    """Choices still to make on the Build page. In-play choices are optional and made on the
+    Play sheet, so they're never pending."""
+    return [
         cv
         for g in groups
         for fv in g.features
         for cv in fv.choices
         if not cv.done and not cv.choice.in_play
     ]
+
+
+def needs_building(db: Session, character: Character) -> bool:
+    """Whether the Build page has anything left to do: ability scores, a background, or a
+    pending choice. Characters that don't open on the Play sheet."""
+    if character.ability_method is None or character.background_id is None:
+        return True
+    return bool(pending_choices(feature_groups(db, character)))
+
+
+def render_character_page(
+    request: Request, db: Session, user: User, character: Character
+) -> HTMLResponse:
+    groups = feature_groups(db, character)
+    pending = pending_choices(groups)
     warnings = spell_warnings(db, character)
     # Copied spells are listed under the first feature with spellbook choices (Spellcasting).
     copied_under = next(

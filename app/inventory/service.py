@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.characters.models import Character
 from app.content.queries import available, visible
+from app.features.models import Feature
 from app.inventory.models import CharacterItem, Item
 from app.sheet.models import CharacterPlayState
 from app.sheet.service import play_state
@@ -21,6 +22,21 @@ def inventory(db: Session, character: Character) -> list[CharacterItem]:
     """Everything the character carries, by name."""
     rows = db.scalars(select(CharacterItem).where(CharacterItem.character_id == character.id))
     return sorted(rows, key=lambda row: row.name.lower())
+
+
+def item_features(db: Session, rows: list[CharacterItem]) -> dict[int, list[Feature]]:
+    """{item id: its features} for the items carried: what each item does, shown with it in
+    the inventory whether or not it's attuned."""
+    ids = {row.item_id for row in rows}
+    features = db.scalars(
+        select(Feature)
+        .where(Feature.item_id.in_(ids), available(Feature))
+        .order_by(Feature.position)
+    )
+    result: dict[int, list[Feature]] = {}
+    for feature in features:
+        result.setdefault(feature.item_id, []).append(feature)
+    return result
 
 
 def character_item(db: Session, character: Character, row_id: int) -> CharacterItem | None:

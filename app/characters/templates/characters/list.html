@@ -10,7 +10,7 @@
 <ul class="character-list">
   {% for character in characters %}
   <li class="card">
-    <a class="character-name" href="/characters/{{ character.id }}">{{ character.name }}</a>
+    <a class="character-name" href="{{ links[character.id] }}">{{ character.name }}</a>
     <span class="muted">{{ character.species.name }} {{ character.class_summary }}</span>
   </li>
   {% endfor %}

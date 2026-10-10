@@ -40,6 +40,13 @@ class Feature(Base):
         UniqueConstraint("background_id", "slug"),
         UniqueConstraint("feat_id", "slug"),
         UniqueConstraint("item_id", "slug"),
+        CheckConstraint(
+            "action IN ('action', 'bonus_action', 'reaction')", name="action_values"
+        ),
+        CheckConstraint(
+            "(spends_feature_id IS NULL) = (spends_amount IS NULL)", name="spends_together"
+        ),
+        CheckConstraint("spends_amount >= 1", name="spends_amount_positive"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -66,6 +73,11 @@ class Feature(Base):
     # Attributes it always gives: {"darkvision": 60, "resistances": ["poison"], ...}; see
     # app/features/schema.py:GrantsDef.
     grants: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    # Something you do (a magic item's Stonecunning): what it takes, and the uses it spends from
+    # another feature of the same source (the item's charges). The sheet offers Use for it.
+    action: Mapped[str | None] = mapped_column(String(20))  # action, bonus_action, reaction
+    spends_feature_id: Mapped[int | None] = mapped_column(ForeignKey("features.id"))
+    spends_amount: Mapped[int | None] = mapped_column(SmallInteger)
     position: Mapped[int] = mapped_column(default=0)
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 
@@ -78,8 +90,10 @@ class Feature(Base):
 
 
 class FeatureSpell(Base):
-    """A spell a feature makes always prepared, like Wondrous Alteration's Alter Self. With
-    `free_cast`, one cast spends a use of the feature instead of a spell slot."""
+    """A spell a feature gives, like Wondrous Alteration's Alter Self. With `free_cast`, a cast
+    can spend `charge_cost` uses of the feature instead of a spell slot. `always_prepared` also
+    makes it castable with slots like any prepared spell; without it (a magic item's spell),
+    spending the feature's uses is the only way to cast it."""
 
     __tablename__ = "feature_spells"
 
@@ -88,6 +102,8 @@ class FeatureSpell(Base):
     )
     spell_id: Mapped[int] = mapped_column(ForeignKey("spells.id"), primary_key=True)
     free_cast: Mapped[bool] = mapped_column(default=False, server_default=text("0"))
+    charge_cost: Mapped[int] = mapped_column(SmallInteger, default=1, server_default="1")
+    always_prepared: Mapped[bool] = mapped_column(default=True, server_default=text("1"))
     note: Mapped[str | None] = mapped_column(String(255))  # shown on the spell
 
     spell: Mapped["Spell"] = relationship(lazy="joined")  # noqa: F821

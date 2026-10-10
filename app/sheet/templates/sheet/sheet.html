@@ -290,6 +290,17 @@
   {% for o in r.options %}
   <p class="resource-detail">{% if o.when %}<strong>{{ o.when }}:</strong> {% endif %}{{ o.summary }}</p>
   {% endfor %}
+  {#- What spends these uses (a magic item's abilities): Use spends its cost. -#}
+  {% for f in r.spenders %}
+  <div class="resource-spender">
+    <span class="resource-spender-text"><strong>{{ f.name }}</strong>
+      <span class="muted">· {% if f.action %}{{ action_labels[f.action] }} · {% endif %}{{ f.spends_amount }} charge{{ "s" if f.spends_amount != 1 }}</span>
+      <span class="resource-detail">{{ f.summary }}</span></span>
+    <button type="button" class="secondary-button small-button"
+            hx-post="/characters/{{ character.id }}/sheet/features/{{ f.id }}/use"
+            {% if r.remaining < f.spends_amount %}disabled title="Not enough left"{% endif %}>Use</button>
+  </div>
+  {% endfor %}
   </div>
   {% endfor %}
   {% if errors.uses %}<p class="error" role="alert">{{ errors.uses }}</p>{% endif %}

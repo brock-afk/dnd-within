@@ -418,6 +418,10 @@ details[open] > .section-summary .section-digest { display: none; }
 .resource-option { font-weight: 400; color: var(--accent); }
 .resource-detail { margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--muted); }
 .resource-detail strong { color: var(--text); font-weight: 600; }
+.resource-spender { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-top: 0.5rem; padding-left: 0.75rem; border-left: 2px solid var(--border); }
+.resource-spender-text { display: grid; gap: 0.1rem; font-size: 0.9rem; }
+.resource-spender-text .resource-detail { margin: 0; }
+.resource-spender .small-button { flex-shrink: 0; }
 .play-choice-select { padding: 0.35rem 0.5rem; border: 1px solid var(--border-strong); border-radius: 6px;
   background: var(--bg); color: inherit; font: inherit; font-size: 0.9rem; }
 
@@ -669,6 +673,8 @@ details[open] > .section-summary .section-digest { display: none; }
 .item-quantity { color: var(--muted); font-variant-numeric: tabular-nums; }
 .item-more { display: grid; gap: 0.4rem; padding: 0.4rem 0 0.2rem; font-size: 0.9rem; }
 .item-notes { display: flex; gap: 0.4rem; }
+.item-features { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.item-features li { display: grid; gap: 0.05rem; }
 .item-notes input[type="text"] { padding: 0.35rem 0.5rem; font-size: 0.9rem; }
 .item-actions { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
 .item-actions .link-button { font-size: 0.85rem; }
@@ -709,8 +715,9 @@ details[open] > .section-summary .section-digest { display: none; }
 .homebrew-form textarea { width: 100%; resize: vertical; }
 .homebrew-form input.hb-number { width: 6rem; }
 .hb-spell-row select[name="spell_id"] { min-width: 13rem; }
-.hb-spell-row input[name="spell_note"] { width: auto; flex: 1 1 12rem; }
+.hb-grow { flex: 1 1 12rem; }
+.homebrew-form input.hb-small { width: 4.5rem; }
 .hb-ability { display: grid; gap: 0.4rem; padding-bottom: 0.75rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
-.hb-ability .hb-row input { width: auto; flex: 1 1 12rem; }
+
 .homebrew-form .has-error input, .homebrew-form .has-error select { border-color: var(--error); }
 .homebrew-form .field-error { margin: 0; }

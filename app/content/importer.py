@@ -69,12 +69,23 @@ class FeatureSync:
             feature.uses = fdef.uses.model_dump(exclude_none=True) if fdef.uses else None
             feature.slot_recovery = fdef.slot_recovery.model_dump() if fdef.slot_recovery else None
             feature.grants = fdef.grants.stored() if fdef.grants else None
+            feature.action = fdef.action
             self._sync_feature_spells(feature, fdef)
             feature.position = position
             feature.retired_at = None
             self._sync_choices(feature, fdef)
         for feature in existing.values():
             self._retire(feature)
+        # What a feature spends points at a sibling, so it's set once they all have ids.
+        self.db.flush()
+        by_slug = {
+            f.slug: f
+            for f in self.db.scalars(select(Feature).where(getattr(Feature, fk_column) == parent_id))
+        }
+        for fdef in defs:
+            feature = by_slug[fdef.slug]
+            feature.spends_feature_id = by_slug[fdef.spends.feature].id if fdef.spends else None
+            feature.spends_amount = fdef.spends.amount if fdef.spends else None
 
     def _sync_feature_spells(self, feature: Feature, fdef: FeatureDef) -> None:
         """Keep rows for spells still listed (matched by spell), add new ones, drop the rest."""
@@ -84,6 +95,8 @@ class FeatureSync:
             spell_id = self._id(Spell, sdef.spell, "spells")
             row = existing.get(spell_id) or FeatureSpell(spell_id=spell_id)
             row.free_cast = sdef.free_cast
+            row.charge_cost = sdef.charges
+            row.always_prepared = sdef.always_prepared
             row.note = sdef.note
             rows.append(row)
         feature.spells = rows

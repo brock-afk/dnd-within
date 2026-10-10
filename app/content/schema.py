@@ -9,7 +9,18 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.features.schema import Ability, DamageType, FeatureDef, School, Slug, Text50, Text80, Text120, Text255
+from app.features.schema import (
+    Ability,
+    DamageType,
+    FeatureDef,
+    School,
+    Slug,
+    Text50,
+    Text80,
+    Text120,
+    Text255,
+    spends_errors,
+)
 
 
 # "8d6", "1d4+1", "2d4 + 4", or a flat number like "5".
@@ -162,6 +173,8 @@ class ItemDef(Strict):
             raise ValueError("packs list their contents, and only packs have contents")
         if self.features and self.category in ("pack", "scroll"):
             raise ValueError("packs and scrolls can't have features")
+        if problems := spends_errors(self.features):
+            raise ValueError("; ".join(problems))
         if self.category in ("consumable", "scroll"):
             self.consumable = True
         return self

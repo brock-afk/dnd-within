@@ -29,6 +29,16 @@
         <div class="item-more">
           <span class="muted">{{ row.item.summary }}</span>
           {% if row.spell %}<span class="muted">{{ row.spell.name }}: {{ row.spell.summary }}</span>{% endif %}
+          {% if item_features[row.item_id] %}
+          <ul class="item-features">
+            {% for f in item_features[row.item_id] %}
+            <li><strong>{{ f.name }}</strong>{% if f.action or f.spends_amount %}
+              <span class="muted">· {% if f.action %}{{ action_labels[f.action] }}{% endif %}{% if f.action and f.spends_amount %} · {% endif %}{% if f.spends_amount %}{{ f.spends_amount }} charge{{ "s" if f.spends_amount != 1 }}{% endif %}</span>{% endif %}
+              <span class="muted">{{ f.summary }}</span></li>
+            {% endfor %}
+          </ul>
+          {% if row.item.requires_attunement and not row.attuned %}<span class="muted">Attune to use these.</span>{% endif %}
+          {% endif %}
           {% if row.item.description %}
           <details class="feature-text">
             <summary>Full text</summary>

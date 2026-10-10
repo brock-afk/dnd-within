@@ -75,19 +75,20 @@
 {% endmacro %}
 
 {% macro _cast(row, slots, cast_url, free_cast_url, free_uses) %}
-{% if slots is not none and row.uses_slots is defined and row.uses_slots %}
+{% if slots is not none and row.uses_slots is defined and (row.uses_slots or row.free_cast) %}
   {{ _cast_menu(row, slots, cast_url, free_cast_url, free_uses) }}
 {% endif %}
 {% endmacro %}
 
 {# A dropdown of the slot levels this spell can be cast with (its level or higher, with a slot
    left). Picking one spends that slot. A free_cast spell also offers a free cast while its
-   feature has a use left. #}
+   feature has enough uses left; a charge_only spell (a magic item's) offers only that. #}
 {% macro _cast_menu(row, slots, cast_url, free_cast_url, free_uses) %}
 {% set spell = row.spell %}
-{% set usable = slots.values() | selectattr("level", "ge", spell.level) | selectattr("remaining", "gt", 0) | list %}
+{% set usable = slots.values() | selectattr("level", "ge", spell.level) | selectattr("remaining", "gt", 0) | list
+               if row.uses_slots else [] %}
 {% set free = free_uses.get(row.granted_by.id) if row.free_cast is defined and row.free_cast and free_cast_url else none %}
-{% set free = free if free and free.remaining > 0 else none %}
+{% set free = free if free and free.remaining >= row.charge_cost else none %}
 {% if usable or free %}
 <details class="cast-menu">
   <summary class="cast-button">Cast</summary>
@@ -96,7 +97,7 @@
     {% if free %}
     <button type="submit" class="secondary-button" hx-post="{{ free_cast_url }}"
             hx-vals='{{ {"feature": row.granted_by.id} | tojson }}'>
-      Free · {{ row.granted_by.name }}
+      {{ row.free_label }}
     </button>
     {% endif %}
     {% for s in usable %}
@@ -107,6 +108,6 @@
   </form>
 </details>
 {% else %}
-<span class="cast-none muted">No slots left</span>
+<span class="cast-none muted">{{ "No charges left" if row.charge_only is defined and row.charge_only else "No slots left" }}</span>
 {% endif %}
 {% endmacro %}

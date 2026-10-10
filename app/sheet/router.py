@@ -16,7 +16,14 @@ from app.core.db import DbSession
 from app.core.templates import morph_in_place, templates
 from app.features.kinds import KINDS
 from app.features.service import applicable_choice, play_choices
-from app.inventory.service import COINS, MAX_ATTUNED, coin_summary, coin_values, inventory
+from app.inventory.service import (
+    COINS,
+    MAX_ATTUNED,
+    coin_summary,
+    coin_values,
+    inventory,
+    item_features,
+)
 from app.inventory.service import digest as inventory_digest
 from app.leveling.service import constitution_modifier
 from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
@@ -61,6 +68,7 @@ from app.spells.queries import spellbook
 router = APIRouter(tags=["sheet"])
 
 SHEET_SELECTOR = "#sheet-page"
+ACTION_LABELS = {"action": "Action", "bonus_action": "Bonus Action", "reaction": "Reaction"}
 
 
 def render_sheet(
@@ -98,7 +106,9 @@ def render_sheet(
         "prepared_limit": prepared_limit(character),
         "has_spellbook": bool(spellbook(db, character.id)),
         "resting": resting,
+        "action_labels": ACTION_LABELS,
         "items": items,
+        "item_features": item_features(db, items),
         "coin_summary": coin_summary(coin_values(db, character)),
         "coin_labels": COINS,
         "inventory_digest": inventory_digest(db, character, items),
@@ -362,8 +372,9 @@ def _render_prepared_editor(
     warnings = spell_warnings(db, character)
     notes = spellbook_notes(db, character)
     # A granted spell is prepared anyway, so preparing it from the book would waste a pick.
-    for spell_id, (_, feature) in granted_spells(db, character).items():
-        notes[spell_id] = f"Always prepared ({feature.name})"
+    for spell_id, (feature_spell, feature) in granted_spells(db, character).items():
+        if feature_spell.always_prepared:
+            notes[spell_id] = f"Always prepared ({feature.name})"
     options = [
         replace(
             KINDS["spell"].view(entry.spell),
@@ -517,11 +528,15 @@ def cast_free(
     error = None
     if granted is None or not granted[0].free_cast or uses is None or uses.feature != granted[1]:
         error = "That spell can't be cast for free."
-    elif uses.remaining == 0:
-        error = f"{uses.feature.name}'s free cast is used. It comes back on a long rest."
+    elif uses.remaining < granted[0].charge_cost:
+        error = (
+            f"{uses.feature.name}: {uses.remaining} left, and this takes {granted[0].charge_cost}."
+            if uses.remaining
+            else f"{uses.feature.name}'s free cast is used. It comes back on a long rest."
+        )
     if error:
         return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
-    set_uses_remaining(db, character, uses, uses.remaining - 1)
+    set_uses_remaining(db, character, uses, uses.remaining - granted[0].charge_cost)
     db.commit()
     return refresh_sheet(request, db, user, character)
 
@@ -594,6 +609,26 @@ def set_uses(
         errors = {"uses": "That isn't a valid number of uses."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
     set_uses_remaining(db, character, uses, value)
+    db.commit()
+    return refresh_sheet(request, db, user, character)
+
+
+@router.post("/characters/{character_id}/sheet/features/{feature_id}/use", response_class=HTMLResponse)
+def use_feature(
+    request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, feature_id: int
+):
+    """Use something that spends another feature's uses, like a magic item's Stonecunning
+    spending its charges."""
+    uses, feature = next(
+        ((u, f) for u in feature_uses(db, character) for f in u.spenders if f.id == feature_id),
+        (None, None),
+    )
+    if uses is None:
+        raise HTTPException(status_code=404)
+    if uses.remaining < feature.spends_amount:
+        error = f"{feature.name} takes {feature.spends_amount}; {uses.remaining} left."
+        return refresh_sheet(request, db, user, character, {"uses": error}, status_code=400)
+    set_uses_remaining(db, character, uses, uses.remaining - feature.spends_amount)
     db.commit()
     return refresh_sheet(request, db, user, character)
 

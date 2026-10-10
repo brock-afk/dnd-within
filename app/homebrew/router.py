@@ -13,11 +13,12 @@ from app.core.db import DbSession
 from app.core.templates import hx_redirect, templates
 from app.homebrew.form import (
     ABILITIES,
+    ACTIONS,
     CATEGORIES,
     DAMAGE_TYPES,
+    PREPARED,
     RARITIES,
     RECHARGES,
-    SPELL_CASTS,
     TOOL_MODES,
     ItemForm,
     build_item_def,
@@ -51,7 +52,8 @@ def _form_context(db: Session, user: User, form: ItemForm, item: Item | None, er
         "categories": CATEGORIES,
         "rarities": RARITIES,
         "recharges": RECHARGES,
-        "spell_casts": SPELL_CASTS,
+        "prepared": PREPARED,
+        "actions": ACTIONS,
         "tool_modes": TOOL_MODES,
         "tools": TOOLS,
         "abilities": ABILITIES,
@@ -98,7 +100,8 @@ def new_item(request: Request, db: DbSession, user: CurrentUser, character: str 
 @router.get("/homebrew/items/{item_id}/edit", response_class=HTMLResponse)
 def edit_item(request: Request, db: DbSession, user: CurrentUser, item_id: int):
     item = _owned(db, user, item_id)
-    return _render_page(request, db, user, ItemForm(**(item.definition or {})), item)
+    form = ItemForm(**(item.definition or {})).upgrade()
+    return _render_page(request, db, user, form, item)
 
 
 @router.post("/homebrew/items/preview", response_class=HTMLResponse)

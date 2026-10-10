@@ -36,6 +36,8 @@ class FeatureUses:
     # The options the character picked for this feature's choices (e.g. Stone's Endurance for
     # Giant Ancestry), which say what a use actually does and when.
     options: tuple[ChoiceOption, ...] = ()
+    # Features that spend these uses when used, like a magic item's Stonecunning (its charges).
+    spenders: tuple[Feature, ...] = ()
 
     @property
     def remaining(self) -> int:
@@ -80,8 +82,15 @@ def feature_uses(db: Session, character: Character) -> list[FeatureUses]:
     ):
         picked.setdefault(feature_id, []).append(option)
 
+    groups = feature_groups(db, character)
+    spenders: dict[int, list[Feature]] = {}
+    for group in groups:
+        for fv in group.features:
+            if fv.feature.spends_feature_id:
+                spenders.setdefault(fv.feature.spends_feature_id, []).append(fv.feature)
+
     result = []
-    for group in feature_groups(db, character):
+    for group in groups:
         for fv in group.features:
             feature = fv.feature
             if not feature.uses:
@@ -91,7 +100,16 @@ def feature_uses(db: Session, character: Character) -> list[FeatureUses]:
                 maximum = proficiency_bonus(character.level)
             level = _class_level(character, feature)
             options = tuple(picked.get(feature.id, ()))
-            result.append(FeatureUses(feature, maximum, spent.get(feature.id, 0), level, options))
+            result.append(
+                FeatureUses(
+                    feature,
+                    maximum,
+                    spent.get(feature.id, 0),
+                    level,
+                    options,
+                    tuple(spenders.get(feature.id, ())),
+                )
+            )
     return result
 
 

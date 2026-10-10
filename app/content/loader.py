@@ -25,7 +25,7 @@ from app.content.schema import (
     SubclassDef,
 )
 from app.core.config import settings
-from app.features.schema import FeatureDef
+from app.features.schema import FeatureDef, spends_errors
 
 
 @dataclass
@@ -204,6 +204,8 @@ def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
             pack.errors.append(f"{pack.path}/pack.yaml: required pack {required!r} is invalid")
 
     def check_features(features: list[FeatureDef], owner: str):
+        for problem in spends_errors(features):
+            pack.errors.append(f"{pack.path}: {owner} > {problem}")
         for feature in features:
             for granted in feature.spells:
                 check(granted.spell, "spells", f"{owner} > {feature.slug} > spells")

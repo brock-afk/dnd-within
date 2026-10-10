@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
-from app.characters.page import render_character_page
+from app.characters.page import needs_building, render_character_page
 from app.classes.models import CharacterClass, CharacterClassLevel
 from app.content.queries import available
 from app.core.db import DbSession
@@ -28,8 +28,13 @@ def list_characters(request: Request, db: DbSession, user: CurrentUser):
     characters = db.scalars(
         select(Character).where(Character.user_id == user.id).order_by(Character.created_at.desc())
     ).all()
+    # Open each on the Play sheet once it's built, on the Build page while it has choices left.
+    links = {
+        c.id: f"/characters/{c.id}" if needs_building(db, c) else f"/characters/{c.id}/sheet"
+        for c in characters
+    }
     return templates.TemplateResponse(
-        request, "characters/list.html", {"user": user, "characters": characters}
+        request, "characters/list.html", {"user": user, "characters": characters, "links": links}
     )
 
 

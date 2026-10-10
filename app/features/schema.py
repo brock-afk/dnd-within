@@ -206,14 +206,34 @@ class SlotRecoveryDef(BaseModel):
 
 
 class FeatureSpellDef(BaseModel):
-    """A spell a feature gives you, always prepared (Wondrous Alteration's Alter Self)."""
+    """A spell a feature gives you (Wondrous Alteration's Alter Self, a magic item's spell)."""
 
     model_config = ConfigDict(extra="forbid")
 
     spell: str  # spell slug, e.g. "alter-self" or "phb-2024/alter-self"
-    # One cast spends a use of the feature instead of a spell slot.
+    # A cast can spend `charges` uses of the feature instead of a spell slot.
     free_cast: bool = False
+    charges: int = Field(default=1, ge=1, le=20)
+    # Also castable with spell slots, like any prepared spell. Off for a magic item's spell that
+    # can only be cast by spending its charges.
+    always_prepared: bool = True
     note: Text255 | None = None  # shown on the spell, e.g. what the feature adds to it
+
+    @model_validator(mode="after")
+    def check(self):
+        if not self.always_prepared and not self.free_cast:
+            raise ValueError(f"{self.spell}: a spell that isn't prepared must be cast with uses")
+        return self
+
+
+class SpendsDef(BaseModel):
+    """Using this feature spends uses of another feature from the same source (Stonecunning
+    spends one of the item's charges)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    feature: Slug  # a sibling feature's slug; it must have uses
+    amount: int = Field(default=1, ge=1, le=20)
 
 
 class FeatureDef(BaseModel):
@@ -230,6 +250,9 @@ class FeatureDef(BaseModel):
     grants: GrantsDef | None = None  # always on while the character has the feature
     spells: list[FeatureSpellDef] = []
     choices: list[ChoiceDef] = []
+    # Something you do: what it takes, and the uses it spends. The sheet offers Use for it.
+    action: Literal["action", "bonus_action", "reaction"] | None = None
+    spends: SpendsDef | None = None
 
     @model_validator(mode="after")
     def check_spells(self):
@@ -238,3 +261,13 @@ class FeatureDef(BaseModel):
                 f"{self.slug}: free_cast spells spend the feature's uses, so it needs uses"
             )
         return self
+
+
+def spends_errors(features: list[FeatureDef]) -> list[str]:
+    """Problems with features' `spends`: each must name a sibling feature that has uses."""
+    with_uses = {f.slug for f in features if f.uses}
+    return [
+        f"{f.slug}: spends uses of {f.spends.feature!r}, which isn't a feature here with uses"
+        for f in features
+        if f.spends and (f.spends.feature not in with_uses or f.spends.feature == f.slug)
+    ]

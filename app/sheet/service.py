@@ -459,6 +459,9 @@ class CastableSpell:
     # can spend a use of that feature instead of a slot.
     granted_by: Feature | None = None
     free_cast: bool = False
+    charge_cost: int = 1  # uses of `granted_by` a free cast spends
+    # Cast only by spending the feature's uses, never with slots (a magic item's spell).
+    charge_only: bool = False
     note: str = ""  # from the granting feature, e.g. what Wondrous Alteration adds
 
     @property
@@ -469,7 +472,17 @@ class CastableSpell:
 
     @property
     def uses_slots(self) -> bool:
-        return not self.in_ritual_section and self.spell.level > 0
+        return not self.in_ritual_section and self.spell.level > 0 and not self.charge_only
+
+    @property
+    def free_label(self) -> str:
+        """The free-cast option: "Free · Wondrous Alteration", or for a magic item's charges
+        "2 charges · Embercleave Charm"."""
+        feature = self.granted_by
+        if feature.item_id:
+            cost = f"{self.charge_cost} charge{'s' if self.charge_cost != 1 else ''}"
+            return f"{cost} · {feature.name.removesuffix(' charges')}"
+        return f"Free · {feature.name}"
 
     @property
     def order(self) -> tuple:
@@ -495,7 +508,7 @@ def castable_spells(db: Session, character: Character) -> list[CastableSpell]:
         CastableSpell(cs.spell) for cs in character_spells(db, character.id) if cs.spell.level == 0
     ]
     for entry in spellbook(db, character.id):
-        if entry.spell_id in granted:
+        if entry.spell_id in granted and granted[entry.spell_id][0].always_prepared:
             continue  # listed below as always prepared
         is_prepared = entry.spell_id in prepared
         if is_prepared:
@@ -507,20 +520,23 @@ def castable_spells(db: Session, character: Character) -> list[CastableSpell]:
         rows.append(
             CastableSpell(
                 spell,
-                prepared=True,
+                prepared=feature_spell.always_prepared,
                 granted_by=feature,
                 free_cast=feature_spell.free_cast,
+                charge_cost=feature_spell.charge_cost,
+                charge_only=not feature_spell.always_prepared,
                 note=feature_spell.note or "",
             )
         )
-        if spell.ritual:
+        if spell.ritual and feature_spell.always_prepared:
             rows.append(CastableSpell(spell, prepared=True, in_ritual_section=True))
     return sorted(rows, key=lambda r: r.order)
 
 
 def granted_spells(db: Session, character: Character) -> dict[int, tuple[FeatureSpell, Feature]]:
-    """{spell id: (its FeatureSpell, the feature)} for spells the character's features keep
-    always prepared. They don't count toward the prepare limit."""
+    """{spell id: (its FeatureSpell, the feature)} for spells the character's features give:
+    always prepared ones (which don't count toward the prepare limit), and ones cast only by
+    spending a feature's uses (`always_prepared` off)."""
     return {
         fs.spell_id: (fs, fv.feature)
         for group in feature_groups(db, character)

@@ -111,6 +111,8 @@ class ChoiceOption(Base):
     # {"kind": "reduce" | "retaliate", "dice": "1d12", "ability": "CON", ...}; see
     # app/features/schema.py:DamageReactionDef.
     damage_reaction: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    # While picked: {"save_proficiencies": ["CON"]}; see app/features/schema.py:GrantsDef.
+    grants: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     position: Mapped[int] = mapped_column(default=0)
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 

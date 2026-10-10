@@ -143,6 +143,7 @@ class _Importer:
                     if odef.damage_reaction
                     else None
                 )
+                option.grants = odef.grants.model_dump() if odef.grants else None
                 option.position = opt_position
                 option.retired_at = None
             for option in options.values():

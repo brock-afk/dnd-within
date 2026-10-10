@@ -24,6 +24,8 @@ def _text(length: int):
 
 Text50, Text80, Text120, Text255, Text500 = (_text(n) for n in (50, 80, 120, 255, 500))
 
+Ability = Literal["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+
 School = Literal[
     "abjuration", "conjuration", "divination", "enchantment", "evocation", "illusion",
     "necromancy", "transmutation",
@@ -45,7 +47,7 @@ class DamageReactionDef(BaseModel):
 
     kind: Literal["reduce", "retaliate"]
     dice: str
-    ability: Literal["STR", "DEX", "CON", "INT", "WIS", "CHA"] | None = None
+    ability: Ability | None = None
     damage_type: str | None = None  # retaliate only, e.g. "thunder"
 
     @model_validator(mode="after")
@@ -53,6 +55,14 @@ class DamageReactionDef(BaseModel):
         if not DICE.match(self.dice):
             raise ValueError(f"{self.dice!r} isn't dice notation like 1d12")
         return self
+
+
+class GrantsDef(BaseModel):
+    """What having an option picked gives the character, applied on the Play sheet."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    save_proficiencies: list[Ability] = Field(min_length=1)
 
 
 class OptionDef(BaseModel):
@@ -63,6 +73,7 @@ class OptionDef(BaseModel):
     summary: Text255
     when: Text120 | None = None  # when it's used, e.g. "Reaction, when you take damage"
     damage_reaction: DamageReactionDef | None = None
+    grants: GrantsDef | None = None
 
 
 class ChoiceDef(BaseModel):

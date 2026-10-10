@@ -136,10 +136,20 @@
       <span class="ability-score">{{ a.total }}</span>
       <button type="button" class="ability-save roll-number{% if row.proficient %} proficient{% endif %}"
               data-roll="1d20{{ '%+d' | format(row.save) }}"
-              title="Roll a {{ a.name }} saving throw{% if row.proficient %} (proficient){% endif %}"
+              title="Roll a {{ a.name }} saving throw{% if row.proficient %} (proficient: {{ row.sources | join(", ") }}){% endif %}"
               aria-label="Roll a {{ a.name }} saving throw">{% if row.proficient %}<span aria-hidden="true">●</span> {% endif %}save {{ signed(row.save) }}</button>
       <span class="roll-result muted" aria-live="polite"></span>
     </li>
+    {% endfor %}
+  </ul>
+</section>
+
+{#- Which saves are proficient, and why: the class, or a feature like the Transmuter's Stone. -#}
+<section class="sheet-section">
+  <h2>Saving throw proficiencies</h2>
+  <ul class="plain-list save-proficiencies">
+    {% for row in abilities if row.proficient %}
+    <li><strong>{{ row.ability.name }}</strong> <span class="muted">{{ row.sources | join(", ") }}</span></li>
     {% endfor %}
   </ul>
 </section>

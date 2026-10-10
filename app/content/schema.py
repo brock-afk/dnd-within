@@ -9,9 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.features.schema import FeatureDef, School, Slug, Text50, Text80, Text120, Text255
+from app.features.schema import Ability, FeatureDef, School, Slug, Text50, Text80, Text120, Text255
 
-Ability = Literal["STR", "DEX", "CON", "INT", "WIS", "CHA"]
 DamageType = Literal[
     "acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing",
     "poison", "psychic", "radiant", "slashing", "thunder",

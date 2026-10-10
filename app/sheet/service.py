@@ -7,7 +7,8 @@ from app.abilities.rules import modifier
 from app.abilities.service import AbilityView, ability_views
 from app.characters.models import Character
 from app.content.queries import available
-from app.features.models import Choice
+from app.features.models import CharacterChoicePick, Choice, ChoiceOption
+from app.features.service import applicable_choice
 from app.leveling.service import hit_points
 from app.sheet.models import (
     CharacterAcEffect,
@@ -99,19 +100,45 @@ class AbilityRow:
     ability: AbilityView
     save: int  # saving throw bonus
     proficient: bool
+    # Where the save proficiency comes from, e.g. ("Wizard",) or ("Transmuter's Stone",).
+    sources: tuple[str, ...] = ()
+
+
+def save_proficiency_sources(db: Session, character: Character) -> dict[str, list[str]]:
+    """Ability abbreviation -> what makes the character proficient in its saves: the starting
+    class (2024 multiclassing rules give only it), then picked options that grant them (the
+    Transmuter's Stone)."""
+    sources: dict[str, list[str]] = {}
+    starting = next((cc for cc in character.classes if cc.is_starting_class), None)
+    if starting:
+        for abbr in starting.character_class.saving_throws:
+            sources.setdefault(abbr, []).append(starting.character_class.name)
+
+    rows = db.execute(
+        select(ChoiceOption.grants, Choice)
+        .join(CharacterChoicePick, CharacterChoicePick.option_id == ChoiceOption.id)
+        .join(Choice, Choice.id == ChoiceOption.choice_id)
+        .where(CharacterChoicePick.character_id == character.id, ChoiceOption.grants.is_not(None))
+    )
+    for grants, choice in rows:
+        if applicable_choice(db, character, choice.id) is not None:
+            for abbr in grants.get("save_proficiencies", []):
+                sources.setdefault(abbr, []).append(choice.feature.name)
+    return sources
 
 
 def ability_rows(db: Session, character: Character) -> list[AbilityRow] | None:
-    """Each ability with its saving throw, or None until scores are set. Save proficiencies
-    come from the starting class only (2024 multiclassing rules)."""
+    """Each ability with its saving throw, or None until scores are set."""
     abilities = ability_views(db, character)
     if abilities is None:
         return None
-    starting = next((cc for cc in character.classes if cc.is_starting_class), None)
-    proficient = set(starting.character_class.saving_throws) if starting else set()
+    sources = save_proficiency_sources(db, character)
     pb = proficiency_bonus(character.level)
     return [
-        AbilityRow(a, a.mod + (pb if a.abbr in proficient else 0), a.abbr in proficient)
+        AbilityRow(
+            a, a.mod + (pb if a.abbr in sources else 0), a.abbr in sources,
+            tuple(sources.get(a.abbr, ())),
+        )
         for a in abilities
     ]
 

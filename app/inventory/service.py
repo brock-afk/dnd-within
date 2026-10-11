@@ -71,9 +71,7 @@ def ac_scrolls(rows: list[CharacterItem], active_spell_ids: set[int]) -> list[Ch
     return [
         row
         for row in rows
-        if row.spell
-        and row.spell.details.get("ac_effect")
-        and row.spell_id not in active_spell_ids
+        if row.spell and row.spell.details.get("ac_effect") and row.spell_id not in active_spell_ids
     ]
 
 
@@ -87,7 +85,7 @@ SEARCH_LIMIT = 20
 
 
 def price(cost_cp: int | None) -> str:
-    """"40 gold", "5 silver", "2 copper", or "" without a price."""
+    """ "40 gold", "5 silver", "2 copper", or "" without a price."""
     if cost_cp is None:
         return ""
     for coin, value in [("gold", 100), ("silver", 10)]:
@@ -97,7 +95,7 @@ def price(cost_cp: int | None) -> str:
 
 
 def item_detail(item: Item) -> str:
-    """"Common · 50 gold": rarity and price, whichever it has."""
+    """ "Common · 50 gold": rarity and price, whichever it has."""
     rarity = (item.rarity or "").replace("_", " ").capitalize()
     return " · ".join(part for part in [rarity, price(item.cost_cp)] if part)
 
@@ -144,7 +142,9 @@ def _stack(db: Session, character: Character, item_id: int, quantity: int, spell
         select(CharacterItem).where(
             CharacterItem.character_id == character.id,
             CharacterItem.item_id == item_id,
-            CharacterItem.spell_id.is_(None) if spell_id is None else CharacterItem.spell_id == spell_id,
+            CharacterItem.spell_id.is_(None)
+            if spell_id is None
+            else CharacterItem.spell_id == spell_id,
         )
     )
     if row is None:
@@ -209,7 +209,7 @@ def coins(db: Session, character: Character) -> CharacterPlayState | None:
 
 
 def coin_summary(values: dict[str, int]) -> str:
-    """"65 gold, 3 silver": the coins the character has, highest first; "" with none."""
+    """ "65 gold, 3 silver": the coins the character has, highest first; "" with none."""
     return ", ".join(
         f"{values[column]:,} {label.lower()}" for column, label in COINS if values[column]
     )
@@ -229,7 +229,7 @@ def set_coins(db: Session, character: Character, values: dict[str, int]) -> None
 
 
 def digest(db: Session, character: Character, rows: list[CharacterItem]) -> str:
-    """"65 gold · 12 items" for the collapsed Inventory section."""
+    """ "65 gold · 12 items" for the collapsed Inventory section."""
     money = coin_summary(coin_values(db, character))
     count = f"{len(rows)} item{'s' if len(rows) != 1 else ''}" if rows else ""
     return " · ".join(part for part in [money, count] if part)

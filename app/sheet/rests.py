@@ -23,7 +23,6 @@ from app.sheet.models import (
 from app.sheet.rules import proficiency_bonus, roll
 from app.sheet.service import play_state
 
-
 # --- Limited-use features -----------------------------------------------------------------
 
 
@@ -118,9 +117,7 @@ def set_uses_remaining(
 ) -> None:
     row = db.get(CharacterFeatureUse, (character.id, uses.feature.id))
     if row is None:
-        row = CharacterFeatureUse(
-            character_id=character.id, feature_id=uses.feature.id, expended=0
-        )
+        row = CharacterFeatureUse(character_id=character.id, feature_id=uses.feature.id, expended=0)
         db.add(row)
     row.expended = uses.maximum - remaining
 
@@ -151,8 +148,7 @@ def hit_dice(db: Session, character: Character) -> list[HitDice]:
         )
     }
     return [
-        HitDice(cc.character_class, cc.level, spent.get(cc.class_id, 0))
-        for cc in character.classes
+        HitDice(cc.character_class, cc.level, spent.get(cc.class_id, 0)) for cc in character.classes
     ]
 
 
@@ -202,7 +198,9 @@ def long_rest(db: Session, character: Character) -> None:
     for uses in partial:
         row = db.get(CharacterFeatureUse, (character.id, uses.feature.id))
         if row is not None:
-            row.expended = max(0, min(row.expended, uses.maximum) - roll(uses.feature.uses["regain"]))
+            row.expended = max(
+                0, min(row.expended, uses.maximum) - roll(uses.feature.uses["regain"])
+            )
     keep = [u.feature.id for u in partial]
     for model in (CharacterHitDice, CharacterSpellSlot):
         db.execute(delete(model).where(model.character_id == character.id))

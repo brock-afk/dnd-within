@@ -20,7 +20,7 @@ class ChoiceView:
 
     @property
     def level_label(self) -> str:
-        """"Wizard 2", or "" for level 1 choices (no need to say)."""
+        """ "Wizard 2", or "" for level 1 choices (no need to say)."""
         return f"{self.level_name} {self.level}" if self.level > 1 else ""
 
     @property
@@ -92,9 +92,7 @@ def _views(
 
 def _active_item_ids(db: Session, character: Character) -> list[int]:
     """Items whose features apply: attuned ones, and carried ones that don't need attunement."""
-    rows = db.scalars(
-        select(CharacterItem).where(CharacterItem.character_id == character.id)
-    ).all()
+    rows = db.scalars(select(CharacterItem).where(CharacterItem.character_id == character.id)).all()
     ids = {r.item_id for r in rows if r.attuned or not r.item.requires_attunement}
     return sorted(ids)
 
@@ -151,16 +149,12 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
     for cc in character.classes:
         class_features = db.scalars(
             select(Feature)
-            .where(
-                Feature.class_id == cc.class_id, Feature.level <= cc.level, available(Feature)
-            )
+            .where(Feature.class_id == cc.class_id, Feature.level <= cc.level, available(Feature))
             .order_by(Feature.position)
         ).all()
         applicable = [f for f in class_features if _applies(f.applies_to, cc)]
         views = _views(db, character, applicable, cc.level, cc.character_class.name)
-        groups.append(
-            FeatureGroup(cc.character_class.name, "Class", [FeatureSection("", views)])
-        )
+        groups.append(FeatureGroup(cc.character_class.name, "Class", [FeatureSection("", views)]))
         # The subclass group is changed through this class's subclass choice.
         subclass_choice = next(
             (cv.choice for fv in views for cv in fv.choices if cv.choice.kind == "subclass"),
@@ -178,9 +172,7 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
                 .order_by(Feature.position)
             ).all()
             name = db.get(Subclass, cc.subclass_id).name
-            views = _views(
-                db, character, subclass_features, cc.level, cc.character_class.name
-            )
+            views = _views(db, character, subclass_features, cc.level, cc.character_class.name)
             kind = f"{cc.character_class.name} subclass"
             url = (
                 f"/characters/{character.id}/choices/{subclass_choice.id}"

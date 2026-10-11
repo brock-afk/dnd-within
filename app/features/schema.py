@@ -8,7 +8,6 @@ from typing import Annotated, Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-
 DICE = re.compile(r"^\d+d\d+$")
 DICE_BONUS = re.compile(r"^\s*\d+d\d+(\s*[+-]\s*\d+)?\s*$")  # "1d3", "1d6 + 1"
 
@@ -27,13 +26,30 @@ Text50, Text80, Text120, Text255, Text500 = (_text(n) for n in (50, 80, 120, 255
 
 Ability = Literal["STR", "DEX", "CON", "INT", "WIS", "CHA"]
 DamageType = Literal[
-    "acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic", "piercing",
-    "poison", "psychic", "radiant", "slashing", "thunder",
+    "acid",
+    "bludgeoning",
+    "cold",
+    "fire",
+    "force",
+    "lightning",
+    "necrotic",
+    "piercing",
+    "poison",
+    "psychic",
+    "radiant",
+    "slashing",
+    "thunder",
 ]
 
 School = Literal[
-    "abjuration", "conjuration", "divination", "enchantment", "evocation", "illusion",
-    "necromancy", "transmutation",
+    "abjuration",
+    "conjuration",
+    "divination",
+    "enchantment",
+    "evocation",
+    "illusion",
+    "necromancy",
+    "transmutation",
 ]
 
 # Allowed criteria for spell and spellbook choices.
@@ -128,15 +144,15 @@ class ChoiceDef(BaseModel):
             raise ValueError(f"{self.slug}: only kind 'option' lists its own options")
         if self.in_play and (self.kind != "option" or self.count != 1):
             raise ValueError(f"{self.slug}: in_play is for option choices with count 1")
-        if self.kind in ("skill", "expertise"):
-            # Without `from`, any skill: a background's free pick, or for Expertise any skill
-            # the character is proficient in (Rogue, Bard).
-            if self.criteria.keys() - {"from"} or (
-                "from" in self.criteria and not self.criteria["from"]
-            ):
-                raise ValueError(
-                    f"{self.slug}: {self.kind} choices take only criteria {{'from': [skill slugs]}}"
-                )
+        # Without `from`, a skill choice offers any skill: a background's free pick, or for
+        # Expertise any skill the character is proficient in (Rogue, Bard).
+        if self.kind in ("skill", "expertise") and (
+            self.criteria.keys() - {"from"}
+            or ("from" in self.criteria and not self.criteria["from"])
+        ):
+            raise ValueError(
+                f"{self.slug}: {self.kind} choices take only criteria {{'from': [skill slugs]}}"
+            )
         if self.kind == "ability_scores":
             # A background's increases: +2 to one of these and +1 to another, or +1 to all three.
             abilities = self.criteria.get("from")

@@ -94,7 +94,8 @@ def _range_label(rng: dict, area: dict | None) -> str:
 
 
 class CharacterSpell(Base):
-    """A spell a character knows (a cantrip, or a spell in a spellbook), and the choice that granted it."""
+    """A spell a character knows (a cantrip, or a spell in a spellbook), and the choice that
+    granted it."""
 
     __tablename__ = "character_spells"
     __table_args__ = (UniqueConstraint("character_id", "spell_id"),)

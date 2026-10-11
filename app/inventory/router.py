@@ -14,6 +14,7 @@ from app.core.db import DbSession
 from app.core.templates import templates
 from app.features.service import remove_inapplicable_picks
 from app.inventory.models import CharacterItem, Item
+from app.inventory.rules import gain, spend
 from app.inventory.service import (
     COINS,
     MAX_COINS,
@@ -33,10 +34,9 @@ from app.inventory.service import (
     set_coins,
     use_one,
 )
-from app.inventory.rules import gain, spend
+from app.sheet.router import refresh_sheet
 from app.sheet.rules import current_hp, heal, roll_detail, set_temp_hp
 from app.sheet.service import active_ac_spell_ids, apply_ac_spell, max_hp, play_state
-from app.sheet.router import refresh_sheet
 from app.spells.models import Spell
 
 router = APIRouter(tags=["inventory"])

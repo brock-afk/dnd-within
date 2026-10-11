@@ -1,8 +1,8 @@
 """Content pack commands.
 
-    python -m app.content check                  validate every pack; exit 1 on errors
-    python -m app.content import [PACK] [--force]  import changed packs (or PACK); --force
-                                                 re-imports even if unchanged
+python -m app.content check                  validate every pack; exit 1 on errors
+python -m app.content import [PACK] [--force]  import changed packs (or PACK); --force
+                                             re-imports even if unchanged
 """
 
 import argparse

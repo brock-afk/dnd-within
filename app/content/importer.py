@@ -45,16 +45,23 @@ class FeatureSync:
     def _criteria(self, choice: ChoiceDef) -> dict:
         """Choice rules as written in YAML use slugs; the database stores resolved ids."""
         if choice.kind in ("skill", "expertise") and "from" in choice.criteria:
-            return {"skill_ids": [self._id(Skill, ref, "skills") for ref in choice.criteria["from"]]}
+            return {
+                "skill_ids": [self._id(Skill, ref, "skills") for ref in choice.criteria["from"]]
+            }
         if choice.kind in ("spell", "spellbook"):
             rest = {k: v for k, v in choice.criteria.items() if k != "class"}
-            return {"class_id": self._id(CharacterClass, choice.criteria["class"], "classes"), **rest}
+            return {
+                "class_id": self._id(CharacterClass, choice.criteria["class"], "classes"),
+                **rest,
+            }
         return dict(choice.criteria)
 
     def _sync_features(self, fk_column: str, parent_id: int, defs: list[FeatureDef]) -> None:
         existing = {
             f.slug: f
-            for f in self.db.scalars(select(Feature).where(getattr(Feature, fk_column) == parent_id))
+            for f in self.db.scalars(
+                select(Feature).where(getattr(Feature, fk_column) == parent_id)
+            )
         }
         for position, fdef in enumerate(defs):
             feature = existing.pop(fdef.slug, None)
@@ -80,7 +87,9 @@ class FeatureSync:
         self.db.flush()
         by_slug = {
             f.slug: f
-            for f in self.db.scalars(select(Feature).where(getattr(Feature, fk_column) == parent_id))
+            for f in self.db.scalars(
+                select(Feature).where(getattr(Feature, fk_column) == parent_id)
+            )
         }
         for fdef in defs:
             feature = by_slug[fdef.slug]

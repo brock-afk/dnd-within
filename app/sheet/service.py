@@ -19,8 +19,8 @@ from app.sheet.models import (
     CharacterSpellSlot,
 )
 from app.sheet.rules import apply_max_change, current_hp, proficiency_bonus, skill_bonus
-from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.sheet.slots import slot_maximums
+from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.spells.models import Spell
 from app.spells.queries import character_spells, spellbook
 
@@ -210,9 +210,7 @@ def attributes(db: Session, character: Character) -> Attributes:
     best = max(ranges, default=(0, ""))
     darkvision = best[0] + sum(n for n, _ in bonuses)
     darkvision_sources = ([best[1]] if best[1] else []) + [source for _, source in bonuses]
-    return Attributes(
-        saves, speed, speed_parts, darkvision, darkvision_sources, resistances, tools
-    )
+    return Attributes(saves, speed, speed_parts, darkvision, darkvision_sources, resistances, tools)
 
 
 def ability_rows(
@@ -227,7 +225,9 @@ def ability_rows(
     pb = proficiency_bonus(character.level)
     return [
         AbilityRow(
-            a, a.mod + (pb if a.abbr in sources else 0), a.abbr in sources,
+            a,
+            a.mod + (pb if a.abbr in sources else 0),
+            a.abbr in sources,
             tuple(sources.get(a.abbr, ())),
         )
         for a in abilities
@@ -251,7 +251,9 @@ def skill_rows(db: Session, character: Character) -> list[SkillRow] | None:
     mods = {a.abbr: a.mod for a in abilities}
     pb = proficiency_bonus(character.level)
     proficient = set(
-        db.scalars(select(CharacterSkill.skill_id).where(CharacterSkill.character_id == character.id))
+        db.scalars(
+            select(CharacterSkill.skill_id).where(CharacterSkill.character_id == character.id)
+        )
     )
     expertise = {
         row.skill_id: row
@@ -359,7 +361,7 @@ class AcSpell:
     card to cast on yourself."""
 
     spell: Spell
-    slots: list["SlotLevel"]  # the slot levels it can be cast with right now
+    slots: list[SlotLevel]  # the slot levels it can be cast with right now
 
     @property
     def effect(self) -> dict:

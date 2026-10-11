@@ -19,8 +19,8 @@ from app.features.router import router as features_router
 from app.homebrew.router import router as homebrew_router
 from app.inventory.router import router as inventory_router
 from app.leveling.router import router as leveling_router
-from app.sharing.router import router as sharing_router
 from app.sharing.live import publish, publish_all
+from app.sharing.router import router as sharing_router
 from app.sheet.router import router as sheet_router
 from app.species.router import router as species_router
 
@@ -57,6 +57,8 @@ async def notify_shared_views(request: Request, call_next):
         elif request.url.path.startswith("/homebrew/"):
             publish_all()
     return response
+
+
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 
 app.include_router(auth_router)

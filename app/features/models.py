@@ -40,9 +40,7 @@ class Feature(Base):
         UniqueConstraint("background_id", "slug"),
         UniqueConstraint("feat_id", "slug"),
         UniqueConstraint("item_id", "slug"),
-        CheckConstraint(
-            "action IN ('action', 'bonus_action', 'reaction')", name="action_values"
-        ),
+        CheckConstraint("action IN ('action', 'bonus_action', 'reaction')", name="action_values"),
         CheckConstraint(
             "(spends_feature_id IS NULL) = (spends_amount IS NULL)", name="spends_together"
         ),
@@ -81,12 +79,10 @@ class Feature(Base):
     position: Mapped[int] = mapped_column(default=0)
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 
-    choices: Mapped[list["Choice"]] = relationship(
+    choices: Mapped[list[Choice]] = relationship(
         back_populates="feature", order_by="Choice.position", lazy="selectin"
     )
-    spells: Mapped[list["FeatureSpell"]] = relationship(
-        cascade="all, delete-orphan", lazy="selectin"
-    )
+    spells: Mapped[list[FeatureSpell]] = relationship(cascade="all, delete-orphan", lazy="selectin")
 
 
 class FeatureSpell(Base):
@@ -106,7 +102,7 @@ class FeatureSpell(Base):
     always_prepared: Mapped[bool] = mapped_column(default=True, server_default=text("1"))
     note: Mapped[str | None] = mapped_column(String(255))  # shown on the spell
 
-    spell: Mapped["Spell"] = relationship(lazy="joined")  # noqa: F821
+    spell: Mapped[Spell] = relationship(lazy="joined")  # noqa: F821
 
 
 class Choice(Base):
@@ -136,7 +132,7 @@ class Choice(Base):
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 
     feature: Mapped[Feature] = relationship(back_populates="choices", lazy="joined")
-    options: Mapped[list["ChoiceOption"]] = relationship(
+    options: Mapped[list[ChoiceOption]] = relationship(
         order_by="ChoiceOption.position", lazy="selectin"
     )
 

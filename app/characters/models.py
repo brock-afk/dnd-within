@@ -76,7 +76,7 @@ class Character(Base):
 
     @property
     def class_summary(self) -> str:
-        """"Wizard (Evoker)" for a single class, "Wizard 3 (Evoker) / Fighter 2" when
+        """ "Wizard (Evoker)" for a single class, "Wizard 3 (Evoker) / Fighter 2" when
         multiclassed. The subclass appears once one is chosen."""
 
         def label(cc: CharacterClassLevel, with_level: bool) -> str:

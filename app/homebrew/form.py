@@ -36,10 +36,29 @@ RECHARGES = {"dawn": "At dawn", "long_rest": "On a long rest", "short_rest": "On
 PREPARED = {"no": "No: charges only", "yes": "Yes: also cast with spell slots"}
 ACTIONS = {"": "None", "action": "Action", "bonus_action": "Bonus Action", "reaction": "Reaction"}
 TOOL_MODES = {"none": "None", "fixed": "A set tool", "choice": "Chosen on the Play sheet"}
-ABILITIES = {"STR": "Strength", "DEX": "Dexterity", "CON": "Constitution",
-             "INT": "Intelligence", "WIS": "Wisdom", "CHA": "Charisma"}
-DAMAGE_TYPES = ["acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic",
-                "piercing", "poison", "psychic", "radiant", "slashing", "thunder"]
+ABILITIES = {
+    "STR": "Strength",
+    "DEX": "Dexterity",
+    "CON": "Constitution",
+    "INT": "Intelligence",
+    "WIS": "Wisdom",
+    "CHA": "Charisma",
+}
+DAMAGE_TYPES = [
+    "acid",
+    "bludgeoning",
+    "cold",
+    "fire",
+    "force",
+    "lightning",
+    "necrotic",
+    "piercing",
+    "poison",
+    "psychic",
+    "radiant",
+    "slashing",
+    "thunder",
+]
 
 SPELL_FIELDS = ["spell_id", "spell_charges", "spell_prepared", "spell_note"]
 ABILITY_FIELDS = ["ability_name", "ability_action", "ability_charges", "ability_text"]
@@ -97,7 +116,7 @@ class ItemForm(BaseModel):
         """[name, action, charges, text] per row."""
         return self._rows(ABILITY_FIELDS)
 
-    def upgrade(self) -> "ItemForm":
+    def upgrade(self) -> ItemForm:
         """Convert an item saved by the first version of the editor: a spell's "Spend a charge"
         or "Always prepared", and an ability's free-text "Bonus Action · 1 charge"."""
         if self.spell_cast and not self.spell_charges:
@@ -107,8 +126,15 @@ class ItemForm(BaseModel):
             self.ability_action, self.ability_charges = [], []
             for when in self.ability_when:
                 text = when.lower()
-                action = ("bonus_action" if "bonus" in text else "reaction" if "reaction" in text
-                          else "action" if "action" in text else "")
+                action = (
+                    "bonus_action"
+                    if "bonus" in text
+                    else "reaction"
+                    if "reaction" in text
+                    else "action"
+                    if "action" in text
+                    else ""
+                )
                 count = re.search(r"(\d+)\s*charge", text)
                 self.ability_action.append(action)
                 self.ability_charges.append(count[1] if count else "1" if "charge" in text else "")
@@ -156,8 +182,16 @@ def _number(raw: str, low: int, high: int, label: str, errors: dict, key: str) -
 
 def _regain_text(form: ItemForm) -> str:
     if form.recharge == "dawn":
-        return f"regains {form.regain.strip()} at dawn" if form.regain.strip() else "all regained at dawn"
-    return "regained on a short or long rest" if form.recharge == "short_rest" else "regained on a long rest"
+        return (
+            f"regains {form.regain.strip()} at dawn"
+            if form.regain.strip()
+            else "all regained at dawn"
+        )
+    return (
+        "regained on a short or long rest"
+        if form.recharge == "short_rest"
+        else "regained on a long rest"
+    )
 
 
 def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[str, str]]:
@@ -173,7 +207,9 @@ def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[st
         errors["category"] = "Choose a type."
     if form.rarity not in RARITIES:
         errors["rarity"] = "Choose a rarity."
-    if form.healing.strip() and not re.fullmatch(r"\s*\d+d\d+(\s*[+-]\s*\d+)?\s*|\s*\d+\s*", form.healing):
+    if form.healing.strip() and not re.fullmatch(
+        r"\s*\d+d\d+(\s*[+-]\s*\d+)?\s*|\s*\d+\s*", form.healing
+    ):
         errors["healing"] = "Healing is dice like 2d4+2, or a number."
     charges = _number(form.charges, 1, 99, "Charges", errors, "charges")
     if form.recharge not in RECHARGES:
@@ -201,8 +237,15 @@ def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[st
         entry = {"spell": ref, "note": note.strip() or None}
         if cost is not None:
             charge_spells.append(
-                (spell, {**entry, "free_cast": True, "charges": cost,
-                         "always_prepared": prepared == "yes"})
+                (
+                    spell,
+                    {
+                        **entry,
+                        "free_cast": True,
+                        "charges": cost,
+                        "always_prepared": prepared == "yes",
+                    },
+                )
             )
         elif prepared == "yes":
             prepared_spells.append((spell, entry))
@@ -246,13 +289,15 @@ def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[st
         cost = _number(ability_charges, 1, 20, "An ability's charges", errors, "abilities")
         if cost is not None and charges is None:
             errors["abilities"] = "Abilities that spend charges need the item to have charges."
-        abilities.append({
-            "slug": f"ability-{i + 1}",
-            "name": ability,
-            "summary": text,
-            "action": action or None,
-            **({"spends": {"feature": "charges", "amount": cost}} if cost is not None else {}),
-        })
+        abilities.append(
+            {
+                "slug": f"ability-{i + 1}",
+                "name": ability,
+                "summary": text,
+                "action": action or None,
+                **({"spends": {"feature": "charges", "amount": cost}} if cost is not None else {}),
+            }
+        )
 
     if errors:
         return None, errors
@@ -262,49 +307,65 @@ def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[st
         uses = [
             f"cast {spell.name} ({_charges(entry['charges'])})" for spell, entry in charge_spells
         ] + [f"{a['name']} ({_charges(a['spends']['amount'])})" for a in abilities if "spends" in a]
-        features.append({
-            "slug": "charges",
-            "name": f"{name} charges"[:80],
-            "summary": f"{charges} charges, {_regain_text(form)}."
-            + (f" Spend them to {', '.join(uses)}." if uses else ""),
-            "uses": {
-                "max": charges,
-                "recharge": form.recharge,
-                **({"regain": form.regain.strip()} if form.regain.strip() else {}),
-            },
-            "spells": [entry for _, entry in charge_spells],
-        })
+        features.append(
+            {
+                "slug": "charges",
+                "name": f"{name} charges"[:80],
+                "summary": f"{charges} charges, {_regain_text(form)}."
+                + (f" Spend them to {', '.join(uses)}." if uses else ""),
+                "uses": {
+                    "max": charges,
+                    "recharge": form.recharge,
+                    **({"regain": form.regain.strip()} if form.regain.strip() else {}),
+                },
+                "spells": [entry for _, entry in charge_spells],
+            }
+        )
     if prepared_spells:
-        features.append({
-            "slug": "spells",
-            "name": "Spells",
-            "summary": "Always prepared: " + ", ".join(s.name for s, _ in prepared_spells) + ".",
-            "spells": [entry for _, entry in prepared_spells],
-        })
+        features.append(
+            {
+                "slug": "spells",
+                "name": "Spells",
+                "summary": "Always prepared: "
+                + ", ".join(s.name for s, _ in prepared_spells)
+                + ".",
+                "spells": [entry for _, entry in prepared_spells],
+            }
+        )
     if grants:
-        features.append({
-            "slug": "benefits",
-            "name": "While attuned" if form.attunement else "While carried",
-            "summary": _benefits_text(grants),
-            "grants": grants,
-        })
+        features.append(
+            {
+                "slug": "benefits",
+                "name": "While attuned" if form.attunement else "While carried",
+                "summary": _benefits_text(grants),
+                "grants": grants,
+            }
+        )
     if form.tool_mode == "choice":
-        features.append({
-            "slug": "tool",
-            "name": "Tool proficiency",
-            "summary": "Proficiency with one tool of your choice; change it on the Play sheet.",
-            "choices": [{
+        features.append(
+            {
                 "slug": "tool",
-                "name": "Tool",
-                "kind": "option",
-                "in_play": True,
-                "options": [
-                    {"slug": slugify(tool), "name": tool, "summary": f"Proficiency with {tool}.",
-                     "grants": {"tool_proficiencies": [tool]}}
-                    for tool in TOOLS
+                "name": "Tool proficiency",
+                "summary": "Proficiency with one tool of your choice; change it on the Play sheet.",
+                "choices": [
+                    {
+                        "slug": "tool",
+                        "name": "Tool",
+                        "kind": "option",
+                        "in_play": True,
+                        "options": [
+                            {
+                                "slug": slugify(tool),
+                                "name": tool,
+                                "summary": f"Proficiency with {tool}.",
+                                "grants": {"tool_proficiencies": [tool]},
+                            }
+                            for tool in TOOLS
+                        ],
+                    }
                 ],
-            }],
-        })
+            }
+        )
     features.extend(abilities)
 
     data = {
@@ -341,7 +402,8 @@ def _benefits_text(grants: dict) -> str:
         parts.append("Resistance to " + ", ".join(grants["resistances"]) + " damage")
     if grants.get("save_proficiencies"):
         parts.append(
-            "Proficiency in " + ", ".join(ABILITIES[a] for a in grants["save_proficiencies"])
+            "Proficiency in "
+            + ", ".join(ABILITIES[a] for a in grants["save_proficiencies"])
             + " saving throws"
         )
     if grants.get("tool_proficiencies"):

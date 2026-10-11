@@ -10,9 +10,7 @@ APP_DIR = Path(__file__).resolve().parent.parent
 # Shared templates (base layout, common partials) live in app/templates. Each domain
 # keeps its own in app/<domain>/templates/<domain>/, so names are namespaced like
 # "auth/login.html" and domains can't collide.
-templates = Jinja2Templates(
-    directory=[APP_DIR / "templates", *sorted(APP_DIR.glob("*/templates"))]
-)
+templates = Jinja2Templates(directory=[APP_DIR / "templates", *sorted(APP_DIR.glob("*/templates"))])
 
 _static_versions: dict[str, tuple[float, str]] = {}
 

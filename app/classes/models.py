@@ -94,7 +94,7 @@ class CharacterClassLevel(Base):
     subclass: Mapped[Subclass | None] = relationship(
         lazy="joined", foreign_keys=[subclass_id], viewonly=True
     )
-    character: Mapped["Character"] = relationship(back_populates="classes")  # noqa: F821
+    character: Mapped[Character] = relationship(back_populates="classes")  # noqa: F821
 
     @property
     def level(self) -> int:

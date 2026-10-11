@@ -170,7 +170,7 @@ def _parse(folder: Path) -> Pack:
 
 
 def split_ref(ref: str) -> tuple[str | None, str]:
-    """"phb-2024/wizard" -> ("phb-2024", "wizard"); "wizard" -> (None, "wizard")."""
+    """ "phb-2024/wizard" -> ("phb-2024", "wizard"); "wizard" -> (None, "wizard")."""
     pack, _, slug = ref.rpartition("/")
     return (pack or None), slug
 
@@ -190,8 +190,13 @@ def resolve(ref: str, kind: str, pack: Pack, by_slug: dict[str, Pack]) -> str | 
 
 
 def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
-    singular = {"classes": "class", "skills": "skill", "spells": "spell", "feats": "feat",
-                "items": "item"}
+    singular = {
+        "classes": "class",
+        "skills": "skill",
+        "spells": "spell",
+        "feats": "feat",
+        "items": "item",
+    }
 
     def check(ref: str, kind: str, where: str):
         if resolve(ref, kind, pack, by_slug) is None:

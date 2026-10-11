@@ -16,3 +16,24 @@ dependencies = [
     "sqlalchemy>=2.1.4",
     "uvicorn>=0.54.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.0",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI copies list defaults per request, so `= []` on Form/Query params is safe.
+"app/**/router.py" = ["B006"]
+# Alembic autogenerates these.
+"migrations/versions/*" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

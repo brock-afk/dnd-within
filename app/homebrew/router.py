@@ -40,7 +40,9 @@ def _character(db: Session, user: User, key: str) -> Character | None:
 
 def _form_context(db: Session, user: User, form: ItemForm, item: Item | None, errors=None) -> dict:
     spells = db.scalars(
-        select(Spell).where(available(Spell), visible(Spell, user.id)).order_by(Spell.level, Spell.name)
+        select(Spell)
+        .where(available(Spell), visible(Spell, user.id))
+        .order_by(Spell.level, Spell.name)
     ).all()
     return {
         "user": user,
@@ -86,9 +88,7 @@ def _owned(db: Session, user: User, item_id: int) -> Item:
 @router.get("/homebrew", response_class=HTMLResponse)
 def library(request: Request, db: DbSession, user: CurrentUser):
     items = [(item, item_detail(item)) for item in user_items(db, user)]
-    return templates.TemplateResponse(
-        request, "homebrew/list.html", {"user": user, "items": items}
-    )
+    return templates.TemplateResponse(request, "homebrew/list.html", {"user": user, "items": items})
 
 
 @router.get("/homebrew/items/new", response_class=HTMLResponse)

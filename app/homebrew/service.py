@@ -23,8 +23,9 @@ def homebrew_source(db: Session, user: User) -> Source:
     slug = f"homebrew-{user.id}"
     source = db.scalar(select(Source).where(Source.slug == slug))
     if source is None:
-        source = Source(slug=slug, name=f"{user.username}'s homebrew", kind="homebrew",
-                        owner_user_id=user.id)
+        source = Source(
+            slug=slug, name=f"{user.username}'s homebrew", kind="homebrew", owner_user_id=user.id
+        )
         db.add(source)
         db.flush()
     return source
@@ -68,7 +69,9 @@ def owned_item(db: Session, user: User, item_id: int) -> Item | None:
 def _unique_slug(db: Session, source: Source, slug: str, item: Item | None) -> str:
     taken = set(
         db.scalars(
-            select(Item.slug).where(Item.source_id == source.id, Item.id != (item.id if item else 0))
+            select(Item.slug).where(
+                Item.source_id == source.id, Item.id != (item.id if item else 0)
+            )
         )
     )
     candidate, n = slug, 2

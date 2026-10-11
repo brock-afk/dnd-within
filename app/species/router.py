@@ -27,9 +27,7 @@ def _render_form(
     error: str | None = None,
     status_code: int = 200,
 ):
-    all_species = db.scalars(
-        select(Species).where(available(Species)).order_by(Species.name)
-    ).all()
+    all_species = db.scalars(select(Species).where(available(Species)).order_by(Species.name)).all()
     return templates.TemplateResponse(
         request,
         "characters/partials/origin_form.html",
@@ -64,7 +62,9 @@ def save_species(
 ):
     species = db.get(Species, int(species_id)) if species_id.isdigit() else None
     if species is None or species.retired_at is not None:
-        return _render_form(request, db, character, species_id, "Choose a species.", status_code=400)
+        return _render_form(
+            request, db, character, species_id, "Choose a species.", status_code=400
+        )
     if species.id != character.species_id:
         change_origin(db, character, "species_id", species.id)
     return refresh_character_page(request, db, user, character)

@@ -97,9 +97,7 @@ def _render_editor(
             if score in POINT_BUY_COSTS:
                 row.cost = POINT_BUY_COSTS[score]
                 row.can_decrease = score > 8
-                row.can_increase = (
-                    score < 15 and POINT_BUY_COSTS[score + 1] - row.cost <= remaining
-                )
+                row.can_increase = score < 15 and POINT_BUY_COSTS[score + 1] - row.cost <= remaining
         else:
             # A value is free for this ability if the pool still has a copy of it once the
             # other abilities' picks are taken out. Duplicate rolls count separately.

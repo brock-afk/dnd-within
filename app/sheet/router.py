@@ -26,9 +26,9 @@ from app.inventory.service import (
     inventory,
     item_features,
 )
-from app.sharing.service import public_share
 from app.inventory.service import digest as inventory_digest
 from app.leveling.service import constitution_modifier
+from app.sharing.service import public_share
 from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
 from app.sheet.rests import (
     damage_reactions,
@@ -42,17 +42,17 @@ from app.sheet.rests import (
 )
 from app.sheet.rules import heal, hit_die_healing, set_temp_hp, take_damage
 from app.sheet.service import (
-    active_ac_spell_ids,
     COPY_SEARCH_MIN,
     ability_modifier,
     ability_rows,
-    attributes,
-    granted_spells,
     ac_spells,
+    active_ac_spell_ids,
     apply_ac_spell,
     armor_class,
+    attributes,
     castable_spells,
     copy_warnings,
+    granted_spells,
     hp_view,
     max_hp,
     play_state,
@@ -84,7 +84,7 @@ def render_sheet(
     status_code=200,
     resting=False,
     pending_damage: int | None = None,
-    copying: "CopyPanel | None" = None,
+    copying: CopyPanel | None = None,
     notices=None,
     read_only: bool = False,
     base_url: str | None = None,
@@ -166,7 +166,15 @@ def refresh_sheet(
     """Re-render the sheet and morph it into place (see app/core/templates.py)."""
     db.expire_all()  # sessions don't expire on commit; reload what just changed
     response = render_sheet(
-        request, db, user, character, errors, status_code, resting, pending_damage, copying,
+        request,
+        db,
+        user,
+        character,
+        errors,
+        status_code,
+        resting,
+        pending_damage,
+        copying,
         notices,
     )
     return morph_in_place(response, SHEET_SELECTOR)
@@ -563,7 +571,11 @@ def _spend_slot(db, character, spell_key: str, slot_level: str) -> tuple[Spell |
     Returns (the spell, None), or (None, what's wrong) without spending anything."""
     # A prepared ritual is listed twice (as a ritual and at its level); casting uses the slot row.
     row = next(
-        (r for r in castable_spells(db, character) if str(r.spell.id) == spell_key and r.uses_slots),
+        (
+            r
+            for r in castable_spells(db, character)
+            if str(r.spell.id) == spell_key and r.uses_slots
+        ),
         None,
     )
     slots = spell_slots(db, character)
@@ -630,7 +642,9 @@ def set_uses(
     return refresh_sheet(request, db, user, character)
 
 
-@router.post("/characters/{character_id}/sheet/features/{feature_id}/use", response_class=HTMLResponse)
+@router.post(
+    "/characters/{character_id}/sheet/features/{feature_id}/use", response_class=HTMLResponse
+)
 def use_feature(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, feature_id: int
 ):

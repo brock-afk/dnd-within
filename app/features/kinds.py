@@ -261,7 +261,13 @@ class SpellKind(ChoiceKind):
     def view(self, spell):
         group = "Cantrips" if spell.level == 0 else f"Level {spell.level}"
         return OptionView(
-            str(spell.id), spell.name, spell.summary, spell.detail, group, spell.school, spell.ritual
+            str(spell.id),
+            spell.name,
+            spell.summary,
+            spell.detail,
+            group,
+            spell.school,
+            spell.ritual,
         )
 
 

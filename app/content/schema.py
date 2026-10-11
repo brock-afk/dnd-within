@@ -22,7 +22,6 @@ from app.features.schema import (
     spends_errors,
 )
 
-
 # "8d6", "1d4+1", "2d4 + 4", or a flat number like "5".
 DICE = re.compile(r"^\s*(\d+d\d+(\s*[+-]\s*\d+)?|\d+)\s*$")
 
@@ -145,7 +144,9 @@ class ItemDef(Strict):
     slug: Slug
     name: Text80
     category: Literal["gear", "consumable", "pack", "scroll", "tool", "magic"]
-    rarity: Literal["common", "uncommon", "rare", "very_rare", "legendary", "artifact"] | None = None
+    rarity: Literal["common", "uncommon", "rare", "very_rare", "legendary", "artifact"] | None = (
+        None
+    )
     cost: str | None = None  # "40 GP"
     weight: float | None = Field(default=None, ge=0)  # pounds
     summary: Text255
@@ -366,8 +367,19 @@ class SpellDef(Strict):
             mode="json",
             exclude_none=True,
             include={
-                "casting_time", "range", "area", "components", "duration", "save", "attack",
-                "damage", "healing", "cantrip_scaling", "higher_slots", "ac_effect", "note",
+                "casting_time",
+                "range",
+                "area",
+                "components",
+                "duration",
+                "save",
+                "attack",
+                "damage",
+                "healing",
+                "cantrip_scaling",
+                "higher_slots",
+                "ac_effect",
+                "note",
                 "page",
             },
         )

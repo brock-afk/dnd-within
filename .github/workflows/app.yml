@@ -45,3 +45,32 @@ jobs:
             ${{ env.IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency: deploy # one deploy at a time; run-command can't overlap
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to the VM
+        run: |
+          # The script plus its inputs, as one file: run-command parameters can't carry
+          # values containing "=" (base64 padding).
+          {
+            echo "image='$IMAGE:$GITHUB_SHA'"
+            echo "bundle='$(tar -czf - docker-compose.yml docker-compose.prod.yml Caddyfile scripts | base64 -w0)'"
+            cat scripts/deploy-vm.sh
+          } > deploy.sh
+          result=$(az vm run-command invoke -g rg-dndwithin-iaas -n vm-dndwithin-app \
+            --command-id RunShellScript --scripts @deploy.sh \
+            --query "value[0].message" -o tsv)
+          echo "$result"
+          # run-command succeeds even when the script fails; check the script's own outcome.
+          echo "$result" | grep -q "Enable succeeded"

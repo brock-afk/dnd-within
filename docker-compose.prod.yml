@@ -1,8 +1,11 @@
-# Production overrides: Caddy in front for HTTPS, the private content packs mounted read-only.
-# Usage (on the server; the CI pipeline runs it):
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Production overrides: the image from the registry, Caddy in front for HTTPS, MySQL on the
+# VM's data disk. Runs in /opt/dnd-within on the VM; the App workflow deploys it and sets
+# APP_IMAGE in .env.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 services:
   app:
+    image: ${APP_IMAGE:?Set APP_IMAGE in .env}
+    build: !reset null
     volumes:
       # Third-party packs live on the server, never in the image.
       - ./content-private:/app/content-private:ro
@@ -13,6 +16,16 @@ services:
     # are right; trusting any forwarder is safe because the app port isn't public.
     command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 3 --proxy-headers --forwarded-allow-ips '*'"]
 
+  db:
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    # Sized for a 1 GB VM.
+    command: ["--innodb-buffer-pool-size=128M", "--performance-schema=OFF", "--max-connections=30"]
+    ports: !reset []
+    volumes:
+      - /srv/data/mysql:/var/lib/mysql
+
   caddy:
     image: caddy:2.10
     restart: unless-stopped
@@ -21,7 +34,7 @@ services:
       - "443:443"
       - "443:443/udp"
     environment:
-      DOMAIN: ${DOMAIN:?Set DOMAIN in .env, e.g. dnd.example.com}
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data  # HTTPS certificates: keep them across restarts

@@ -31,7 +31,14 @@ Content packs:
 ./dev.sh exec app python -m app.content import [PACK] [--force]
 ```
 
-There is no test suite, linter, or formatter configured.
+Tests and lint run on the host, no database needed:
+
+```bash
+uv run pytest                                          # pure rules.py modules + committed content packs
+uv run ruff check --fix . && uv run ruff format .
+```
+
+CI's `check` job (ruff, pytest) gates build and deploy. A project hook in `.claude/settings.json` runs ruff on every `.py` file Claude edits.
 
 Deploying: to Azure, being set up step by step (infrastructure as code in `infra/`, delivery through GitHub Actions). Database helpers:
 
@@ -42,6 +49,13 @@ scripts/backup.sh                     # server: daily from cron, keeps the newes
 ```
 
 `INVITE_CODE` gates registration. Keep the app a single process: live shared views notify in-process (`app/sharing/live.py`).
+
+## Workflow
+
+- New or changed rule logic comes with a test in `tests/`.
+- UI, template or htmx changes: check them in the running app (`/run`).
+- Before committing: `/simplify`, then `/code-review` on the diff (`high` for rules, importer, migrations).
+- Changes to `auth/`, `sharing/`, `homebrew/` or anything public-facing: `/security-review`.
 
 ## Architecture
 

@@ -125,7 +125,6 @@ def test_roll_dice_with_modifier_stays_in_range():
 
 @pytest.mark.parametrize("dice", ["1000d6", "6d1000", "1d6+1000", "1000", "99999999999999999d9"])
 def test_roll_refuses_oversized_dice(dice):
-    # A homebrew item saved before the limit mustn't roll billions of dice.
     with pytest.raises(ValueError):
         rules.roll_detail(dice)
 

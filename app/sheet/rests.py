@@ -18,6 +18,7 @@ from app.sheet.models import (
     CharacterAcEffect,
     CharacterFeatureUse,
     CharacterHitDice,
+    CharacterHpEffect,
     CharacterSpellSlot,
 )
 from app.sheet.rules import proficiency_bonus, roll
@@ -185,13 +186,14 @@ def finish_short_rest(db: Session, character: Character) -> None:
 
 def long_rest(db: Session, character: Character) -> None:
     """Full HP, no temporary HP, every hit die back (2024 rules), all spell slots and every
-    feature use restored, and AC spells cast from the sheet ended. Max HP effects aren't ended:
-    their durations aren't tracked yet.
+    feature use restored, and AC spells cast from the sheet ended. Every max HP effect ends: a
+    reduced max returns to normal, and effects like Aid (8 hours) are over.
 
     Charges regained "at dawn" count as a long rest. Ones that regain a roll (1d3) get that
     many back instead of all."""
+    db.execute(delete(CharacterHpEffect).where(CharacterHpEffect.character_id == character.id))
     state = play_state(db, character)
-    state.current_hp = None  # at full
+    state.current_hp = None  # at full, of the restored max
     state.temp_hp = 0
     state.temp_hp_source = None
     partial = [u for u in feature_uses(db, character) if u.feature.uses.get("regain")]

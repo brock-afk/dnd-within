@@ -94,8 +94,8 @@ def roll(dice: str, rng: random.Random | None = None) -> int:
 def roll_detail(dice: str, rng: random.Random | None = None) -> tuple[int, str]:
     """Roll and say how: (9, "2d4+2: 3 + 4, +2"). A plain number ("5") is just itself.
 
-    Numbers have at most three digits, like content validation allows. Anything bigger (a
-    homebrew item saved before that limit) raises ValueError instead of rolling billions of dice."""
+    Numbers have at most three digits, like content validation allows. Anything bigger raises
+    ValueError instead of rolling billions of dice."""
     rng = rng or random.Random()
     text = dice.replace(" ", "")
     if re.fullmatch(r"\d{1,3}", text):

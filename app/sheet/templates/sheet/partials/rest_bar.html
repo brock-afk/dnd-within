@@ -11,11 +11,10 @@
       <p>A long rest restores:</p>
       <ul>
         <li>All hit points; temporary hit points end</li>
+        <li>Max HP effects end: a drain returns to normal, and Aid is over</li>
         <li>All spent hit dice</li>
         <li>All spell slots and limited-use features</li>
       </ul>
-      <p class="muted">Max HP effects (like Aid) aren't ended automatically; end them below if they
-        expired.</p>
       <button type="button" hx-post="/characters/{{ character.id }}/sheet/long-rest">Take a long rest</button>
     </div>
   </details>

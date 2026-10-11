@@ -18,7 +18,7 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from app.content.models import Source
-from app.content.schema import ItemDef
+from app.content.schema import DICE, ItemDef
 from app.inventory.rules import TOOLS
 from app.spells.models import Spell
 
@@ -207,10 +207,8 @@ def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[st
         errors["category"] = "Choose a type."
     if form.rarity not in RARITIES:
         errors["rarity"] = "Choose a rarity."
-    if form.healing.strip() and not re.fullmatch(
-        r"\s*\d+d\d+(\s*[+-]\s*\d+)?\s*|\s*\d+\s*", form.healing
-    ):
-        errors["healing"] = "Healing is dice like 2d4+2, or a number."
+    if form.healing.strip() and not DICE.match(form.healing):
+        errors["healing"] = "Healing is dice like 2d4+2, or a number (up to 999)."
     charges = _number(form.charges, 1, 99, "Charges", errors, "charges")
     if form.recharge not in RECHARGES:
         errors["charges"] = "Choose when charges come back."

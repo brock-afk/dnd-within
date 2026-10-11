@@ -8,8 +8,9 @@ from typing import Annotated, Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-DICE = re.compile(r"^\d+d\d+$")
-DICE_BONUS = re.compile(r"^\s*\d+d\d+(\s*[+-]\s*\d+)?\s*$")  # "1d3", "1d6 + 1"
+# At most three digits per number (999d999+999), so a roll stays cheap.
+DICE = re.compile(r"^\d{1,3}d\d{1,3}$")
+DICE_BONUS = re.compile(r"^\s*\d{1,3}d\d{1,3}(\s*[+-]\s*\d{1,3})?\s*$")  # "1d3", "1d6 + 1"
 
 # Lowercase words joined by hyphens, like "potent-cantrip". At most 50 characters, the
 # smallest slug column.

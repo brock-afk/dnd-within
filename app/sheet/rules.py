@@ -87,17 +87,22 @@ def hit_die_healing(roll: int, con_mod: int) -> int:
 
 
 def roll(dice: str, rng: random.Random | None = None) -> int:
-    """Roll "1d3" or "2d4+2" (validated content, so always well formed)."""
+    """Roll "1d3" or "2d4+2"."""
     return roll_detail(dice, rng)[0]
 
 
 def roll_detail(dice: str, rng: random.Random | None = None) -> tuple[int, str]:
-    """Roll and say how: (9, "2d4+2: 3 + 4, +2"). A plain number ("5") is just itself."""
+    """Roll and say how: (9, "2d4+2: 3 + 4, +2"). A plain number ("5") is just itself.
+
+    Numbers have at most three digits, like content validation allows. Anything bigger (a
+    homebrew item saved before that limit) raises ValueError instead of rolling billions of dice."""
     rng = rng or random.Random()
     text = dice.replace(" ", "")
-    if text.isdigit():
+    if re.fullmatch(r"\d{1,3}", text):
         return int(text), text
-    match = re.fullmatch(r"(\d+)d(\d+)([+-]\d+)?", text)
+    match = re.fullmatch(r"(\d{1,3})d(\d{1,3})([+-]\d{1,3})?", text)
+    if match is None:
+        raise ValueError(f"{dice!r} isn't dice notation within 999d999+999")
     count, sides, flat = int(match[1]), int(match[2]), int(match[3] or 0)
     rolls = [rng.randint(1, sides) for _ in range(count)]
     shown = " + ".join(str(r) for r in rolls) + (f", {flat:+d}" if flat else "")

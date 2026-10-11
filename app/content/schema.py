@@ -22,8 +22,8 @@ from app.features.schema import (
     spends_errors,
 )
 
-# "8d6", "1d4+1", "2d4 + 4", or a flat number like "5".
-DICE = re.compile(r"^\s*(\d+d\d+(\s*[+-]\s*\d+)?|\d+)\s*$")
+# "8d6", "1d4+1", "2d4 + 4", or a flat number like "5". At most three digits per number.
+DICE = re.compile(r"^\s*(\d{1,3}d\d{1,3}(\s*[+-]\s*\d{1,3})?|\d{1,3})\s*$")
 
 
 class Strict(BaseModel):

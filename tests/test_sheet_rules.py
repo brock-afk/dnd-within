@@ -121,3 +121,15 @@ def test_roll_dice_with_modifier_stays_in_range():
         total, shown = rules.roll_detail("2d4+2", rng)
         assert 4 <= total <= 10
         assert shown.startswith("2d4+2: ")
+
+
+@pytest.mark.parametrize("dice", ["1000d6", "6d1000", "1d6+1000", "1000", "99999999999999999d9"])
+def test_roll_refuses_oversized_dice(dice):
+    # A homebrew item saved before the limit mustn't roll billions of dice.
+    with pytest.raises(ValueError):
+        rules.roll_detail(dice)
+
+
+def test_roll_largest_allowed_dice():
+    total, _ = rules.roll_detail("999d999+999", random.Random(0))
+    assert 999 + 999 <= total <= 999 * 999 + 999

@@ -5,6 +5,7 @@
 | `governance.bicep` | subscription | resource groups, policy assignments |
 | `acr.bicep` | `rg-dndwithin-shared` | container registry |
 | `ci-identity.bicep` | `rg-dndwithin-shared` | GitHub Actions identity and its roles (after `acr.bicep`) |
+| `network.bicep` | `rg-dndwithin-iaas` | VNet, subnet + NSG, public IP (pass `-p sshSourceAddress=<ip>/32`) |
 
     az deployment sub create   -n governance -l centralus -f governance.bicep -p governance.bicepparam
     az deployment group what-if -g <resource group> -f <file>.bicep -p <file>.bicepparam

@@ -31,14 +31,17 @@ Content packs:
 ./dev.sh exec app python -m app.content import [PACK] [--force]
 ```
 
-Tests and lint run on the host, no database needed:
+Tests and lint run on the host:
 
 ```bash
-uv run pytest                                          # pure rules.py modules + committed content packs
+uv run pytest                                          # everything; integration tests need the dev MySQL up
+uv run pytest --ignore=tests/integration               # pure rules.py modules + content packs, no database
 uv run ruff check --fix . && uv run ruff format .
 ```
 
-CI's `check` job (ruff, pytest) gates build and deploy. A project hook in `.claude/settings.json` runs ruff on every `.py` file Claude edits.
+`tests/integration/` runs on a real MySQL database, `dnd_within_test` (never the dev data). It is migrated to head and loaded with the committed packs once per run, and every test is rolled back. A fresh dev volume creates it from `scripts/test-db.sql`. No mocks: anything needing the database is an integration test.
+
+CI's `check` job (ruff, pytest with a MySQL service) gates build and deploy. A project hook in `.claude/settings.json` runs ruff on every `.py` file Claude edits.
 
 Deploying: to Azure, being set up step by step (infrastructure as code in `infra/`, delivery through GitHub Actions). Database helpers:
 

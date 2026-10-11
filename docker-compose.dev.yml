@@ -8,3 +8,8 @@ services:
       # Don't write root-owned __pycache__ dirs into the host project.
       PYTHONDONTWRITEBYTECODE: 1
     command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 3 --reload --reload-dir app"]
+
+  db:
+    volumes:
+      # Creates the integration tests' database on a fresh volume.
+      - ./scripts/test-db.sql:/docker-entrypoint-initdb.d/test-db.sql:ro

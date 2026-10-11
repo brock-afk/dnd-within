@@ -13,7 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.content.models import ContentMixin
-from app.core.db import Base
+from app.core.db import Base, NullableJSON
 
 
 class CharacterClass(ContentMixin, Base):
@@ -35,7 +35,7 @@ class CharacterClass(ContentMixin, Base):
         JSON, default=list, server_default=text("(json_array())")
     )
     # {"ability": "INT", "prepared": [20 counts]} for spellcasting classes, else NULL.
-    spellcasting: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    spellcasting: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
 
 
 class Subclass(ContentMixin, Base):

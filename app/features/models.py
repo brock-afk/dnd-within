@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db import Base
+from app.core.db import Base, NullableJSON
 
 
 class Feature(Base):
@@ -65,12 +65,12 @@ class Feature(Base):
     # apply only to a character's first class, "multiclass" ones only to classes added later.
     applies_to: Mapped[str] = mapped_column(String(20), default="all", server_default="all")
     # Limited uses: {"max": 2 | "proficiency_bonus", "recharge": "short_rest" | "long_rest"}.
-    uses: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    uses: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
     # Slot recovery on a short rest: {"budget": "half_class_level", "max_slot_level": 5}.
-    slot_recovery: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    slot_recovery: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
     # Attributes it always gives: {"darkvision": 60, "resistances": ["poison"], ...}; see
     # app/features/schema.py:GrantsDef.
-    grants: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    grants: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
     # Something you do (a magic item's Stonecunning): what it takes, and the uses it spends from
     # another feature of the same source (the item's charges). The sheet offers Use for it.
     action: Mapped[str | None] = mapped_column(String(20))  # action, bonus_action, reaction
@@ -152,9 +152,9 @@ class ChoiceOption(Base):
     when: Mapped[str | None] = mapped_column(String(120))
     # {"kind": "reduce" | "retaliate", "dice": "1d12", "ability": "CON", ...}; see
     # app/features/schema.py:DamageReactionDef.
-    damage_reaction: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    damage_reaction: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
     # While picked: {"save_proficiencies": ["CON"]}; see app/features/schema.py:GrantsDef.
-    grants: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    grants: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
     position: Mapped[int] = mapped_column(default=0)
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 

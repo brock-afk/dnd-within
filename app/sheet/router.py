@@ -154,7 +154,7 @@ def render_sheet(
         # ability modifier it adds to its roll.
         context["reactions"] = [
             (r, ability_modifier(db, character, r.option.damage_reaction.get("ability", "")))
-            for r in damage_reactions(db, character)
+            for r in damage_reactions(uses)
         ]
     if resting:
         context["hit_dice"] = hit_dice(db, character)
@@ -225,7 +225,8 @@ def change_hp(
     if maximum is None or action not in ("damage", "heal") or value is None:
         errors = {"hp": "Enter a whole number from 0 to 999."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
-    if action == "damage" and value and not skip_reactions and damage_reactions(db, character):
+    offer_reactions = action == "damage" and value and not skip_reactions
+    if offer_reactions and damage_reactions(feature_uses(db, character)):
         # Offer reactions like Stone's Endurance before the damage lands.
         return refresh_sheet(request, db, user, character, pending_damage=value)
     state = play_state(db, character)
@@ -247,9 +248,8 @@ def react_to_damage(
     """Use a damage reaction (Stone's Endurance, Storm's Thunder...), then take the damage."""
     maximum = max_hp(db, character)
     value = _amount(amount, 1, 999)
-    reaction = next(
-        (r for r in damage_reactions(db, character) if str(r.option.id) == option_id), None
-    )
+    reactions = damage_reactions(feature_uses(db, character))
+    reaction = next((r for r in reactions if str(r.option.id) == option_id), None)
     if maximum is None or value is None or reaction is None:
         errors = {"hp": "That reaction isn't available right now."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)

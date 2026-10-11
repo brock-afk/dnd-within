@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import MetaData, create_engine
+from sqlalchemy import JSON, MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
@@ -24,6 +24,11 @@ NAMING_CONVENTION = {
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+# For nullable JSON columns: None is stored as SQL NULL, not the JSON value null, so
+# `column.is_(None)` / `is_not(None)` filters work.
+NullableJSON = JSON(none_as_null=True)
 
 
 def get_db() -> Iterator[Session]:

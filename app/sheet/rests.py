@@ -253,12 +253,12 @@ class DamageReaction:
         return int(self.dice.split("d")[1])
 
 
-def damage_reactions(db: Session, character: Character) -> list[DamageReaction]:
+def damage_reactions(uses: list[FeatureUses]) -> list[DamageReaction]:
     """Damage reactions with a use left, offered before damage is applied."""
     return [
-        DamageReaction(uses, option)
-        for uses in feature_uses(db, character)
-        if uses.remaining > 0
-        for option in uses.options
+        DamageReaction(u, option)
+        for u in uses
+        if u.remaining > 0
+        for option in u.options
         if option.damage_reaction
     ]

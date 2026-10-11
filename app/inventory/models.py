@@ -5,7 +5,6 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
-    JSON,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -20,7 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.content.models import ContentMixin
-from app.core.db import Base
+from app.core.db import Base, NullableJSON
 from app.spells.models import Spell
 
 CATEGORIES = ("gear", "consumable", "pack", "scroll", "tool", "magic")
@@ -65,10 +64,10 @@ class Item(ContentMixin, Base):
     # Dice healed when used (a Potion of Healing's 2d4+2), drunk from the sheet's HP panel.
     healing: Mapped[str | None] = mapped_column(String(20))
     # Packs only: [{"item_id": 3, "quantity": 10}, ...], resolved from slugs on import.
-    contents: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
+    contents: Mapped[list[dict[str, Any]] | None] = mapped_column(NullableJSON)
     # Homebrew only: the item as entered in the editor (an ItemDef), to reopen it for editing.
     # Its row and features are derived from this, like a pack's rows from its YAML.
-    definition: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    definition: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
 
 
 class CharacterItem(Base):

@@ -15,6 +15,7 @@ from app.characters.models import Character
 from app.classes.models import CharacterClass, CharacterClassLevel
 from app.content.importer import import_packs
 from app.core.db import SessionLocal, engine, get_db
+from app.features.models import CharacterChoicePick, ChoiceOption
 from app.leveling.models import CharacterLevel
 from app.main import app
 from app.species.models import Species
@@ -66,6 +67,19 @@ def character(db) -> Character:
     db.add(character)
     db.flush()
     db.refresh(character)
+    return character
+
+
+@pytest.fixture
+def stone_giant(db, character) -> Character:
+    """The character, with Stone Giant ancestry picked: no grants, a damage reaction."""
+    stone = db.scalar(select(ChoiceOption).where(ChoiceOption.slug == "stone"))
+    db.add(
+        CharacterChoicePick(
+            character_id=character.id, choice_id=stone.choice_id, option_id=stone.id
+        )
+    )
+    db.flush()
     return character
 
 

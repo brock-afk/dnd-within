@@ -9,14 +9,13 @@ param location string = 'centralus'
 @description('Short project name, used in every resource name.')
 param project string = 'dndwithin'
 
-@description('Tags for the resource groups: what it is, which environment, what manages it.')
+@description('Tags for the resource groups: what it is and which environment.')
 param tags object = {
   project: project
   environment: 'prod'
-  'managed-by': 'bicep'
 }
 
-// One group per lifecycle: "shared" lasts (Terraform state, registry, Key Vault); "iaas" holds
+// One group per lifecycle: "shared" lasts (registry, CI identity, Key Vault); "iaas" holds
 // the Stage 1 VM and is deleted after the move to PaaS. A "paas" group comes in Stage 2.
 var resourceGroupNames = [
   'rg-${project}-shared'

@@ -1,4 +1,5 @@
-# Builds the app image for arm64 and amd64 and pushes it to Azure Container Registry.
+# Lints and tests, then builds the app image for arm64 and amd64, pushes it to Azure Container
+# Registry, and deploys it.
 name: App
 
 on:
@@ -18,7 +19,31 @@ env:
   IMAGE: crdndwithincsiqze.azurecr.io/dndwithin
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.23" # match the Dockerfile
+          python-version: "3.15"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked # fails if uv.lock is out of date with pyproject.toml
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Test
+        run: uv run pytest
+
   build:
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -11,7 +11,7 @@ variable "project" {
 }
 
 variable "github_repo" {
-  description = "GitHub repository (owner/name) whose main branch may log in to Azure."
+  description = "GitHub repository whose main branch may log in to Azure, as it appears in the OIDC subject (owner@id/name@id)."
   type        = string
-  default     = "brock-afk/dnd-within"
+  default     = "brock-afk@53913816/dnd-within@1413773531"
 }

@@ -1,6 +1,18 @@
 # Caddy: HTTPS for $DOMAIN (certificates are automatic) in front of the app.
 {$DOMAIN} {
 	encode gzip
+	header {
+		# HTTPS only, for a year once a browser has seen this.
+		Strict-Transport-Security "max-age=31536000"
+		# No other site may frame the app (clickjacking).
+		X-Frame-Options "DENY"
+		Content-Security-Policy "frame-ancestors 'none'"
+		# Share links (/shared/<token>) never leak to other sites through Referer.
+		Referrer-Policy "same-origin"
+		X-Content-Type-Options "nosniff"
+	}
+	# Share links aren't for search engines.
+	header /shared/* X-Robots-Tag "noindex, nofollow"
 	reverse_proxy app:8000 {
 		# Send server-sent events (live shared views) straight through, unbuffered.
 		flush_interval -1

@@ -7,6 +7,8 @@ set -euo pipefail
 export HOME=/root # run-command starts with an almost empty environment; az needs HOME
 cd /opt/dnd-within
 
+# Caddy only reads its Caddyfile at start, and `up` won't restart it for a file change.
+caddyfile_before=$(sha256sum Caddyfile 2>/dev/null || true)
 echo "${bundle:?}" | base64 -d | tar -xz
 chown -R azureuser: docker-compose.yml docker-compose.prod.yml Caddyfile scripts
 
@@ -23,6 +25,11 @@ az acr login --name "${image%%.*}"
 compose=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
 "${compose[@]}" pull --quiet
 "${compose[@]}" up -d --remove-orphans
+# A restart, not `caddy reload`: tar replaced the file, and the running container still
+# sees the old one through its bind mount.
+if [ "$(sha256sum Caddyfile)" != "$caddyfile_before" ]; then
+    "${compose[@]}" restart caddy
+fi
 docker image prune -f
 "${compose[@]}" ps
 echo "Deploy succeeded: $image"

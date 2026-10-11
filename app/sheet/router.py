@@ -15,7 +15,12 @@ from app.content.queries import available
 from app.core.db import DbSession
 from app.core.templates import morph_in_place, templates
 from app.features.kinds import KINDS
-from app.features.service import applicable_choice, play_choices
+from app.features.service import (
+    always_prepared_error,
+    always_prepared_spells,
+    applicable_choice,
+    play_choices,
+)
 from app.inventory.service import (
     COINS,
     MAX_ATTUNED,
@@ -111,7 +116,10 @@ def render_sheet(
         "play_choices": play_choices(db, character),
         "castable": castable_spells(db, character),
         "slots": spell_slots(db, character),
-        "prepared_count": len(prepared_spell_ids(db, character)),
+        # Always-prepared spells don't count, even if also picked from the book before.
+        "prepared_count": len(
+            prepared_spell_ids(db, character) - always_prepared_spells(db, character).keys()
+        ),
         "prepared_limit": prepared_limit(character),
         "has_spellbook": bool(spellbook(db, character.id)),
         "resting": resting,
@@ -396,10 +404,6 @@ def _render_prepared_editor(
     question is showing."""
     warnings = spell_warnings(db, character)
     notes = spellbook_notes(db, character)
-    # A granted spell is prepared anyway, so preparing it from the book would waste a pick.
-    for spell_id, (feature_spell, feature) in granted_spells(db, character).items():
-        if feature_spell.always_prepared:
-            notes[spell_id] = f"Always prepared ({feature.name})"
     options = [
         replace(
             KINDS["spell"].view(entry.spell),
@@ -417,6 +421,11 @@ def _render_prepared_editor(
             "character": character,
             "options": options,
             "selected": selected,
+            # A spell a feature keeps prepared anyway can't be picked: it would waste a pick.
+            "known": {
+                str(spell_id): f"Always prepared ({feature})"
+                for spell_id, feature in always_prepared_spells(db, character).items()
+            },
             "limit": prepared_limit(character),
             "filter_schools": sorted({o.school for o in options}),
             "error": error,
@@ -450,6 +459,8 @@ def save_prepared(
         error = "This character doesn't prepare spells."
     elif any(key not in book for key in picks):
         error = "You can only prepare spells in your spellbook."
+    elif refused := always_prepared_error(db, character, picks):
+        error = refused
     elif len(picks) > limit:
         error = f"You can prepare at most {limit}. You picked {len(picks)}."
     if error:
@@ -803,12 +814,16 @@ def _copy_cost(spell: Spell) -> str:
 
 def _copy_results(db, character, query: str) -> dict:
     spells = search_copyable(db, query)
-    in_book = {entry.spell_id for entry in spellbook(db, character.id)}
+    known = {
+        spell_id: f"Always prepared ({feature})"
+        for spell_id, feature in always_prepared_spells(db, character).items()
+    }
+    known.update((entry.spell_id, "In your spellbook") for entry in spellbook(db, character.id))
     return {
         "query": query.strip(),
         "min_length": COPY_SEARCH_MIN,
         "results": [
-            (spell, spell.id in in_book, found)
+            (spell, known.get(spell.id, ""), found)
             for spell, found in copy_warnings(db, character, spells).items()
         ],
     }
@@ -894,8 +909,10 @@ def copy_spell(
         error = "Choose a spell of level 1 or higher to copy."
     elif found.id in in_book:
         error = f"{found.name} is already in your spellbook."
+    else:
+        error = always_prepared_error(db, character, [str(found.id)])
     if error:
-        panel = CopyPanel(query=q, spell=found if found and found.id not in in_book else None)
+        panel = CopyPanel(query=q)
         return refresh_sheet(
             request, db, user, character, {"copy_spell": error}, status_code=400, copying=panel
         )

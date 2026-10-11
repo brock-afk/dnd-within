@@ -1,19 +1,20 @@
-{# Search results for the copy panel. `copy.results` is [(spell, in book, rule markers)]. #}
+{# Search results for the copy panel. `copy.results` is [(spell, why it can't be copied, rule
+   markers)]: already in the book, or always prepared through a feature. #}
 {% if copy.query | length < copy.min_length %}
 {% if copy.query %}<p class="muted">Keep typing…</p>{% endif %}
 {% elif not copy.results %}
 <p class="muted">No spell of level 1 or higher is named like “{{ copy.query }}”.</p>
 {% else %}
 <ul class="copy-results">
-  {% for spell, in_book, warnings in copy.results %}
-  <li class="copy-result{% if in_book %} known{% endif %}">
+  {% for spell, known, warnings in copy.results %}
+  <li class="copy-result{% if known %} known{% endif %}">
     <div>
       <span class="choice-name">{{ spell.name }}</span>
       <span class="muted">Level {{ spell.level }} · {{ spell.school | title }}</span>
       {% for w in warnings %}<span class="spell-tag warning">{{ w }}</span>{% endfor %}
     </div>
-    {% if in_book %}
-    <span class="choice-known">In your spellbook</span>
+    {% if known %}
+    <span class="choice-known">{{ known }}</span>
     {% else %}
     <button type="button" class="secondary-button"
             hx-get="/characters/{{ character.id }}/sheet/spellbook/copy/confirm?{{ {'spell': spell.id, 'q': copy.query} | urlencode }}"

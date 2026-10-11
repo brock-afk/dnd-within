@@ -9,6 +9,7 @@ from app.content.queries import available
 from app.features.kinds import KINDS, OptionView
 from app.features.models import Choice, Feature
 from app.inventory.models import CharacterItem, Item
+from app.spells.models import Spell
 
 
 @dataclass
@@ -181,6 +182,28 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
             )
             groups.append(FeatureGroup(name, kind, [FeatureSection("", views)], url))
     return groups
+
+
+def always_prepared_spells(db: Session, character: Character) -> dict[int, str]:
+    """{spell id: feature name} for spells the character's features keep always prepared
+    (Familiar Friend's Find Familiar). Writing one into the spellbook or preparing it again
+    would waste a pick, so both are blocked."""
+    found: dict[int, str] = {}
+    for group in feature_groups(db, character):
+        for fv in group.features:
+            for fs in fv.feature.spells:
+                if fs.always_prepared and fs.spell.retired_at is None:
+                    found.setdefault(fs.spell_id, fv.feature.name)
+    return found
+
+
+def always_prepared_error(db: Session, character: Character, keys: list[str]) -> str | None:
+    """Why these picked spells (form keys) can't be picked, if one is always prepared."""
+    granted = {str(i): feature for i, feature in always_prepared_spells(db, character).items()}
+    key = next((k for k in keys if k in granted), None)
+    if key is None:
+        return None
+    return f"{db.get(Spell, int(key)).name} is always prepared ({granted[key]})."
 
 
 @dataclass

@@ -14,6 +14,8 @@ from app.core.templates import templates
 from app.features.kinds import KINDS
 from app.features.models import Choice
 from app.features.service import (
+    always_prepared_error,
+    always_prepared_spells,
     applicable_choice,
     choice_level_label,
     remove_inapplicable_picks,
@@ -30,6 +32,16 @@ def _get_choice(db: Session, character: Character, choice_id: int) -> Choice:
     return choice
 
 
+def _unavailable(db, character, choice) -> dict[str, str]:
+    """{key: why} for options that can't be picked. A spellbook choice also can't take a spell
+    a feature already keeps always prepared."""
+    known = KINDS[choice.kind].unavailable(db, choice, character.id)
+    if choice.kind == "spellbook":
+        for spell_id, feature in always_prepared_spells(db, character).items():
+            known.setdefault(str(spell_id), f"Always prepared ({feature})")
+    return known
+
+
 def _render_form(request, db, character, choice, selected, error=None, status_code=200):
     options = KINDS[choice.kind].options(db, choice)
     return templates.TemplateResponse(
@@ -42,7 +54,7 @@ def _render_form(request, db, character, choice, selected, error=None, status_co
             "options": options,
             # Spell choices get filters; the schools listed are the ones among the options.
             "filter_schools": sorted({o.school for o in options if o.school}),
-            "known": KINDS[choice.kind].unavailable(db, choice, character.id),
+            "known": _unavailable(db, character, choice),
             "noun": KINDS[choice.kind].noun,
             "selected": selected,
             "error": error,
@@ -78,7 +90,9 @@ def save_choice(
         wanted = "one" if choice.count == 1 else f"exactly {choice.count}"
         error = f"Choose {wanted}." + (f" You picked {len(picks)}." if picks else "")
     else:
-        error = KINDS[choice.kind].save(db, choice, character.id, picks)
+        error = always_prepared_error(db, character, picks) if choice.kind == "spellbook" else None
+        if error is None:
+            error = KINDS[choice.kind].save(db, choice, character.id, picks)
 
     if error:
         return _render_form(request, db, character, choice, picks, error, status_code=400)

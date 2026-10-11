@@ -7,14 +7,19 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.testclient import TestClient
 
 from app.auth.models import User
+from app.auth.security import hash_password
 from app.characters.models import Character
 from app.classes.models import CharacterClass, CharacterClassLevel
 from app.content.importer import import_packs
-from app.core.db import SessionLocal, engine
+from app.core.db import SessionLocal, engine, get_db
 from app.leveling.models import CharacterLevel
+from app.main import app
 from app.species.models import Species
+
+PASSWORD = "test password"
 
 
 @pytest.fixture(scope="session")
@@ -39,7 +44,7 @@ def db(database):
 @pytest.fixture
 def character(db) -> Character:
     """A level 1 Goliath Wizard with Constitution 14: 8 max HP (d6 + 2)."""
-    user = User(username="tester", password_hash="x")
+    user = User(username="tester", password_hash=hash_password(PASSWORD))
     wizard = db.scalar(select(CharacterClass).where(CharacterClass.slug == "wizard"))
     goliath = db.scalar(select(Species).where(Species.slug == "goliath"))
     db.add(user)
@@ -62,3 +67,17 @@ def character(db) -> Character:
     db.flush()
     db.refresh(character)
     return character
+
+
+@pytest.fixture
+def client(db, character):
+    """The real app on the test transaction, logged in as the character's owner."""
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        client = TestClient(app)  # not as a context manager: skips the startup import
+        user = db.get(User, character.user_id)
+        response = client.post("/login", data={"username": user.username, "password": PASSWORD})
+        assert response.status_code == 200, response.text
+        yield client
+    finally:
+        app.dependency_overrides.clear()

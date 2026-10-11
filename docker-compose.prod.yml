@@ -11,6 +11,7 @@ services:
       - ./content-private:/app/content-private:ro
     environment:
       SESSION_HTTPS_ONLY: "true"
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
     # One process: live updates for shared views are in-process (app/sharing/live.py).
     # --proxy-headers makes request.base_url https://<domain>/ behind Caddy, so share links
     # are right; trusting any forwarder is safe because the app port isn't public.

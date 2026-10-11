@@ -4,8 +4,9 @@ from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse, Response
 
 from app.auth.models import User
+from app.auth.security import HashingBusy
 from app.core.db import DbSession
-from app.core.templates import hx_redirect
+from app.core.templates import form_error, hx_redirect
 
 
 class LoginRequired(Exception):
@@ -31,3 +32,7 @@ def login_required_handler(request: Request, exc: LoginRequired) -> Response:
     if request.headers.get("HX-Request"):
         return hx_redirect("/login")
     return RedirectResponse("/login", status_code=303)
+
+
+def hashing_busy_handler(request: Request, exc: HashingBusy) -> Response:
+    return form_error(request, "The server is busy. Try again in a moment.", status_code=503)

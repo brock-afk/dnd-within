@@ -7,8 +7,9 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app import models  # noqa: F401  (registers every table, so relationships resolve)
 from app.abilities.router import router as abilities_router
-from app.auth.dependencies import LoginRequired, login_required_handler
+from app.auth.dependencies import LoginRequired, hashing_busy_handler, login_required_handler
 from app.auth.router import router as auth_router
+from app.auth.security import HashingBusy
 from app.backgrounds.router import router as backgrounds_router
 from app.characters.router import router as characters_router
 from app.content.importer import import_packs
@@ -42,6 +43,7 @@ app.add_middleware(
     https_only=settings.session_https_only,
 )
 app.add_exception_handler(LoginRequired, login_required_handler)
+app.add_exception_handler(HashingBusy, hashing_busy_handler)
 
 CHARACTER_PATH = re.compile(r"^/characters/(\d+)/")
 

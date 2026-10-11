@@ -63,6 +63,11 @@ def _class_level(character: Character, feature: Feature) -> int:
     return character.level
 
 
+def _maximum(character: Character, feature: Feature) -> int:
+    maximum = feature.uses["max"]
+    return proficiency_bonus(character.level) if maximum == "proficiency_bonus" else maximum
+
+
 def feature_uses(db: Session, character: Character) -> list[FeatureUses]:
     """Every limited-use feature the character has (respecting level, class, subclass and
     species, exactly like the character page)."""
@@ -95,15 +100,12 @@ def feature_uses(db: Session, character: Character) -> list[FeatureUses]:
             feature = fv.feature
             if not feature.uses:
                 continue
-            maximum = feature.uses["max"]
-            if maximum == "proficiency_bonus":
-                maximum = proficiency_bonus(character.level)
             level = _class_level(character, feature)
             options = tuple(picked.get(feature.id, ()))
             result.append(
                 FeatureUses(
                     feature,
-                    maximum,
+                    _maximum(character, feature),
                     spent.get(feature.id, 0),
                     level,
                     options,
@@ -196,22 +198,20 @@ def long_rest(db: Session, character: Character) -> None:
     state.current_hp = None  # at full, of the restored max
     state.temp_hp = 0
     state.temp_hp_source = None
-    partial = [u for u in feature_uses(db, character) if u.feature.uses.get("regain")]
-    for uses in partial:
-        row = db.get(CharacterFeatureUse, (character.id, uses.feature.id))
-        if row is not None:
-            row.expended = max(
-                0, min(row.expended, uses.maximum) - roll(uses.feature.uses["regain"])
-            )
-    keep = [u.feature.id for u in partial]
+    # Every spent-uses row, not just active features': an item regains its charges at dawn
+    # whether or not it's attuned.
+    for row, feature in db.execute(
+        select(CharacterFeatureUse, Feature)
+        .join(Feature, Feature.id == CharacterFeatureUse.feature_id)
+        .where(CharacterFeatureUse.character_id == character.id)
+    ):
+        regain = (feature.uses or {}).get("regain")
+        if regain:
+            row.expended = max(0, min(row.expended, _maximum(character, feature)) - roll(regain))
+        else:
+            db.delete(row)
     for model in (CharacterHitDice, CharacterSpellSlot):
         db.execute(delete(model).where(model.character_id == character.id))
-    db.execute(
-        delete(CharacterFeatureUse).where(
-            CharacterFeatureUse.character_id == character.id,
-            CharacterFeatureUse.feature_id.not_in(keep),
-        )
-    )
     # Spells like Mage Armor (8 hours) are over; AC effects added by hand stay.
     db.execute(
         delete(CharacterAcEffect).where(

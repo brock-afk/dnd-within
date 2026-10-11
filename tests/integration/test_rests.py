@@ -28,9 +28,8 @@ def test_long_rest_ends_max_hp_effects_and_restores_hp(db, character):
     assert (hp.current, hp.maximum) == (8, 8)
 
 
-@pytest.mark.parametrize("attuned", [True, False])
-def test_long_rest_rolls_regain_attuned_or_not(db, character, attuned):
-    # A wand with 7 charges that regains 1d1+1 (always 2) at dawn, whether attuned or not.
+def _wand(db, character, regain, expended, attuned=True) -> Feature:
+    """A magic item with charges that regain `regain` dice at dawn, `expended` of them spent."""
     source = db.scalar(select(Source).where(Source.slug == "phb-2024"))
     wand = Item(
         source_id=source.id,
@@ -48,17 +47,31 @@ def test_long_rest_rolls_regain_attuned_or_not(db, character, attuned):
         slug="charges",
         name="Charges",
         summary="",
-        uses={"max": 7, "recharge": "dawn", "regain": "1d1+1"},
+        uses={"max": 7, "recharge": "dawn", "regain": regain},
     )
-    db.add_all(
-        [charges, CharacterItem(character_id=character.id, item_id=wand.id, attuned=attuned)]
-    )
+    carried = CharacterItem(character_id=character.id, item_id=wand.id, attuned=attuned)
+    db.add_all([charges, carried])
     db.flush()
-    db.add(CharacterFeatureUse(character_id=character.id, feature_id=charges.id, expended=6))
+    db.add(CharacterFeatureUse(character_id=character.id, feature_id=charges.id, expended=expended))
     db.flush()
+    return charges
 
+
+def _expended_after_long_rest(db, character, charges) -> int | None:
     long_rest(db, character)
     db.flush()
-
     row = db.get(CharacterFeatureUse, (character.id, charges.id))
-    assert row is not None and row.expended == 4
+    return row.expended if row else None
+
+
+@pytest.mark.parametrize("attuned", [True, False])
+def test_long_rest_rolls_regain_attuned_or_not(db, character, attuned):
+    # An item regains its charges at dawn whether or not it's attuned. 1d1+1 is always 2.
+    charges = _wand(db, character, "1d1+1", expended=6, attuned=attuned)
+    assert _expended_after_long_rest(db, character, charges) == 4
+
+
+def test_long_rest_never_spends_charges(db, character):
+    # 1d1-2 rolls -1: regains nothing rather than spending one.
+    charges = _wand(db, character, "1d1-2", expended=2)
+    assert _expended_after_long_rest(db, character, charges) == 2

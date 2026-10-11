@@ -207,7 +207,9 @@ def long_rest(db: Session, character: Character) -> None:
     ):
         regain = (feature.uses or {}).get("regain")
         if regain:
-            row.expended = max(0, min(row.expended, _maximum(character, feature)) - roll(regain))
+            # A negative roll (1d3-2) regains nothing; a rest never spends charges.
+            regained = max(0, roll(regain))
+            row.expended = max(0, min(row.expended, _maximum(character, feature)) - regained)
         else:
             db.delete(row)
     for model in (CharacterHitDice, CharacterSpellSlot):

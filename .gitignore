@@ -8,9 +8,5 @@ content-private/
 *.sql.gz
 backups/
 
-# Terraform working files: provider downloads, local state, plans, and compiled Bicep.
-infra/terraform/.terraform/
-*.tfstate
-*.tfstate.*
-*.tfplan
+# Compiled Bicep.
 infra/bicep/*.json

@@ -1,7 +1,12 @@
 # Bicep
 
-One module per layer, composed by `main.bicep`, with parameters in `*.bicepparam` files.
+| File | Scope | Holds |
+|---|---|---|
+| `governance.bicep` | subscription | resource groups, policy assignments |
+| `acr.bicep` | `rg-dndwithin-shared` | container registry |
+| `ci-identity.bicep` | `rg-dndwithin-shared` | GitHub Actions identity and its roles (after `acr.bicep`) |
 
-    az deployment group what-if  -g <resource group> -f <file>.bicep -p <file>.bicepparam
-    az deployment group create   -g <resource group> -f <file>.bicep -p <file>.bicepparam
-    az bicep build -f <file>.bicep        # writes <file>.json: the ARM template, to read
+    az deployment sub create   -n governance -l centralus -f governance.bicep -p governance.bicepparam
+    az deployment group what-if -g <resource group> -f <file>.bicep -p <file>.bicepparam
+    az deployment group create  -n <file> -g <resource group> -f <file>.bicep -p <file>.bicepparam
+    az bicep build -f <file>.bicep   # writes <file>.json, the compiled ARM template

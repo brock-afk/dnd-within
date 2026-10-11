@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.characters.models import Character
 from app.classes.models import CharacterClass
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
-from app.features.service import feature_groups
+from app.features.service import FeatureGroup, feature_groups
 from app.sheet.models import (
     CharacterAcEffect,
     CharacterFeatureUse,
@@ -68,9 +68,11 @@ def _maximum(character: Character, feature: Feature) -> int:
     return proficiency_bonus(character.level) if maximum == "proficiency_bonus" else maximum
 
 
-def feature_uses(db: Session, character: Character) -> list[FeatureUses]:
+def feature_uses(
+    db: Session, character: Character, groups: list[FeatureGroup] | None = None
+) -> list[FeatureUses]:
     """Every limited-use feature the character has (respecting level, class, subclass and
-    species, exactly like the character page)."""
+    species, exactly like the character page). Pass `groups` if they're already worked out."""
     spent = {
         row.feature_id: row.expended
         for row in db.scalars(
@@ -87,7 +89,8 @@ def feature_uses(db: Session, character: Character) -> list[FeatureUses]:
     ):
         picked.setdefault(feature_id, []).append(option)
 
-    groups = feature_groups(db, character)
+    if groups is None:
+        groups = feature_groups(db, character)
     spenders: dict[int, list[Feature]] = {}
     for group in groups:
         for fv in group.features:

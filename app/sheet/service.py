@@ -8,7 +8,7 @@ from app.abilities.service import AbilityView, ability_views
 from app.characters.models import Character
 from app.content.queries import available
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature, FeatureSpell
-from app.features.service import applicable_choice, feature_groups
+from app.features.service import FeatureGroup, applicable_choice, feature_groups
 from app.inventory.models import Item
 from app.leveling.service import hit_points
 from app.sheet.models import (
@@ -114,12 +114,14 @@ def _grant_label(db: Session, feature: Feature) -> str:
     return db.get(Item, feature.item_id).name if feature.item_id else feature.name
 
 
-def _grant_sources(db: Session, character: Character) -> list[tuple[str, dict]]:
+def _grant_sources(
+    db: Session, character: Character, groups: list[FeatureGroup] | None = None
+) -> list[tuple[str, dict]]:
     """(source name, grants) for everything giving the character attributes: features they
     have, and picked options (only while picked, like the Transmuter's Stone benefit)."""
     found = [
         (_grant_label(db, fv.feature), fv.feature.grants)
-        for group in feature_groups(db, character)
+        for group in (feature_groups(db, character) if groups is None else groups)
         for fv in group.features
         if fv.feature.grants
     ]
@@ -177,9 +179,12 @@ class Attributes:
         return _by_source(self.tools, sorted(self.tools))
 
 
-def attributes(db: Session, character: Character) -> Attributes:
+def attributes(
+    db: Session, character: Character, groups: list[FeatureGroup] | None = None
+) -> Attributes:
     """Saves (the starting class's, by 2024 multiclassing rules, plus granted ones), speed
-    (the species' plus bonuses), Darkvision (the best range plus bonuses) and resistances."""
+    (the species' plus bonuses), Darkvision (the best range plus bonuses) and resistances.
+    Pass `groups` if they're already worked out."""
     saves: dict[str, list[str]] = {}
     starting = next((cc for cc in character.classes if cc.is_starting_class), None)
     if starting:
@@ -192,7 +197,7 @@ def attributes(db: Session, character: Character) -> Attributes:
     bonuses: list[tuple[int, str]] = []
     resistances: dict[str, list[str]] = {}
     tools: dict[str, list[str]] = {}
-    for source, grants in _grant_sources(db, character):
+    for source, grants in _grant_sources(db, character, groups):
         for abbr in grants.get("save_proficiencies", []):
             saves.setdefault(abbr, []).append(source)
         for damage_type in grants.get("resistances", []):
@@ -330,10 +335,13 @@ class ArmorClassView:
         )
 
 
-def armor_class(db: Session, character: Character) -> ArmorClassView | None:
+def armor_class(
+    db: Session, character: Character, groups: list[FeatureGroup] | None = None
+) -> ArmorClassView | None:
     """AC = base (10, or the highest base effect) + DEX modifier + bonus effects and granted
     bonuses (a magic item's +1), raised to the highest minimum effect. None until ability
-    scores are set. Worn armor will join this once the sheet does armor."""
+    scores are set. Worn armor will join this once the sheet does armor. Pass `groups` if
+    they're already worked out."""
     abilities = ability_views(db, character)
     if abilities is None:
         return None
@@ -348,7 +356,7 @@ def armor_class(db: Session, character: Character) -> ArmorClassView | None:
     best = max((e for e in effects if e.kind == "base"), key=lambda e: e.value, default=None)
     granted = [
         (grants["ac_bonus"], source)
-        for source, grants in _grant_sources(db, character)
+        for source, grants in _grant_sources(db, character, groups)
         if grants.get("ac_bonus")
     ]
     base, label = (best.value, best.label) if best else (10, "No armor")
@@ -380,17 +388,26 @@ def active_ac_spell_ids(db: Session, character: Character) -> set[int]:
     )
 
 
-def ac_spells(db: Session, character: Character) -> list[AcSpell]:
+def ac_spells(
+    db: Session,
+    character: Character,
+    castable: list[CastableSpell] | None = None,
+    slots: dict[int, SlotLevel] | None = None,
+) -> list[AcSpell]:
     """Prepared spells with an AC effect, each with its usable slot levels. Spells whose effect
-    is already active are left out: it's listed with an End button instead."""
-    slots = spell_slots(db, character)
+    is already active are left out: it's listed with an End button instead. Pass `castable`
+    and `slots` if they're already worked out."""
+    if castable is None:
+        castable = castable_spells(db, character)
+    if slots is None:
+        slots = spell_slots(db, character)
     active = active_ac_spell_ids(db, character)
     return [
         AcSpell(
             row.spell,
             [s for s in slots.values() if s.level >= row.spell.level and s.remaining > 0],
         )
-        for row in castable_spells(db, character)
+        for row in castable
         if row.uses_slots and row.spell.details.get("ac_effect") and row.spell.id not in active
     ]
 
@@ -502,15 +519,17 @@ class CastableSpell:
         return (section, self.spell.level, self.spell.name)
 
 
-def castable_spells(db: Session, character: Character) -> list[CastableSpell]:
+def castable_spells(
+    db: Session, character: Character, groups: list[FeatureGroup] | None = None
+) -> list[CastableSpell]:
     """Everything the character can cast right now: cantrips; every spell castable as a
     ritual (prepared rituals, plus for a Wizard's Ritual Adept the other rituals in the
     spellbook); and prepared spells by level, cast with slots. A prepared ritual is listed
-    twice, since it can be cast either way."""
+    twice, since it can be cast either way. Pass `groups` if they're already worked out."""
     prepared = prepared_spell_ids(db, character)
     found = _spellcasting(character)
     rituals_from_book = bool(found) and found[1].get("ritual_casting") == "spellbook"
-    granted = granted_spells(db, character)
+    granted = granted_spells(db, character, groups)
 
     rows = [
         CastableSpell(cs.spell) for cs in character_spells(db, character.id) if cs.spell.level == 0
@@ -542,13 +561,15 @@ def castable_spells(db: Session, character: Character) -> list[CastableSpell]:
     return sorted(rows, key=lambda r: r.order)
 
 
-def granted_spells(db: Session, character: Character) -> dict[int, tuple[FeatureSpell, Feature]]:
+def granted_spells(
+    db: Session, character: Character, groups: list[FeatureGroup] | None = None
+) -> dict[int, tuple[FeatureSpell, Feature]]:
     """{spell id: (its FeatureSpell, the feature)} for spells the character's features give:
     always prepared ones (which don't count toward the prepare limit), and ones cast only by
     spending a feature's uses (`always_prepared` off)."""
     return {
         fs.spell_id: (fs, fv.feature)
-        for group in feature_groups(db, character)
+        for group in (feature_groups(db, character) if groups is None else groups)
         for fv in group.features
         for fs in fv.feature.spells
         if fs.spell.retired_at is None

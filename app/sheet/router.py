@@ -19,6 +19,7 @@ from app.features.service import (
     always_prepared_error,
     always_prepared_spells,
     applicable_choice,
+    feature_groups,
     play_choices,
 )
 from app.inventory.service import (
@@ -98,8 +99,12 @@ def render_sheet(
     (hit dice, Arcane Recovery) so they stay off the main sheet. `notices` report what just
     happened (a potion's roll). `read_only` is the shared view: the same sheet with every
     control left out, linking within `base_url` (/shared/<token>) instead of the owner's."""
-    uses = feature_uses(db, character)
-    attrs = attributes(db, character)
+    # Every section below needs the character's features; look them up once.
+    groups = feature_groups(db, character)
+    uses = feature_uses(db, character, groups)
+    attrs = attributes(db, character, groups)
+    castable = castable_spells(db, character, groups)
+    slots = spell_slots(db, character)
     items = inventory(db, character)
     context = {
         "user": user,
@@ -108,17 +113,17 @@ def render_sheet(
         "abilities": ability_rows(db, character, attrs),
         "attributes": attrs,
         "skills": skill_rows(db, character),
-        "ac": armor_class(db, character),
-        "ac_spells": ac_spells(db, character),
+        "ac": armor_class(db, character, groups),
+        "ac_spells": ac_spells(db, character, castable, slots),
         # Rest-only features (like Arcane Recovery) appear only in the Short rest panel.
         "resources": [u for u in uses if not u.rest_only],
         "free_uses": {u.feature.id: u for u in uses},
-        "play_choices": play_choices(db, character),
-        "castable": castable_spells(db, character),
-        "slots": spell_slots(db, character),
+        "play_choices": play_choices(db, character, groups),
+        "castable": castable,
+        "slots": slots,
         # Always-prepared spells don't count, even if also picked from the book before.
         "prepared_count": len(
-            prepared_spell_ids(db, character) - always_prepared_spells(db, character).keys()
+            prepared_spell_ids(db, character) - always_prepared_spells(db, character, groups).keys()
         ),
         "prepared_limit": prepared_limit(character),
         "has_spellbook": bool(spellbook(db, character.id)),

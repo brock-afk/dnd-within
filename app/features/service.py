@@ -184,12 +184,14 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
     return groups
 
 
-def always_prepared_spells(db: Session, character: Character) -> dict[int, str]:
+def always_prepared_spells(
+    db: Session, character: Character, groups: list[FeatureGroup] | None = None
+) -> dict[int, str]:
     """{spell id: feature name} for spells the character's features keep always prepared
     (Familiar Friend's Find Familiar). Writing one into the spellbook or preparing it again
-    would waste a pick, so both are blocked."""
+    would waste a pick, so both are blocked. Pass `groups` if they're already worked out."""
     found: dict[int, str] = {}
-    for group in feature_groups(db, character):
+    for group in feature_groups(db, character) if groups is None else groups:
         for fv in group.features:
             for fs in fv.feature.spells:
                 if fs.always_prepared and fs.spell.retired_at is None:
@@ -216,9 +218,11 @@ class PlayChoice:
     picked: OptionView | None
 
 
-def play_choices(db: Session, character: Character) -> list[PlayChoice]:
+def play_choices(
+    db: Session, character: Character, groups: list[FeatureGroup] | None = None
+) -> list[PlayChoice]:
     """The character's in-play choices, following the same level, subclass and retired rules
-    as feature_groups."""
+    as feature_groups. Pass `groups` if they're already worked out."""
     return [
         PlayChoice(
             fv.feature,
@@ -226,7 +230,7 @@ def play_choices(db: Session, character: Character) -> list[PlayChoice]:
             KINDS[cv.choice.kind].options(db, cv.choice),
             cv.picked[0] if cv.picked else None,
         )
-        for group in feature_groups(db, character)
+        for group in (feature_groups(db, character) if groups is None else groups)
         for fv in group.features
         for cv in fv.choices
         if cv.choice.in_play

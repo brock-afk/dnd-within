@@ -2,6 +2,7 @@ import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -14,6 +15,7 @@ from app.backgrounds.router import router as backgrounds_router
 from app.characters.router import router as characters_router
 from app.content.importer import import_packs
 from app.core.config import settings
+from app.core.csrf import is_cross_origin
 from app.core.db import SessionLocal
 from app.core.templates import APP_DIR
 from app.features.router import router as features_router
@@ -44,6 +46,16 @@ app.add_middleware(
 )
 app.add_exception_handler(LoginRequired, login_required_handler)
 app.add_exception_handler(HashingBusy, hashing_busy_handler)
+
+
+@app.middleware("http")
+async def refuse_cross_origin(request: Request, call_next):
+    """CSRF protection for every route that changes something (app/core/csrf.py)."""
+    h = request.headers
+    if is_cross_origin(request.method, h.get("sec-fetch-site"), h.get("origin"), h.get("host", "")):
+        return PlainTextResponse("Cross-origin request refused.", status_code=403)
+    return await call_next(request)
+
 
 CHARACTER_PATH = re.compile(r"^/characters/(\d+)/")
 

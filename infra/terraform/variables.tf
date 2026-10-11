@@ -9,3 +9,9 @@ variable "project" {
   type        = string
   default     = "dndwithin"
 }
+
+variable "github_repo" {
+  description = "GitHub repository (owner/name) whose main branch may log in to Azure."
+  type        = string
+  default     = "brock-afk/dnd-within"
+}

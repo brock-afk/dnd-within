@@ -1,0 +1,44 @@
+#cloud-config
+# First boot of the VM: Docker, the Azure CLI, swap, and the MySQL data disk at /srv/data.
+
+apt:
+  sources:
+    docker.list:
+      source: deb [arch=arm64 signed-by=$KEY_FILE] https://download.docker.com/linux/ubuntu $RELEASE stable
+      keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+    azure-cli.list:
+      source: deb [arch=arm64 signed-by=$KEY_FILE] https://packages.microsoft.com/repos/azure-cli/ $RELEASE main
+      keyid: BC528686B50D79E339D3721CEB3E94ADBE1229CF
+
+package_update: true
+packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+  - azure-cli
+
+swap:
+  filename: /swapfile
+  size: 2G
+  maxsize: 2G
+
+disk_setup:
+  /dev/disk/azure/scsi1/lun0:
+    table_type: gpt
+    layout: true
+    overwrite: false
+
+fs_setup:
+  - device: /dev/disk/azure/scsi1/lun0
+    partition: 1
+    filesystem: ext4
+    label: data
+    overwrite: false
+
+mounts:
+  - [LABEL=data, /srv/data, ext4, "defaults,nofail", "0", "2"]
+
+runcmd:
+  - usermod -aG docker azureuser

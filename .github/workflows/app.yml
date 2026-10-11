@@ -61,16 +61,20 @@ jobs:
 
       - name: Deploy to the VM
         run: |
-          # The script plus its inputs, as one file: run-command parameters can't carry
-          # values containing "=" (base64 padding).
+          # run-command runs the file with /bin/sh and can't pass values containing "=", so
+          # send a small sh wrapper that sets the inputs and runs deploy-vm.sh with bash.
           {
-            echo "image='$IMAGE:$GITHUB_SHA'"
-            echo "bundle='$(tar -czf - docker-compose.yml docker-compose.prod.yml Caddyfile scripts | base64 -w0)'"
+            echo "export image='$IMAGE:$GITHUB_SHA'"
+            echo "export bundle='$(tar -czf - docker-compose.yml docker-compose.prod.yml Caddyfile scripts | base64 -w0)'"
+            echo "cat > /tmp/deploy-vm.sh <<'DEPLOY_VM'"
             cat scripts/deploy-vm.sh
+            echo "DEPLOY_VM"
+            echo "exec bash /tmp/deploy-vm.sh"
           } > deploy.sh
           result=$(az vm run-command invoke -g rg-dndwithin-iaas -n vm-dndwithin-app \
             --command-id RunShellScript --scripts @deploy.sh \
             --query "value[0].message" -o tsv)
           echo "$result"
-          # run-command succeeds even when the script fails; check the script's own outcome.
-          echo "$result" | grep -q "Enable succeeded"
+          # run-command reports success whatever the script's exit code; the script prints this
+          # line only if every step succeeded.
+          echo "$result" | grep -q "^Deploy succeeded"

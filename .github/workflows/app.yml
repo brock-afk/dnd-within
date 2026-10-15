@@ -1,5 +1,5 @@
-# Lints and tests, then builds the app image for arm64 and amd64, pushes it to Azure Container
-# Registry, and deploys it.
+# Lints and tests every pull request and push to main. On main only, also builds the app image
+# for arm64 and amd64, pushes it to Azure Container Registry, and deploys it.
 name: App
 
 on:
@@ -8,6 +8,8 @@ on:
     paths-ignore:
       - "infra/**"
       - "**.md"
+  # No paths filter: a required check that never runs would block the merge.
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -59,6 +61,8 @@ jobs:
 
   build:
     needs: check
+    # Azure only trusts runs on main (the federated credential's subject), so PRs stop at check.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

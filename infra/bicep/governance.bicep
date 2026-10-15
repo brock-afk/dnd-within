@@ -1,32 +1,8 @@
-// Step 0.3: governance at the subscription. Resource groups (one per lifecycle) with tags, and
-// two built-in Azure Policy assignments. Deployed at subscription scope:
-//   az deployment sub what-if -l centralus -f governance.bicep -p governance.bicepparam
+// Module of main.bicep: Azure Policy assignments at the subscription.
 targetScope = 'subscription'
 
-@description('Region for every resource, and the only one policy allows.')
-param location string = 'centralus'
-
-@description('Short project name, used in every resource name.')
-param project string = 'dndwithin'
-
-@description('Tags for the resource groups: what it is and which environment.')
-param tags object = {
-  project: project
-  environment: 'prod'
-}
-
-// One group per lifecycle: "shared" lasts (registry, CI identity, Key Vault); "iaas" holds
-// the Stage 1 VM and is deleted after the move to PaaS. A "paas" group comes in Stage 2.
-var resourceGroupNames = [
-  'rg-${project}-shared'
-  'rg-${project}-iaas'
-]
-
-resource groups 'Microsoft.Resources/resourceGroups@2024-03-01' = [for name in resourceGroupNames: {
-  name: name
-  location: location
-  tags: tags
-}]
+@description('The only region policy allows.')
+param location string
 
 // Built-in policy definitions have fixed IDs, the same in every tenant.
 var allowedLocationsDefinition = '/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c'
@@ -75,5 +51,3 @@ resource requireProjectTag 'Microsoft.Authorization/policyAssignments@2024-04-01
     }
   }
 }
-
-output resourceGroupNames array = resourceGroupNames

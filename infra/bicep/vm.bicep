@@ -1,5 +1,4 @@
-// Stage 1 VM: Ubuntu arm64 running the app with Docker Compose. Deployed into rg-dndwithin-iaas,
-// after network.bicep.
+// Module of main.bicep: Ubuntu arm64 VM running the app with Docker Compose, in rg-dndwithin-iaas.
 targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location
@@ -13,17 +12,18 @@ param vmSize string = 'Standard_B2pts_v2'
 @description('Admin user; cloud-init.yaml adds it to the docker group.')
 param adminUsername string = 'azureuser'
 
+param subnetId string
+param publicIpId string
+param registryName string
+param sharedResourceGroupName string
+
+@description('The GitHub Actions identity, which gets the deploy role on this VM.')
+param ciIdentityId string
+param ciPrincipalId string
+
 param tags object = {
   project: project
   environment: 'prod'
-}
-
-resource subnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' existing = {
-  name: 'vnet-${project}-iaas/snet-app'
-}
-
-resource publicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' existing = {
-  name: 'pip-${project}-app'
 }
 
 resource nic 'Microsoft.Network/networkInterfaces@2024-05-01' = {
@@ -36,11 +36,11 @@ resource nic 'Microsoft.Network/networkInterfaces@2024-05-01' = {
         name: 'ipconfig1'
         properties: {
           subnet: {
-            id: subnet.id
+            id: subnetId
           }
           privateIPAllocationMethod: 'Dynamic'
           publicIPAddress: {
-            id: publicIp.id
+            id: publicIpId
           }
         }
       }
@@ -124,20 +124,15 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
 
 module acrPull 'modules/acr-pull.bicep' = {
   name: 'acr-pull-${project}-vm'
-  scope: resourceGroup('rg-${project}-shared')
+  scope: resourceGroup(sharedResourceGroupName)
   params: {
-    project: project
+    registryName: registryName
     principalId: vm.identity.principalId
   }
 }
 
 // GitHub Actions deploys by running a script on the VM (az vm run-command), with a custom role
 // that allows only that.
-resource ciIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
-  name: 'id-${project}-github'
-  scope: resourceGroup('rg-${project}-shared')
-}
-
 module deployerRole 'modules/vm-deployer-role.bicep' = {
   name: 'vm-deployer-role-${project}'
   scope: subscription()
@@ -148,11 +143,11 @@ module deployerRole 'modules/vm-deployer-role.bicep' = {
 }
 
 resource ciDeployer 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(vm.id, ciIdentity.id, 'vm-deployer')
+  name: guid(vm.id, ciIdentityId, 'vm-deployer')
   scope: vm
   properties: {
     roleDefinitionId: deployerRole.outputs.roleDefinitionId
-    principalId: ciIdentity.properties.principalId
+    principalId: ciPrincipalId
     principalType: 'ServicePrincipal'
   }
 }

@@ -19,6 +19,7 @@ permissions:
 env:
   REGISTRY: crdndwithincsiqze
   IMAGE: crdndwithincsiqze.azurecr.io/dndwithin
+  SITE: dndwithin.centralus.cloudapp.azure.com
 
 jobs:
   check:
@@ -123,3 +124,7 @@ jobs:
           # run-command reports success whatever the script's exit code; the script prints this
           # line only if every step succeeded.
           echo "$result" | grep -q "^Deploy succeeded"
+
+      # From outside, so it also catches what the VM can't see: DNS, the NSG, Caddy and the certificate.
+      - name: Smoke test
+        run: curl --fail --silent --show-error --max-time 10 --retry 5 --retry-delay 5 --retry-all-errors "https://$SITE/healthz"

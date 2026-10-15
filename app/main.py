@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import models  # noqa: F401  (registers every table, so relationships resolve)
@@ -16,7 +18,7 @@ from app.characters.router import router as characters_router
 from app.content.importer import import_packs
 from app.core.config import settings
 from app.core.csrf import is_cross_origin
-from app.core.db import SessionLocal
+from app.core.db import DbSession, SessionLocal
 from app.core.templates import APP_DIR
 from app.features.router import router as features_router
 from app.homebrew.router import router as homebrew_router
@@ -71,6 +73,17 @@ async def notify_shared_views(request: Request, call_next):
         elif request.url.path.startswith("/homebrew/"):
             publish_all()
     return response
+
+
+@app.get("/healthz", include_in_schema=False)
+def healthz(db: DbSession):
+    """For the container healthcheck and the post-deploy smoke test: the app is only useful if
+    it can reach the database."""
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        return PlainTextResponse("database unavailable", status_code=503)
+    return PlainTextResponse("ok")
 
 
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")

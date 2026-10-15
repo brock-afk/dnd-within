@@ -1,4 +1,4 @@
-// Container registry for the app image. Deployed into rg-dndwithin-shared.
+// Module of main.bicep: container registry for the app image, in rg-dndwithin-shared.
 targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location

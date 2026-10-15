@@ -57,17 +57,22 @@ GitHub Actions ──OIDC──▶ Azure ──▶ ACR (rg-dndwithin-shared)
 
 ### Infrastructure
 
-Bicep templates in `infra/bicep/`, deployed in this order:
+Bicep in `infra/bicep/`. `main.bicep` deploys everything at subscription scope: it creates the resource groups and calls the other templates as modules.
 
-| Template | Scope | Creates |
+```bash
+az deployment sub what-if -l centralus -f infra/bicep/main.bicep -p infra/bicep/main.bicepparam -p sshSourceAddress=<ip>/32 -p sshPublicKey="$(cat ~/.ssh/dndwithin-vm.pub)"
+az deployment sub create -n main -l centralus -f infra/bicep/main.bicep -p infra/bicep/main.bicepparam -p sshSourceAddress=<ip>/32 -p sshPublicKey="$(cat ~/.ssh/dndwithin-vm.pub)"
+```
+
+`what-if` lists defaults Azure filled in and values it can't resolve until deploy (role assignment principal IDs, the NIC's subnet) as changes. Look for Create, Delete, or changes to values set in the templates.
+
+| Module | Scope | Creates |
 |---|---|---|
-| `governance.bicep` | subscription | resource groups, allowed-locations and required-tag policies |
+| `governance.bicep` | subscription | allowed-locations policy (deny) and a project-tag policy (audit only) |
 | `acr.bicep` | `rg-dndwithin-shared` | container registry (Basic, admin user off) |
-| `ci-identity.bicep` | `rg-dndwithin-shared` | managed identity for GitHub OIDC (main branch only), AcrPush |
-| `network.bicep` | `rg-dndwithin-iaas` | VNet, NSG (80, 443, SSH from one IP), static public IP with DNS label |
+| `ci-identity.bicep` | `rg-dndwithin-shared` | managed identity for GitHub OIDC (main branch only), Reader on the group, AcrPush |
+| `network.bicep` | `rg-dndwithin-iaas` | VNet, NSG (80, 443, SSH from an admin address range), static public IP with DNS label |
 | `vm.bicep` | `rg-dndwithin-iaas` | Ubuntu arm64 VM with a data disk, AcrPull for its identity, and a custom VM Deployer role (read + run-command) for CI; `cloud-init.yaml` installs Docker and the Azure CLI |
-
-`network.bicep` and `vm.bicep` take `sshSourceAddress` and `sshPublicKey` on the command line.
 
 ### Delivery
 

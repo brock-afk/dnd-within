@@ -1,14 +1,16 @@
 # Bicep
 
+`main.bicep` deploys everything at subscription scope; the other files are its modules.
+
 | File | Scope | Holds |
 |---|---|---|
-| `governance.bicep` | subscription | resource groups, policy assignments |
+| `main.bicep` | subscription | resource groups; wires the modules together |
+| `governance.bicep` | subscription | policy assignments |
 | `acr.bicep` | `rg-dndwithin-shared` | container registry |
-| `ci-identity.bicep` | `rg-dndwithin-shared` | GitHub Actions identity and its roles (after `acr.bicep`) |
-| `network.bicep` | `rg-dndwithin-iaas` | VNet, subnet + NSG, public IP (pass `-p sshSourceAddress=<ip>/32`) |
-| `vm.bicep` | `rg-dndwithin-iaas` | VM, NIC, disks, cloud-init; AcrPull for the VM; the CI deploy role (`modules/`) (pass `-p sshPublicKey=...`) |
+| `ci-identity.bicep` | `rg-dndwithin-shared` | GitHub Actions identity and its roles |
+| `network.bicep` | `rg-dndwithin-iaas` | VNet, subnet + NSG, public IP |
+| `vm.bicep` | `rg-dndwithin-iaas` | VM, NIC, disks, cloud-init; AcrPull for the VM; the CI deploy role (`modules/`) |
 
-    az deployment sub create   -n governance -l centralus -f governance.bicep -p governance.bicepparam
-    az deployment group what-if -g <resource group> -f <file>.bicep -p <file>.bicepparam
-    az deployment group create  -n <file> -g <resource group> -f <file>.bicep -p <file>.bicepparam
-    az bicep build -f <file>.bicep   # writes <file>.json, the compiled ARM template
+    az deployment sub what-if -l centralus -f main.bicep -p main.bicepparam -p sshSourceAddress=<ip>/32 -p sshPublicKey="$(cat ~/.ssh/dndwithin-vm.pub)"
+    az deployment sub create -n main -l centralus -f main.bicep -p main.bicepparam -p sshSourceAddress=<ip>/32 -p sshPublicKey="$(cat ~/.ssh/dndwithin-vm.pub)"
+    az bicep build -f main.bicep   # writes main.json, the compiled ARM template

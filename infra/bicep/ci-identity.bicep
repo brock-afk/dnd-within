@@ -1,5 +1,4 @@
-// The identity GitHub Actions logs in as, through OIDC, and its roles. Deployed into
-// rg-dndwithin-shared, after acr.bicep.
+// Module of main.bicep: the identity GitHub Actions logs in as, through OIDC, and its roles.
 targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location
@@ -7,6 +6,8 @@ param project string = 'dndwithin'
 
 @description('The repo as it appears in GitHub\'s OIDC subject (owner@id/name@id).')
 param githubRepo string
+
+param registryName string
 
 param tags object = {
   project: project
@@ -36,7 +37,7 @@ resource githubMain 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedI
 }
 
 resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
-  name: 'cr${project}${take(uniqueString(resourceGroup().id), 6)}'
+  name: registryName
 }
 
 resource reader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
@@ -58,7 +59,6 @@ resource acrPush 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// GitHub Actions variables: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID.
+output identityId string = identity.id
+output principalId string = identity.properties.principalId
 output clientId string = identity.properties.clientId
-output tenantId string = tenant().tenantId
-output subscriptionId string = subscription().subscriptionId

@@ -1,5 +1,4 @@
-// Stage 1 network: VNet, subnet with an NSG, and the VM's public IP. Deployed into
-// rg-dndwithin-iaas.
+// Module of main.bicep: VNet, subnet with an NSG, and the VM's public IP, in rg-dndwithin-iaas.
 targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location

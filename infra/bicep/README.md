@@ -4,17 +4,18 @@ Two deployments at subscription scope. `bootstrap.bicep` decides what the pipeli
 
 | File | Deployed by | Holds |
 |---|---|---|
-| `bootstrap.bicep` | you | resource groups, custom roles, CI identities and their access, your blob data access, delete locks |
+| `bootstrap.bicep` | you | resource groups, custom roles, CI identities and their access, your blob and secret access, delete locks |
 | `governance.bicep` | bootstrap | policy assignments |
 | `identities.bicep` | bootstrap | the `github` (app), `infra` and `whatif` identities, in `rg-dndwithin-shared` |
 | `modules/rg-access.bicep` | bootstrap | Contributor, plus role assignment limited to named roles, for the infra identity |
 | `modules/vm-deployer-role.bicep` | bootstrap | custom role: read a VM and run commands on it |
-| `modules/user-role.bicep` | bootstrap | Storage Blob Data Contributor on `rg-dndwithin-shared` for whoever runs bootstrap |
+| `modules/user-role.bicep` | bootstrap | Storage Blob Data Contributor and Key Vault Secrets Officer on `rg-dndwithin-shared` for whoever runs bootstrap |
 | `modules/rg-lock.bicep` | bootstrap | CanNotDelete lock on each resource group; remove it before tearing a group down |
 | `main.bicep` | infra.yml | wires the workload modules together |
 | `acr.bicep` | main | container registry; AcrPush for the app identity |
 | `network.bicep` | main | VNet, subnet + NSG, public IP |
 | `vm.bicep` | main | VM, NIC, disks, cloud-init; AcrPull for the VM; the VM Deployer role for the app identity |
+| `keyvault.bicep` | main | Key Vault (RBAC, purge protection) for the app's secrets; read access for the VM |
 | `backup.bicep` | main | GRS storage for database backups: Entra-only, 14-day immutability, deleted after 35 days; write access for the VM |
 
 Bootstrap:

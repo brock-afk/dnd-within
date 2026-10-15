@@ -20,6 +20,8 @@ var readerRole = 'acdd72a7-3385-48ef-bd42-f606fba81ae7'
 var acrPushRole = '8311e382-0749-4cb8-b61a-304f252e45ec'
 var acrPullRole = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 var blobDataContributorRole = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+var kvSecretsUserRole = '4633458b-17de-408a-b874-0445c86b69e6'
+var kvSecretsOfficerRole = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
 var vmDeployerRole = guid(subscription().id, project, 'vm-deployer')
 
 // Resource groups are one per lifecycle: "shared" lasts, "iaas" holds the VM.
@@ -136,7 +138,7 @@ module sharedAccess 'modules/rg-access.bicep' = {
   scope: sharedRg
   params: {
     principalId: identities.outputs.infraPrincipalId
-    assignableRoleIds: [acrPushRole, acrPullRole, blobDataContributorRole]
+    assignableRoleIds: [acrPushRole, acrPullRole, blobDataContributorRole, kvSecretsUserRole]
   }
 }
 
@@ -158,6 +160,16 @@ module adminBlobData 'modules/user-role.bicep' = {
   params: {
     principalId: deployer().objectId
     roleId: blobDataContributorRole
+  }
+}
+
+// Key Vault data, like blob data, isn't part of Owner. Whoever runs bootstrap sets the secrets.
+module adminSecrets 'modules/user-role.bicep' = {
+  name: 'admin-kv-secrets'
+  scope: sharedRg
+  params: {
+    principalId: deployer().objectId
+    roleId: kvSecretsOfficerRole
   }
 }
 

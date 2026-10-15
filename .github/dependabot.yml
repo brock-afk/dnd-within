@@ -19,6 +19,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # 8.4 is the LTS line; 9.x releases are short-lived innovation releases.
+      - dependency-name: mysql
+        update-types: [version-update:semver-major, version-update:semver-minor]
 
   - package-ecosystem: uv
     directory: /

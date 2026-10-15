@@ -12,19 +12,25 @@ caddyfile_before=$(sha256sum Caddyfile 2>/dev/null || true)
 echo "${bundle:?}" | base64 -d | tar -xz
 chown -R azureuser: docker-compose.yml docker-compose.prod.yml Caddyfile scripts
 
-# Record the image in .env, so backup.sh and restore-db.sh run against the deployed one.
-if grep -q '^APP_IMAGE=' .env; then
-    sed -i "s#^APP_IMAGE=.*#APP_IMAGE=${image:?}#" .env
-else
-    echo "APP_IMAGE=$image" >> .env
-fi
-
 az login --identity --allow-no-subscriptions --output none
 az acr login --name "${image%%.*}"
 
 compose=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
-"${compose[@]}" pull --quiet
-"${compose[@]}" up -d --remove-orphans
+# The new image goes in through the environment (which beats .env), so if it never gets healthy
+# .env still names the last good one to roll back to. Migrations it ran aren't undone.
+APP_IMAGE=${image:?} "${compose[@]}" pull --quiet
+if ! APP_IMAGE=$image "${compose[@]}" up -d --remove-orphans --wait --wait-timeout 180; then
+    echo "Unhealthy: rolling back to the image in .env"
+    "${compose[@]}" up -d --remove-orphans --wait --wait-timeout 180 || true
+    exit 1
+fi
+
+# Only now, so backup.sh, restore-db.sh and the next rollback use an image that worked.
+if grep -q '^APP_IMAGE=' .env; then
+    sed -i "s#^APP_IMAGE=.*#APP_IMAGE=$image#" .env
+else
+    echo "APP_IMAGE=$image" >> .env
+fi
 # A restart, not `caddy reload`: tar replaced the file, and the running container still
 # sees the old one through its bind mount.
 if [ "$(sha256sum Caddyfile)" != "$caddyfile_before" ]; then

@@ -76,11 +76,13 @@ az deployment sub create -n main -l centralus -f infra/bicep/main.bicep -p infra
 
 ### Delivery
 
-`.github/workflows/app.yml` runs on every push to `main` (except `infra/` and Markdown):
+`.github/workflows/app.yml` runs `check` on every pull request, and the whole pipeline on every push to `main` (except `infra/` and Markdown):
 
 1. **check:** ruff and pytest against MySQL started from the compose files.
-2. **build:** multi-arch image pushed to ACR, tagged with the commit SHA and `latest`.
-3. **deploy:** `az vm run-command` ships the compose files, Caddyfile and `scripts/` to `/opt/dnd-within` and runs `scripts/deploy-vm.sh`, which pulls the image and restarts the stack.
+2. **build:** multi-arch image pushed to ACR, tagged with the commit SHA, then scanned with Trivy. A fixable HIGH or CRITICAL vulnerability stops the deploy.
+3. **deploy:** `az vm run-command` ships the compose files, Caddyfile and `scripts/` to `/opt/dnd-within` and runs `scripts/deploy-vm.sh`, which pulls the image and restarts the stack, waiting until every container is healthy. Then a smoke test fetches `https://<site>/healthz`.
+
+Actions, base images and Python packages are pinned; Dependabot (`.github/dependabot.yml`) opens weekly update PRs.
 
 The workflow logs in through OIDC with no stored secrets. It needs the repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`.
 

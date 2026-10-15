@@ -17,9 +17,12 @@ param publicIpId string
 param registryName string
 param sharedResourceGroupName string
 
-@description('The GitHub Actions identity, which gets the deploy role on this VM.')
+@description('The app pipeline\'s identity, which gets the deploy role on this VM.')
 param ciIdentityId string
 param ciPrincipalId string
+
+@description('The VM Deployer custom role, from bootstrap.bicep.')
+param vmDeployerRoleId string
 
 param tags object = {
   project: project
@@ -131,22 +134,13 @@ module acrPull 'modules/acr-pull.bicep' = {
   }
 }
 
-// GitHub Actions deploys by running a script on the VM (az vm run-command), with a custom role
-// that allows only that.
-module deployerRole 'modules/vm-deployer-role.bicep' = {
-  name: 'vm-deployer-role-${project}'
-  scope: subscription()
-  params: {
-    project: project
-    resourceGroupName: resourceGroup().name
-  }
-}
-
+// GitHub Actions deploys by running a script on the VM (az vm run-command); the custom role
+// allows only that.
 resource ciDeployer 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(vm.id, ciIdentityId, 'vm-deployer')
   scope: vm
   properties: {
-    roleDefinitionId: deployerRole.outputs.roleDefinitionId
+    roleDefinitionId: vmDeployerRoleId
     principalId: ciPrincipalId
     principalType: 'ServicePrincipal'
   }

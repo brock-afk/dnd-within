@@ -1,16 +1,27 @@
 # Bicep
 
-`main.bicep` deploys everything at subscription scope; the other files are its modules.
+Two deployments at subscription scope. `bootstrap.bicep` decides what the pipelines may do, so it's run by hand. `main.bicep` is the workload, deployed by `.github/workflows/infra.yml`.
 
-| File | Scope | Holds |
+| File | Deployed by | Holds |
 |---|---|---|
-| `main.bicep` | subscription | resource groups; wires the modules together |
-| `governance.bicep` | subscription | policy assignments |
-| `acr.bicep` | `rg-dndwithin-shared` | container registry |
-| `ci-identity.bicep` | `rg-dndwithin-shared` | GitHub Actions identity and its roles |
-| `network.bicep` | `rg-dndwithin-iaas` | VNet, subnet + NSG, public IP |
-| `vm.bicep` | `rg-dndwithin-iaas` | VM, NIC, disks, cloud-init; AcrPull for the VM; the CI deploy role (`modules/`) |
+| `bootstrap.bicep` | you | resource groups, custom roles, CI identities and their access |
+| `governance.bicep` | bootstrap | policy assignments |
+| `identities.bicep` | bootstrap | the `github` (app), `infra` and `whatif` identities, in `rg-dndwithin-shared` |
+| `modules/rg-access.bicep` | bootstrap | Contributor, plus role assignment limited to named roles, for the infra identity |
+| `modules/vm-deployer-role.bicep` | bootstrap | custom role: read a VM and run commands on it |
+| `main.bicep` | infra.yml | wires the workload modules together |
+| `acr.bicep` | main | container registry; AcrPush for the app identity |
+| `network.bicep` | main | VNet, subnet + NSG, public IP |
+| `vm.bicep` | main | VM, NIC, disks, cloud-init; AcrPull for the VM; the VM Deployer role for the app identity |
 
-    az deployment sub what-if -l centralus -f main.bicep -p main.bicepparam -p sshSourceAddress=<ip>/32 -p sshPublicKey="$(cat ~/.ssh/dndwithin-vm.pub)"
-    az deployment sub create -n main -l centralus -f main.bicep -p main.bicepparam -p sshSourceAddress=<ip>/32 -p sshPublicKey="$(cat ~/.ssh/dndwithin-vm.pub)"
-    az bicep build -f main.bicep   # writes main.json, the compiled ARM template
+Bootstrap:
+
+    az deployment sub what-if -n bootstrap -l centralus -f bootstrap.bicep -p bootstrap.bicepparam
+    az deployment sub create -n bootstrap -l centralus -f bootstrap.bicep -p bootstrap.bicepparam
+
+Its outputs are the GitHub repository variables. `main.bicepparam` reads `SSH_SOURCE_ADDRESS` and `SSH_PUBLIC_KEY` from the environment (repository variables in CI), so a local what-if needs them exported:
+
+    export SSH_SOURCE_ADDRESS=$(curl -s https://api.ipify.org)/32 SSH_PUBLIC_KEY="$(cat ~/.ssh/dndwithin-vm.pub)"
+    az deployment sub what-if -n main -l centralus -f main.bicep -p main.bicepparam
+
+`what-if` lists defaults Azure filled in, and values it can't resolve until deploy (role assignment principal IDs, the NIC's subnet), as changes. Look for Create, Delete, or changes to values set in the templates.

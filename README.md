@@ -57,22 +57,10 @@ GitHub Actions ──OIDC──▶ Azure ──▶ ACR (rg-dndwithin-shared)
 
 ### Infrastructure
 
-Bicep in `infra/bicep/`. `main.bicep` deploys everything at subscription scope: it creates the resource groups and calls the other templates as modules.
+Bicep in `infra/bicep/` (see its README). `bootstrap.bicep` holds policy, custom roles and the CI identities, and you run it by hand. `main.bicep` holds the workload: registry, network and VM.
 
-```bash
-az deployment sub what-if -l centralus -f infra/bicep/main.bicep -p infra/bicep/main.bicepparam -p sshSourceAddress=<ip>/32 -p sshPublicKey="$(cat ~/.ssh/dndwithin-vm.pub)"
-az deployment sub create -n main -l centralus -f infra/bicep/main.bicep -p infra/bicep/main.bicepparam -p sshSourceAddress=<ip>/32 -p sshPublicKey="$(cat ~/.ssh/dndwithin-vm.pub)"
-```
-
-`what-if` lists defaults Azure filled in and values it can't resolve until deploy (role assignment principal IDs, the NIC's subnet) as changes. Look for Create, Delete, or changes to values set in the templates.
-
-| Module | Scope | Creates |
-|---|---|---|
-| `governance.bicep` | subscription | allowed-locations policy (deny) and a project-tag policy (audit only) |
-| `acr.bicep` | `rg-dndwithin-shared` | container registry (Basic, admin user off) |
-| `ci-identity.bicep` | `rg-dndwithin-shared` | managed identity for GitHub OIDC (main branch only), Reader on the group, AcrPush |
-| `network.bicep` | `rg-dndwithin-iaas` | VNet, NSG (80, 443, SSH from an admin address range), static public IP with DNS label |
-| `vm.bicep` | `rg-dndwithin-iaas` | Ubuntu arm64 VM with a data disk, AcrPull for its identity, and a custom VM Deployer role (read + run-command) for CI; `cloud-init.yaml` installs Docker and the Azure CLI |
+`.github/workflows/infra.yml` lints both templates and posts a what-if for `main.bicep` on every pull request that touches `infra/`, using a read-only identity. To deploy, start the workflow on `main` with **Run workflow**. That run deploys `main.bicep` with an identity that holds Contributor on the two resource groups and can only assign the roles the templates use.
+It also needs the repository variables `AZURE_INFRA_CLIENT_ID`, `AZURE_WHATIF_CLIENT_ID`, `SSH_SOURCE_ADDRESS` and `SSH_PUBLIC_KEY`.
 
 ### Delivery
 

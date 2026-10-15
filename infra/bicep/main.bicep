@@ -1,15 +1,11 @@
-// Everything, in one subscription deployment; dependencies come from the outputs passed between
-// modules. Resource groups are one per lifecycle: "shared" lasts, "iaas" holds the VM.
+// The workload, deployed by infra.yml. Resource groups, identities and roles come from
+// bootstrap.bicep, so this deployment can't change who may deploy it.
 targetScope = 'subscription'
 
-@description('Region for every resource, and the only one policy allows.')
 param location string = 'centralus'
 
 @description('Short project name, used in every resource name.')
 param project string = 'dndwithin'
-
-@description('The repo as it appears in GitHub\'s OIDC subject (owner@id/name@id).')
-param githubRepo string
 
 @description('Public IP (CIDR) allowed to SSH in, e.g. 203.0.113.7/32.')
 param sshSourceAddress string
@@ -22,41 +18,27 @@ param tags object = {
   environment: 'prod'
 }
 
-resource sharedRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+resource sharedRg 'Microsoft.Resources/resourceGroups@2024-03-01' existing = {
   name: 'rg-${project}-shared'
-  location: location
-  tags: tags
 }
 
-resource iaasRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+resource iaasRg 'Microsoft.Resources/resourceGroups@2024-03-01' existing = {
   name: 'rg-${project}-iaas'
-  location: location
-  tags: tags
 }
 
-module governance 'governance.bicep' = {
-  name: 'governance'
-  params: {
-    location: location
-  }
+resource appIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
+  name: 'id-${project}-github'
+  scope: sharedRg
 }
 
 module acr 'acr.bicep' = {
   name: 'acr'
   scope: sharedRg
   params: {
+    location: location
     project: project
-    tags: tags
-  }
-}
-
-module ciIdentity 'ci-identity.bicep' = {
-  name: 'ci-identity'
-  scope: sharedRg
-  params: {
-    project: project
-    githubRepo: githubRepo
-    registryName: acr.outputs.registryName
+    appIdentityId: appIdentity.id
+    appPrincipalId: appIdentity.properties.principalId
     tags: tags
   }
 }
@@ -65,6 +47,7 @@ module network 'network.bicep' = {
   name: 'network'
   scope: iaasRg
   params: {
+    location: location
     project: project
     sshSourceAddress: sshSourceAddress
     tags: tags
@@ -75,21 +58,22 @@ module vm 'vm.bicep' = {
   name: 'vm'
   scope: iaasRg
   params: {
+    location: location
     project: project
     sshPublicKey: sshPublicKey
     subnetId: network.outputs.subnetId
     publicIpId: network.outputs.publicIpId
     registryName: acr.outputs.registryName
     sharedResourceGroupName: sharedRg.name
-    ciIdentityId: ciIdentity.outputs.identityId
-    ciPrincipalId: ciIdentity.outputs.principalId
+    ciIdentityId: appIdentity.id
+    ciPrincipalId: appIdentity.properties.principalId
+    vmDeployerRoleId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      guid(subscription().id, project, 'vm-deployer')
+    )
     tags: tags
   }
 }
 
-// GitHub Actions variables: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID.
-output clientId string = ciIdentity.outputs.clientId
-output tenantId string = tenant().tenantId
-output subscriptionId string = subscription().subscriptionId
 output registryLoginServer string = acr.outputs.loginServer
 output fqdn string = network.outputs.fqdn

@@ -19,6 +19,7 @@ param tags object = {
 var readerRole = 'acdd72a7-3385-48ef-bd42-f606fba81ae7'
 var acrPushRole = '8311e382-0749-4cb8-b61a-304f252e45ec'
 var acrPullRole = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+var blobDataContributorRole = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 var vmDeployerRole = guid(subscription().id, project, 'vm-deployer')
 
 // Resource groups are one per lifecycle: "shared" lasts, "iaas" holds the VM.
@@ -135,7 +136,7 @@ module sharedAccess 'modules/rg-access.bicep' = {
   scope: sharedRg
   params: {
     principalId: identities.outputs.infraPrincipalId
-    assignableRoleIds: [acrPushRole, acrPullRole]
+    assignableRoleIds: [acrPushRole, acrPullRole, blobDataContributorRole]
   }
 }
 
@@ -147,6 +148,27 @@ module iaasAccess 'modules/rg-access.bicep' = {
     assignableRoleIds: [vmDeployerRole]
   }
   dependsOn: [vmDeployer]
+}
+
+// Owner manages resources but can't read blob data. Whoever runs bootstrap gets it, to upload
+// dumps for restores and download backups.
+module adminBlobData 'modules/user-role.bicep' = {
+  name: 'admin-blob-data'
+  scope: sharedRg
+  params: {
+    principalId: deployer().objectId
+    roleId: blobDataContributorRole
+  }
+}
+
+module sharedLock 'modules/rg-lock.bicep' = {
+  name: 'lock-shared'
+  scope: sharedRg
+}
+
+module iaasLock 'modules/rg-lock.bicep' = {
+  name: 'lock-iaas'
+  scope: iaasRg
 }
 
 // GitHub Actions variables.

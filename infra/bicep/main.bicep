@@ -75,5 +75,17 @@ module vm 'vm.bicep' = {
   }
 }
 
+module backup 'backup.bicep' = {
+  name: 'backup'
+  scope: sharedRg
+  params: {
+    location: location
+    project: project
+    vmPrincipalId: vm.outputs.principalId
+    tags: tags
+  }
+}
+
 output registryLoginServer string = acr.outputs.loginServer
+output backupAccountName string = backup.outputs.accountName
 output fqdn string = network.outputs.fqdn

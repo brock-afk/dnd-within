@@ -50,9 +50,14 @@ jobs:
 
       - name: What-if
         working-directory: infra/bicep
+        shell: bash # -o pipefail, so a failing what-if isn't hidden by tee
+        # Preflight normally checks write access to every resource. The PR identity is read-only by
+        # design, so it skips that; the deploy run keeps the full check.
+        env:
+          VALIDATION_LEVEL: ${{ github.event_name == 'pull_request' && 'ProviderNoRbac' || 'Provider' }}
         run: |
           az deployment sub what-if -n main -l "$LOCATION" -f main.bicep -p main.bicepparam \
-            --exclude-change-types NoChange Ignore | tee what-if.txt
+            --validation-level "$VALIDATION_LEVEL" --exclude-change-types NoChange Ignore | tee what-if.txt
           { echo '### What-if: main.bicep'; echo '```'; cat what-if.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
   deploy:

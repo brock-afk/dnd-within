@@ -78,7 +78,7 @@ az deployment sub create -n main -l centralus -f infra/bicep/main.bicep -p infra
 
 `.github/workflows/app.yml` runs on every push to `main` (except `infra/` and Markdown):
 
-1. **check:** ruff and pytest against a MySQL service.
+1. **check:** ruff and pytest against MySQL started from the compose files.
 2. **build:** multi-arch image pushed to ACR, tagged with the commit SHA and `latest`.
 3. **deploy:** `az vm run-command` ships the compose files, Caddyfile and `scripts/` to `/opt/dnd-within` and runs `scripts/deploy-vm.sh`, which pulls the image and restarts the stack.
 

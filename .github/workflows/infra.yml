@@ -1,0 +1,76 @@
+# Pull requests get a what-if from a read-only identity. Deploying only happens when started by
+# hand on main ("Run workflow"): environment approvals need GitHub Enterprise on a private repo,
+# so starting the run is the approval.
+name: Infra
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Azure login through OIDC
+  contents: read
+
+env:
+  LOCATION: centralus
+  # Read by main.bicepparam.
+  SSH_SOURCE_ADDRESS: ${{ vars.SSH_SOURCE_ADDRESS }}
+  SSH_PUBLIC_KEY: ${{ vars.SSH_PUBLIC_KEY }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Lint and build
+        working-directory: infra/bicep
+        run: |
+          for f in bootstrap main; do
+            az bicep lint --file "$f.bicep"
+            az bicep build --file "$f.bicep" --stdout > /dev/null
+          done
+
+  what-if:
+    needs: lint
+    # Dependabot runs get no OIDC token, and only ever bump action versions here.
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
+        with:
+          client-id: ${{ github.event_name == 'pull_request' && vars.AZURE_WHATIF_CLIENT_ID || vars.AZURE_INFRA_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: What-if
+        working-directory: infra/bicep
+        run: |
+          az deployment sub what-if -n main -l "$LOCATION" -f main.bicep -p main.bicepparam \
+            --exclude-change-types NoChange Ignore | tee what-if.txt
+          { echo '### What-if: main.bicep'; echo '```'; cat what-if.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: what-if
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency: infra
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
+        with:
+          client-id: ${{ vars.AZURE_INFRA_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy
+        working-directory: infra/bicep
+        run: |
+          az deployment sub create -n main -l "$LOCATION" -f main.bicep -p main.bicepparam \
+            --query properties.outputs -o json

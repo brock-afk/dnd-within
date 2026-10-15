@@ -4,6 +4,10 @@ targetScope = 'resourceGroup'
 param location string = resourceGroup().location
 param project string = 'dndwithin'
 
+@description('The app pipeline\'s identity (id-dndwithin-github), which pushes images.')
+param appIdentityId string
+param appPrincipalId string
+
 param tags object = {
   project: project
   environment: 'prod'
@@ -21,6 +25,18 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   }
   properties: {
     adminUserEnabled: false // Entra ID and RBAC only
+  }
+}
+
+var acrPushRole = '8311e382-0749-4cb8-b61a-304f252e45ec'
+
+resource acrPush 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registry.id, appIdentityId, acrPushRole)
+  scope: registry
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPushRole)
+    principalId: appPrincipalId
+    principalType: 'ServicePrincipal'
   }
 }
 

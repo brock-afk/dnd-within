@@ -43,12 +43,13 @@ uv run ruff check --fix . && uv run ruff format .
 
 CI's `check` job (ruff, pytest on MySQL started from the compose files) gates build and deploy. A project hook in `.claude/settings.json` runs ruff on every `.py` file Claude edits.
 
-Deploying: to Azure, being set up step by step (infrastructure as code in `infra/`, delivery through GitHub Actions). Database helpers:
+Deploying: to Azure, being set up step by step (infrastructure as code in `infra/`, delivery through GitHub Actions). Database helpers (the server ones run through the Ops workflow, `.github/workflows/ops.yml`, not SSH):
 
 ```bash
 scripts/dump-dev-db.sh                # local: dump the dev database
-scripts/restore-db.sh <dump.sql.gz>   # server: load a dump (stops and restarts the app)
-scripts/backup.sh                     # server: daily from cron, keeps the newest 14
+scripts/restore-db.sh <file or blob>  # server: back up, then load a dump (local file or a blob in db-backups)
+scripts/backup.sh                     # server: daily (systemd timer) and before each deploy; uploads to blob storage
+scripts/restore-drill.sh              # server: restore the newest blob into a scratch DB and compare row counts
 ```
 
 `INVITE_CODE` gates registration. Keep the app a single process: live shared views notify in-process (`app/sharing/live.py`).

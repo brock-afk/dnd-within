@@ -1,0 +1,11 @@
+[Unit]
+Description=DnD Within database backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/dnd-within
+# az needs HOME, which systemd does not set for system services.
+Environment=HOME=/root
+ExecStart=/usr/bin/bash /opt/dnd-within/scripts/backup.sh

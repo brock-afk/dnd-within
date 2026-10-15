@@ -20,6 +20,7 @@ env:
   REGISTRY: crdndwithincsiqze
   IMAGE: crdndwithincsiqze.azurecr.io/dndwithin
   SITE: dndwithin.centralus.cloudapp.azure.com
+  BACKUP_ACCOUNT: stdndwithincsiqze
 
 jobs:
   check:
@@ -111,19 +112,14 @@ jobs:
           # send a small sh wrapper that sets the inputs and runs deploy-vm.sh with bash.
           {
             echo "export image='$IMAGE:$GITHUB_SHA'"
+            echo "export backup_account='$BACKUP_ACCOUNT'"
             echo "export bundle='$(tar -czf - docker-compose.yml docker-compose.prod.yml Caddyfile scripts | base64 -w0)'"
             echo "cat > /tmp/deploy-vm.sh <<'DEPLOY_VM'"
             cat scripts/deploy-vm.sh
             echo "DEPLOY_VM"
             echo "exec bash /tmp/deploy-vm.sh"
           } > deploy.sh
-          result=$(az vm run-command invoke -g rg-dndwithin-iaas -n vm-dndwithin-app \
-            --command-id RunShellScript --scripts @deploy.sh \
-            --query "value[0].message" -o tsv)
-          echo "$result"
-          # run-command reports success whatever the script's exit code; the script prints this
-          # line only if every step succeeded.
-          echo "$result" | grep -q "^Deploy succeeded"
+          .github/scripts/vm-run.sh deploy.sh "Deploy succeeded"
 
       # From outside, so it also catches what the VM can't see: DNS, the NSG, Caddy and the certificate.
       - name: Smoke test

@@ -70,6 +70,8 @@ It also needs the repository variables `AZURE_INFRA_CLIENT_ID`, `AZURE_WHATIF_CL
 2. **build:** multi-arch image pushed to ACR, tagged with the commit SHA, then scanned with Trivy. A fixable HIGH or CRITICAL vulnerability stops the deploy.
 3. **deploy:** `az vm run-command` ships the compose files, Caddyfile and `scripts/` to `/opt/dnd-within` and runs `scripts/deploy-vm.sh`, which pulls the image and restarts the stack, waiting until every container is healthy. Then a smoke test fetches `https://<site>/healthz`.
 
+`.github/workflows/ops.yml` runs server operations without SSH, through the same run-command access: **Run workflow** with `backup`, `restore-drill`, or `restore` (a blob name in `db-backups`, confirmed by typing `RESTORE`). The restore drill also runs monthly on its own. To restore a dump from your machine, upload it first: `az storage blob upload --auth-mode login --account-name stdndwithincsiqze -c db-backups -f <dump.sql.gz>`.
+
 Actions, base images and Python packages are pinned; Dependabot (`.github/dependabot.yml`) opens weekly update PRs.
 
 The workflow logs in through OIDC with no stored secrets. It needs the repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`.
@@ -83,7 +85,8 @@ Keep the app a single process: live shared views (`app/sharing/live.py`) and log
 ### Backups
 
 ```bash
-scripts/backup.sh                     # server, daily from cron; keeps the newest 14
-scripts/restore-db.sh <dump.sql.gz>   # server; stops and restarts the app
+scripts/backup.sh                     # server: daily (systemd timer) and before each deploy; uploads to blob storage
+scripts/restore-drill.sh              # server: restore the newest blob into a scratch DB and compare row counts
+scripts/restore-db.sh <file or blob>  # server: back up, then load a dump (local file or a blob in db-backups)
 scripts/dump-dev-db.sh                # local dev database
 ```

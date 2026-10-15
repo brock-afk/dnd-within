@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily DnD Within database backup
+
+[Timer]
+OnCalendar=*-*-* 04:15:00 UTC
+# Runs at the next boot if the VM was off at 04:15.
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

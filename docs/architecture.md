@@ -1,135 +1,152 @@
 # Architecture
 
-DnD Within runs on one Azure VM in `centralus`. Everything in Azure is defined in Bicep (`infra/bicep/`), and every change reaches production through GitHub Actions with OIDC: no stored cloud credentials, no SSH in CI.
+DnD Within runs on a single Azure VM in `centralus`. All Azure resources are defined in Bicep under `infra/bicep/`. Application and infrastructure changes are deployed by GitHub Actions, which authenticates to Azure with OpenID Connect (OIDC) workload identity federation.
 
 ## Resources
 
 ```mermaid
 flowchart LR
-    user(["Players and DM"]) -- "HTTPS 443" --> pip
+    user(["Users"]) -- "HTTPS 443" --> pip
 
-    subgraph iaas["rg-dndwithin-iaas · locked"]
-        pip["Public IP + DNS label"] --> nsg["NSG: 80/443 from Internet, 22 from one admin IP"]
+    subgraph iaas["rg-dndwithin-iaas (CanNotDelete lock)"]
+        pip["Public IP with DNS label"] --> nsg["NSG: 80/443 from Internet, 22 from admin IP"]
         nsg --> vm
-        subgraph vm["vm-dndwithin-app · Ubuntu 24.04 arm64 · Docker Compose"]
-            caddy["Caddy: TLS, security headers"] --> app["App (FastAPI, non-root)"] --> mysql[("MySQL 8.4 on data disk")]
+        subgraph vm["vm-dndwithin-app: Ubuntu 24.04 arm64, Docker Compose"]
+            caddy["Caddy (TLS termination)"] --> app["App container"] --> mysql[("MySQL 8.4 on data disk")]
         end
     end
 
-    subgraph shared["rg-dndwithin-shared · locked · outlives the VM"]
+    subgraph shared["rg-dndwithin-shared (CanNotDelete lock)"]
         acr["Container Registry"]
-        kv["Key Vault: app secrets"]
-        st["Storage: db-backups (GRS, immutable 14 days)"]
-        rsv["Recovery Services vault: daily VM backup"]
-        mon["Log Analytics, App Insights, alerts"]
+        kv["Key Vault"]
+        st["Storage account: db-backups"]
+        rsv["Recovery Services vault"]
+        mon["Log Analytics, Application Insights, alert rules"]
     end
 
-    vm -- "pull image (AcrPull)" --> acr
-    vm -- "upload dumps (Blob Data Contributor)" --> st
-    rsv -- "snapshots" --> vm
-    mon -- "uptime test /healthz, 5 locations" --> pip
+    vm -- "image pull (AcrPull)" --> acr
+    vm -- "backup upload (Storage Blob Data Contributor)" --> st
+    rsv -- "VM backup" --> vm
+    mon -- "availability test" --> pip
 ```
 
-Resource groups follow lifecycles: `shared` holds what survives a rebuild or the move to PaaS, `iaas` holds the VM and its network. Both carry a `CanNotDelete` lock. Azure Policy denies resources outside `centralus` and audits resource groups for a `project` tag.
+| Resource group | Contents | Lifecycle |
+|---|---|---|
+| `rg-dndwithin-shared` | Container Registry, Key Vault, backup storage account, Recovery Services vault, monitoring, CI identities | Retained across VM rebuilds and the planned move to PaaS |
+| `rg-dndwithin-iaas` | VM, NIC, disks, VNet, NSG, public IP | Removed when the workload moves to PaaS |
+
+Both resource groups have a `CanNotDelete` management lock. An Azure Policy assignment denies resource creation outside `centralus`, and a second assignment audits resource groups for a `project` tag.
 
 ## Identities and permissions
 
-Nothing in CI holds a secret. GitHub issues each workflow run a short-lived OIDC token, and Entra ID exchanges it only if the token's subject matches a federated credential exactly.
+GitHub Actions requests a short-lived OIDC token for each workflow run. Entra ID exchanges the token for an access token only when its issuer, subject and audience match a federated credential on a user-assigned managed identity. No client secrets or certificates are stored in GitHub.
 
 ```mermaid
 flowchart TB
     subgraph gh["GitHub Actions"]
         app_wf["app.yml (push to main)"]
-        ops_wf["ops.yml (manual, monthly)"]
-        infra_dispatch["infra.yml (Run workflow on main)"]
-        infra_pr["infra.yml (pull request)"]
+        ops_wf["ops.yml (manual, scheduled)"]
+        infra_dispatch["infra.yml (workflow_dispatch on main)"]
+        infra_pr["infra.yml (pull_request)"]
     end
 
-    app_wf -- "subject ref:refs/heads/main" --> id_app["id-dndwithin-github"]
-    ops_wf -- "subject ref:refs/heads/main" --> id_app
-    infra_dispatch -- "subject ref:refs/heads/main" --> id_infra["id-dndwithin-infra"]
-    infra_pr -- "subject pull_request" --> id_whatif["id-dndwithin-whatif"]
+    app_wf -- "subject: ref:refs/heads/main" --> id_app["id-dndwithin-github"]
+    ops_wf -- "subject: ref:refs/heads/main" --> id_app
+    infra_dispatch -- "subject: ref:refs/heads/main" --> id_infra["id-dndwithin-infra"]
+    infra_pr -- "subject: pull_request" --> id_whatif["id-dndwithin-whatif"]
 
-    id_app --> r_app["AcrPush on the registry; VM Deployer (read + run-command) on the VM"]
-    id_infra --> r_infra["Contributor on both groups; RBAC Admin limited to five named roles; Deployment Runner at the subscription"]
-    id_whatif --> r_whatif["Reader + What-If Runner: can preview, can't change"]
+    id_app --> r_app["AcrPush (registry), VM Deployer (VM)"]
+    id_infra --> r_infra["Contributor (both groups), conditional RBAC Administrator (both groups), Deployment Runner (subscription)"]
+    id_whatif --> r_whatif["Reader, What-If Runner (subscription)"]
 ```
 
-| Identity | Can | Can't |
+| Principal | Role assignments | Scope |
 |---|---|---|
-| `id-dndwithin-github` | push images, run commands on this one VM | change any resource |
-| `id-dndwithin-infra` | deploy `main.bicep`; assign only AcrPush, AcrPull, Storage Blob Data Contributor, Key Vault Secrets User, VM Deployer | assign any other role (an ABAC condition), touch policy, locks, or other resource groups |
-| `id-dndwithin-whatif` | read everything, run what-if | write anything; a PR runs its own copy of the workflow, so it only ever gets this identity |
-| VM (system-assigned) | pull images, write to `db-backups`, read secrets | anything else |
-| Admin (a person) | run `bootstrap.bicep` as Owner; read and write backups and secrets | |
+| `id-dndwithin-github` | Reader; AcrPush; VM Deployer (custom: `virtualMachines/read`, `runCommand/action`) | `rg-dndwithin-shared`; registry; VM |
+| `id-dndwithin-infra` | Contributor; Role Based Access Control Administrator with an ABAC condition; Deployment Runner (custom: `Microsoft.Resources/deployments/*`) | both resource groups; both resource groups; subscription |
+| `id-dndwithin-whatif` | Reader; What-If Runner (custom: `deployments/whatIf/action`, `deployments/validate/action`) | subscription |
+| VM system-assigned identity | AcrPull; Storage Blob Data Contributor; Key Vault Secrets User | registry; `db-backups` container; key vault |
+| Administrator | Owner; Storage Blob Data Contributor; Key Vault Secrets Officer | subscription; `rg-dndwithin-shared`; `rg-dndwithin-shared` |
 
-**Bootstrap vs workload.** `bootstrap.bicep` (policy, custom roles, identities, role assignments for people and pipelines, locks) is run by hand, after review, by an Owner. `main.bicep` (registry, network, VM, storage, vaults, monitoring) is deployed by the pipeline. A pipeline that could deploy its own permissions could widen them, so the boundary is enforced in Azure, not by convention.
+The ABAC condition on the infra identity's RBAC Administrator assignment restricts role assignment writes and deletes to five role definitions: AcrPush, AcrPull, Storage Blob Data Contributor, Key Vault Secrets User and VM Deployer.
+
+Infrastructure is split into two deployments:
+
+- `bootstrap.bicep` contains policy assignments, custom role definitions, the CI identities and their federated credentials, role assignments for people and pipelines, and resource locks. An Owner deploys it manually after review.
+- `main.bicep` contains the workload: registry, network, VM, storage, vaults and monitoring. The infra pipeline deploys it. It references the resource groups and identities created by bootstrap as existing resources, so it cannot change the permissions of the identity that deploys it.
 
 ## Delivery
 
-| Workflow | Trigger | Does |
+| Workflow | Trigger | Steps |
 |---|---|---|
-| `app.yml` | pull request | ruff, pytest against MySQL started from the same pinned compose image as production |
-| `app.yml` | push to `main` | the checks, then build arm64 + amd64, push to ACR by commit SHA, Trivy scan (fails on fixable HIGH/CRITICAL), deploy, smoke test `https://<site>/healthz` |
-| `infra.yml` | pull request touching `infra/` | Bicep lint and build, what-if posted to the job summary |
-| `infra.yml` | Run workflow on `main` | what-if with full permission checks, then deploy |
-| `ops.yml` | Run workflow, monthly schedule | `backup`, `restore-drill`, `restore` (confirmed by typing `RESTORE`) |
+| `app.yml` | pull request | ruff; pytest against MySQL started from the pinned image in `docker-compose.yml` |
+| `app.yml` | push to `main` | checks; multi-arch build (arm64, amd64) tagged with the commit SHA; push to ACR; Trivy scan, failing on fixable HIGH or CRITICAL findings; deploy; smoke test of `/healthz` |
+| `infra.yml` | pull request changing `infra/` | Bicep lint and build; what-if as `id-dndwithin-whatif`, written to the job summary |
+| `infra.yml` | `workflow_dispatch` on `main` | what-if and deployment as `id-dndwithin-infra` |
+| `ops.yml` | `workflow_dispatch`; monthly schedule | `backup`, `restore-drill`, or `restore` from a named blob (requires typing `RESTORE`) |
 
-**A deploy** (`scripts/deploy-vm.sh`, run through `az vm run-command`):
+Application deploys run `scripts/deploy-vm.sh` on the VM through `az vm run-command`:
 
-1. Ship the compose files, Caddyfile and scripts; install the backup timer.
-2. Back up the database, because the new image may run forward-only migrations.
-3. Start the new image with `docker compose up --wait`, which fails unless every container passes its healthcheck within 3 minutes.
-4. If it's unhealthy, restart the last good image recorded in `.env` and fail the run.
-5. Record the new image as the last good one; GitHub then checks `/healthz` from outside.
+1. Extract the compose files, Caddyfile and scripts, and install the backup systemd timer.
+2. Take a database backup before starting the new image, since migrations run at startup and only go forward.
+3. Start the new image with `docker compose up --wait --wait-timeout 180`, which returns non-zero if a container is not healthy within the timeout.
+4. On failure, start the previous image recorded in `.env` and exit with an error.
+5. On success, record the new image in `.env`. The workflow then requests `/healthz` over the public endpoint.
 
-**Supply chain.** Actions are pinned to commit SHAs and images to digests; Dependabot proposes weekly updates (minor and patch grouped, majors separate, MySQL held on the 8.4 LTS line). The app runs as a non-root user, and the image ships without pip.
+GitHub Actions are pinned to commit SHAs and container images to digests. Dependabot opens weekly update pull requests, grouping minor and patch updates and ignoring MySQL minor and major versions to stay on the 8.4 LTS line. The application container runs as a non-root user, and pip is removed from the image.
 
 ## Data protection
 
-| Layer | What | Kept | Protects against |
+| Layer | Mechanism | Retention | Recovery scope |
 |---|---|---|---|
-| Logical dump | `mysqldump`, daily (systemd timer) and before every deploy, uploaded to Blob Storage | 35 days; immutable for 14 | bad migrations, data mistakes, VM loss, a compromised VM (can't delete or overwrite recent backups) |
-| VM backup | Azure Backup, Enhanced policy, daily | 14 days | losing the whole machine, including files that exist only on it |
-| Secrets | Key Vault with purge protection | indefinitely | losing `.env` with the VM |
+| Logical backup | `mysqldump` daily via systemd timer and before each deploy, uploaded to the `db-backups` container | 35 days (lifecycle policy); 14 days immutable | Database contents; table-level restore |
+| VM backup | Azure Backup, Enhanced policy, daily at 03:30 UTC | 14 days | Full VM, including OS disk contents |
+| Secrets | Key Vault, RBAC authorization, purge protection | Soft delete, 90 days | Application secrets |
 
-A **restore drill** runs monthly (`ops.yml`): it loads the newest offsite dump into a scratch database next to the live one, compares every table's row count, and fails the workflow if a table is missing or empty. Storage and vaults are geo-redundant (paired region).
+The backup storage account uses GRS, Entra ID authentication only (shared key access disabled), blob versioning, soft delete and version-level immutability. The VM identity can write backups but cannot modify or delete them during the 14-day immutability period. The Recovery Services vault uses geo-redundant storage with soft delete enabled.
+
+The `restore-drill` operation in `ops.yml` runs monthly. It restores the newest blob into a separate database on the same MySQL instance, compares row counts for every table against the live database, fails if a table is missing or empty, and drops the separate database.
 
 ## Monitoring
 
-Alerts email one action group:
+All alert rules notify one action group by email.
 
-- **Site down:** a standard availability test on `/healthz` from five US locations every 15 minutes (status 200, body `ok`, TLS valid with more than 7 days left). It fires when 3 of 5 fail, so one location's network trouble isn't an outage. `/healthz` queries the database, so a healthy response means the whole path works.
-- **VM backup failed:** Azure Backup's built-in alerts, routed by an alert processing rule.
-- **Patching:** Ubuntu's unattended-upgrades installs security updates; Azure Update Manager assesses the VM daily, so missing patches are visible in Azure.
-- **No database backup in 24 hours:** a log alert on the backup account's write logs; catches the timer, the dump or the upload silently breaking.
-
-## Decisions
-
-| Decision | Why | Trade-off |
+| Alert | Source | Condition |
 |---|---|---|
-| Run Command instead of SSH for deploys and operations | RBAC-scoped, audited in the Activity Log, no key in CI, no inbound port needed | It reports success regardless of the script's exit code, so scripts print a success marker that the workflow checks |
-| Manual Run workflow to apply infrastructure | Required reviewers on environments need GitHub Enterprise for a private repo; starting the run is the approval | Relies on discipline, not enforcement |
-| What-if on PRs skips permission checks (`ProviderNoRbac`) | Preflight normally demands write access, which a PR identity must never have | Permission problems surface on the deploy run instead, which keeps full checks |
-| Caddy on the VM for TLS | Automatic Let's Encrypt certificates at no cost | Replaced by App Service's managed TLS in Stage 2 |
-| Enhanced backup policy | Supports Trusted Launch and is Azure's current default | None at this scale |
-| Version-level immutability, unlocked | Protects recent backups from deletion while settings can still be tuned | Not yet locked, so an Owner could remove it |
+| Site down | Standard availability test on `https://<site>/healthz` from five US locations every 15 minutes; checks status 200, response body `ok`, and certificate validity with at least 7 days remaining | 3 of 5 locations failing |
+| VM backup failed | Azure Backup built-in Azure Monitor alerts, routed by an alert processing rule | Any backup job failure |
+| No database backup | Log search alert on `StorageBlobLogs` (StorageWrite diagnostic logs from the backup account) | No successful upload to `db-backups` in 24 hours, evaluated hourly |
+
+`/healthz` executes `SELECT 1` against the database. The Log Analytics workspace has 30-day retention and a 0.5 GB daily ingestion cap.
+
+Security updates are installed by Ubuntu's unattended-upgrades. Azure Update Manager periodic assessment is enabled on the VM, reporting update compliance every 24 hours without installing updates.
+
+## Design decisions
+
+| Decision | Reason | Consequence |
+|---|---|---|
+| Run Command for deploys and operations | Access is controlled by RBAC and recorded in the Activity Log; no inbound port or SSH key required in CI | Run Command reports success regardless of the script's exit code; scripts print a success marker that the workflow checks |
+| Infrastructure applied by manual `workflow_dispatch` | Required reviewers on GitHub environments are not available for private repositories on the current plan | Approval is the act of starting the run rather than an enforced review step |
+| PR what-if uses `--validation-level ProviderNoRbac` | Default preflight validation requires write permission on every resource, which the PR identity does not have | Permission errors appear on the deploy run, which uses full validation |
+| Caddy for TLS | Automatic Let's Encrypt certificate issuance and renewal | Replaced by App Service managed certificates in Stage 2 |
+| Enhanced backup policy | Required for Trusted Launch VMs; current Azure default | None at this scale |
+| Immutability policy left unlocked | Retention can still be adjusted | A user with sufficient rights can remove the policy until it is locked |
 
 ## Known limitations
 
-- **One VM, no redundancy.** A single VM with Premium SSD has a 99.9% SLA; a host failure means downtime until Azure restarts it.
-- **`.env` is created by hand on the VM.** Its secrets are also in Key Vault, but the VM doesn't read them from there. Doing that properly is part of Stage 2.
-- **SSH is still open to one admin IP**, because third-party content packs are copied to the VM by hand. It closes when content gets its own pipeline.
-- **Rollback can't undo migrations.** A rollback restarts the previous image against the current schema; the pre-deploy dump is the way back from a bad migration.
-- **Up to 24 hours of data loss** between daily dumps (less around deploys).
-- **No guest-level metrics** (disk, memory) from inside the VM.
-- **Old images accumulate in the registry.** A scheduled `acr purge` needs care with multi-arch images, whose per-architecture manifests are untagged; it's deferred until it can be tested safely.
+- Single VM with no redundancy. A single-instance VM with Premium SSD has a 99.9% SLA.
+- `.env` on the VM is created manually. Its secrets are stored in Key Vault, but the VM does not read them from there.
+- SSH (port 22) is open to one administrator IP address, used to copy third-party content packs to the VM.
+- Rollback restarts the previous image but does not reverse database migrations. A bad migration is recovered from the pre-deploy backup.
+- The database recovery point objective is up to 24 hours.
+- No guest OS metrics (disk usage, memory) are collected.
+- Old images are not purged from the registry. `acr purge` has not been configured because multi-arch images reference untagged per-architecture manifests, and the purge behavior for them has not been tested.
 
-## Next: Stage 2 (PaaS)
+## Stage 2
 
-App Service (containers) and Azure Database for MySQL Flexible Server, in a new resource group:
+The planned move to PaaS uses Azure App Service (Linux containers) and Azure Database for MySQL Flexible Server in a new resource group:
 
-- Point-in-time restore replaces dumps as the primary backup; geo-redundant backup storage.
-- Key Vault references inject secrets as app settings; no `.env`.
-- Deployment slots and swap replace run-command deploys; health check replaces the compose healthcheck.
-- The VM, its backup, Caddy, run-command operations and SSH are retired; monitoring carries over unchanged.
+- Point-in-time restore and geo-redundant backup storage on Flexible Server replace logical dumps as the primary backup.
+- App settings use Key Vault references, replacing `.env`.
+- Deployment slots and slot swap replace Run Command deploys, and the App Service health check replaces the compose healthcheck.
+- The VM, its Azure Backup protection, Caddy, the Run Command operations and the SSH rule are removed. Monitoring resources are reused.

@@ -146,5 +146,6 @@ resource ciDeployer 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+output vmId string = vm.id
 output vmName string = vm.name
 output principalId string = vm.identity.principalId

@@ -97,6 +97,19 @@ module keyVault 'keyvault.bicep' = {
   }
 }
 
+module vmBackup 'vm-backup.bicep' = {
+  name: 'vm-backup'
+  scope: sharedRg
+  params: {
+    location: location
+    project: project
+    vmId: vm.outputs.vmId
+    vmName: vm.outputs.vmName
+    vmResourceGroupName: iaasRg.name
+    tags: tags
+  }
+}
+
 output registryLoginServer string = acr.outputs.loginServer
 output backupAccountName string = backup.outputs.accountName
 output keyVaultName string = keyVault.outputs.vaultName

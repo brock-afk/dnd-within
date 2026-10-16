@@ -13,6 +13,12 @@ param sshSourceAddress string
 @description('SSH public key for the VM admin user.')
 param sshPublicKey string
 
+@description('Where alerts are emailed.')
+param alertEmail string
+
+@description('The /healthz uptime test, billed per run.')
+param uptimeTestEnabled bool = true
+
 param tags object = {
   project: project
   environment: 'prod'
@@ -106,6 +112,20 @@ module vmBackup 'vm-backup.bicep' = {
     vmId: vm.outputs.vmId
     vmName: vm.outputs.vmName
     vmResourceGroupName: iaasRg.name
+    tags: tags
+  }
+}
+
+module monitoring 'monitoring.bicep' = {
+  name: 'monitoring'
+  scope: sharedRg
+  params: {
+    location: location
+    project: project
+    alertEmail: alertEmail
+    siteHost: network.outputs.fqdn
+    uptimeTestEnabled: uptimeTestEnabled
+    backupAccountName: backup.outputs.accountName
     tags: tags
   }
 }

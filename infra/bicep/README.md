@@ -17,6 +17,7 @@ Two deployments at subscription scope. `bootstrap.bicep` decides what the pipeli
 | `vm.bicep` | main | VM, NIC, disks, cloud-init; AcrPull for the VM; the VM Deployer role for the app identity |
 | `keyvault.bicep` | main | Key Vault (RBAC, purge protection) for the app's secrets; read access for the VM |
 | `vm-backup.bicep` | main | Recovery Services vault (GRS, soft delete) and an Enhanced daily policy protecting the VM, 14 days |
+| `monitoring.bicep` | main | Log Analytics, App Insights, email action group; alerts for the site down (uptime test on `/healthz`), VM backup failures, and no database backup in 24 hours |
 | `backup.bicep` | main | GRS storage for database backups: Entra-only, 14-day immutability, deleted after 35 days; write access for the VM |
 
 Bootstrap:
@@ -24,9 +25,9 @@ Bootstrap:
     az deployment sub what-if -n bootstrap -l centralus -f bootstrap.bicep -p bootstrap.bicepparam
     az deployment sub create -n bootstrap -l centralus -f bootstrap.bicep -p bootstrap.bicepparam
 
-Its outputs are the GitHub repository variables. `main.bicepparam` reads `SSH_SOURCE_ADDRESS` and `SSH_PUBLIC_KEY` from the environment (repository variables in CI), so a local what-if needs them exported:
+Its outputs are the GitHub repository variables. `main.bicepparam` reads `SSH_SOURCE_ADDRESS`, `SSH_PUBLIC_KEY` and `ALERT_EMAIL` from the environment (repository variables in CI), so a local what-if needs them exported:
 
-    export SSH_SOURCE_ADDRESS=$(curl -s https://api.ipify.org)/32 SSH_PUBLIC_KEY="$(cat ~/.ssh/dndwithin-vm.pub)"
+    export SSH_SOURCE_ADDRESS=$(curl -s https://api.ipify.org)/32 SSH_PUBLIC_KEY="$(cat ~/.ssh/dndwithin-vm.pub)" ALERT_EMAIL=<you@example.com>
     az deployment sub what-if -n main -l centralus -f main.bicep -p main.bicepparam
 
 `what-if` lists defaults Azure filled in, and values it can't resolve until deploy (role assignment principal IDs, the NIC's subnet), as changes. Look for Create, Delete, or changes to values set in the templates.

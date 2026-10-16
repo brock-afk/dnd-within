@@ -37,16 +37,6 @@ resource vault 'Microsoft.RecoveryServices/vaults@2024-04-01' = {
         softDeleteRetentionPeriodInDays: 14
       }
     }
-    // Job failures raise Azure Monitor alerts (routed by monitoring.bicep); the older vault-only
-    // email alerts would only duplicate them.
-    monitoringSettings: {
-      azureMonitorAlertSettings: {
-        alertsForAllJobFailures: 'Enabled'
-      }
-      classicAlertSettings: {
-        alertsForCriticalOperations: 'Disabled'
-      }
-    }
     // Can't be changed once anything is protected, so it's set before the first backup. Only
     // through the vault itself: once set here, the backupstorageconfig API refuses changes.
     redundancySettings: {

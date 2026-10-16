@@ -148,7 +148,8 @@ resource siteDown 'Microsoft.Insights/metricAlerts@2018-03-01' = {
 
 // --- VM backup failed -----------------------------------------------------------------------
 
-// The vault raises these alerts itself (vm-backup.bicep); this only decides who hears about them.
+// Recovery Services vaults raise Azure Monitor alerts for job failures by default; this rule only
+// routes them to the action group.
 resource backupAlertRouting 'Microsoft.AlertsManagement/actionRules@2021-08-08' = {
   name: 'apr-${project}-backup'
   location: 'global'

@@ -16,6 +16,7 @@ Two deployments at subscription scope. `bootstrap.bicep` decides what the pipeli
 | `network.bicep` | main | VNet, subnet + NSG, public IP |
 | `vm.bicep` | main | VM, NIC, disks, cloud-init; AcrPull for the VM; the VM Deployer role for the app identity |
 | `keyvault.bicep` | main | Key Vault (RBAC, purge protection) for the app's secrets; read access for the VM |
+| `vm-backup.bicep` | main | Recovery Services vault (GRS, soft delete) and an Enhanced daily policy protecting the VM, 14 days |
 | `backup.bicep` | main | GRS storage for database backups: Entra-only, 14-day immutability, deleted after 35 days; write access for the VM |
 
 Bootstrap:

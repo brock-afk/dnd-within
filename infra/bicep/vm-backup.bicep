@@ -37,16 +37,12 @@ resource vault 'Microsoft.RecoveryServices/vaults@2024-04-01' = {
         softDeleteRetentionPeriodInDays: 14
       }
     }
-  }
-}
-
-// Can't be changed once anything is protected, so it's set before the first backup.
-resource storageConfig 'Microsoft.RecoveryServices/vaults/backupstorageconfig@2024-04-01' = {
-  parent: vault
-  name: 'vaultstorageconfig'
-  properties: {
-    storageModelType: 'GeoRedundant'
-    crossRegionRestoreFlag: false
+    // Can't be changed once anything is protected, so it's set before the first backup. Only
+    // through the vault itself: once set here, the backupstorageconfig API refuses changes.
+    redundancySettings: {
+      standardTierStorageRedundancy: 'GeoRedundant'
+      crossRegionRestore: 'Disabled'
+    }
   }
 }
 
@@ -83,7 +79,6 @@ resource policy 'Microsoft.RecoveryServices/vaults/backupPolicies@2024-04-01' = 
       }
     }
   }
-  dependsOn: [storageConfig]
 }
 
 var container = 'iaasvmcontainer;iaasvmcontainerv2;${vmResourceGroupName};${vmName}'

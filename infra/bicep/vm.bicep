@@ -97,6 +97,12 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' = {
       customData: base64(loadTextContent('cloud-init.yaml'))
       linuxConfiguration: {
         disablePasswordAuthentication: true
+        // Ubuntu's unattended-upgrades installs security updates (ImageDefault leaves it in charge);
+        // Update Manager only checks daily, so missing patches show up in Azure.
+        patchSettings: {
+          patchMode: 'ImageDefault'
+          assessmentMode: 'AutomaticByPlatform'
+        }
         ssh: {
           publicKeys: [
             {

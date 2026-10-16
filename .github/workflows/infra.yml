@@ -19,6 +19,7 @@ env:
   # Read by main.bicepparam.
   SSH_SOURCE_ADDRESS: ${{ vars.SSH_SOURCE_ADDRESS }}
   SSH_PUBLIC_KEY: ${{ vars.SSH_PUBLIC_KEY }}
+  ALERT_EMAIL: ${{ vars.ALERT_EMAIL }}
 
 jobs:
   lint:

@@ -47,7 +47,7 @@ Packs live in `content/` (committed) and `content-private/` (third-party, gitign
 
 ## Production
 
-One Azure VM in `centralus` running Docker Compose: Caddy (automatic HTTPS) in front of the app, with MySQL on a data disk.
+One Azure VM in `centralus` running Docker Compose: Caddy (automatic HTTPS) in front of the app, with MySQL on a data disk. See [docs/architecture.md](docs/architecture.md) for the full design: identities and permissions, delivery, data protection, monitoring, and known limitations.
 
 ```
 GitHub Actions ──OIDC──▶ Azure ──▶ ACR (rg-dndwithin-shared)
@@ -60,7 +60,7 @@ GitHub Actions ──OIDC──▶ Azure ──▶ ACR (rg-dndwithin-shared)
 Bicep in `infra/bicep/` (see its README). `bootstrap.bicep` holds policy, custom roles and the CI identities, and you run it by hand. `main.bicep` holds the workload: registry, network and VM.
 
 `.github/workflows/infra.yml` lints both templates and posts a what-if for `main.bicep` on every pull request that touches `infra/`, using a read-only identity. To deploy, start the workflow on `main` with **Run workflow**. That run deploys `main.bicep` with an identity that holds Contributor on the two resource groups and can only assign the roles the templates use.
-It also needs the repository variables `AZURE_INFRA_CLIENT_ID`, `AZURE_WHATIF_CLIENT_ID`, `SSH_SOURCE_ADDRESS` and `SSH_PUBLIC_KEY`.
+It also needs the repository variables `AZURE_INFRA_CLIENT_ID`, `AZURE_WHATIF_CLIENT_ID`, `SSH_SOURCE_ADDRESS`, `SSH_PUBLIC_KEY` and `ALERT_EMAIL`.
 
 ### Delivery
 

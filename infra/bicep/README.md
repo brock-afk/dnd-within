@@ -25,7 +25,7 @@ Bootstrap:
     az deployment sub what-if -n bootstrap -l centralus -f bootstrap.bicep -p bootstrap.bicepparam
     az deployment sub create -n bootstrap -l centralus -f bootstrap.bicep -p bootstrap.bicepparam
 
-Its outputs are the GitHub repository variables. `main.bicepparam` reads `SSH_SOURCE_ADDRESS`, `SSH_PUBLIC_KEY` and `ALERT_EMAIL` from the environment (repository variables in CI), so a local what-if needs them exported:
+Its outputs are the GitHub repository variables. `main.bicepparam` reads `SSH_SOURCE_ADDRESS`, `SSH_PUBLIC_KEY` and `ALERT_EMAIL` from the environment (repository secrets and variables in CI), so a local what-if needs them exported:
 
     export SSH_SOURCE_ADDRESS=$(curl -s https://api.ipify.org)/32 SSH_PUBLIC_KEY="$(cat ~/.ssh/dndwithin-vm.pub)" ALERT_EMAIL=<you@example.com>
     az deployment sub what-if -n main -l centralus -f main.bicep -p main.bicepparam

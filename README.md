@@ -59,7 +59,7 @@ GitHub Actions ──OIDC──▶ Azure ──▶ ACR (rg-dndwithin-shared)
 
 Bicep in `infra/bicep/` (see its README). `bootstrap.bicep` contains policy, custom roles, the CI identities and their role assignments, and resource locks; an Owner deploys it manually. `main.bicep` contains the workload: registry, network, VM, backup storage, Key Vault, Recovery Services vault and monitoring.
 
-`.github/workflows/infra.yml` lints both templates on pull requests that change `infra/` and runs a what-if for `main.bicep` as a read-only identity. Deployment runs when the workflow is started manually on `main`, as an identity with Contributor on the two resource groups and role assignment rights limited to the roles the templates use. The workflow needs the repository variables `AZURE_INFRA_CLIENT_ID`, `AZURE_WHATIF_CLIENT_ID`, `SSH_SOURCE_ADDRESS`, `SSH_PUBLIC_KEY` and `ALERT_EMAIL`.
+`.github/workflows/infra.yml` lints both templates on pull requests that change `infra/` and runs a what-if for `main.bicep` as a read-only identity. Deployment runs when the workflow is started manually on `main`, as an identity with Contributor on the two resource groups and role assignment rights limited to the roles the templates use. The workflow needs the repository variables `AZURE_INFRA_CLIENT_ID`, `AZURE_WHATIF_CLIENT_ID` and `SSH_PUBLIC_KEY`, and the repository secrets `SSH_SOURCE_ADDRESS` and `ALERT_EMAIL`.
 
 ### Delivery
 

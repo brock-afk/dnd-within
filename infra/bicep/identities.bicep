@@ -8,6 +8,9 @@ param project string = 'dndwithin'
 @description('The repo as it appears in GitHub\'s OIDC subject (owner@id/name@id).')
 param githubRepo string
 
+@description('The content repo in its customized OIDC subject (repository_owner_id:<id>:repository_id:<id>).')
+param contentRepoSubject string
+
 param tags object = {
   project: project
   environment: 'prod'
@@ -77,9 +80,64 @@ resource whatIfPr 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIde
   }
 }
 
+// The content repo's subject template adds event_name and ref_type: Entra matches subjects
+// exactly, so this is how one credential covers every PR and another every tag push.
+resource contentCheck 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-${project}-content-check'
+  location: location
+  tags: tags
+}
+
+resource contentCheckPr 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
+  parent: contentCheck
+  name: 'github-pr'
+  properties: {
+    issuer: issuer
+    subject: '${contentRepoSubject}:event_name:pull_request:ref_type:branch'
+    audiences: audiences
+  }
+}
+
+resource contentCheckReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, contentCheck.id, readerRole)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', readerRole)
+    principalId: contentCheck.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Publishes and deploys a release, so only a tag push gets it.
+resource contentRelease 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-${project}-content-release'
+  location: location
+  tags: tags
+}
+
+resource contentReleaseTag 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
+  parent: contentRelease
+  name: 'github-tag'
+  properties: {
+    issuer: issuer
+    subject: '${contentRepoSubject}:event_name:push:ref_type:tag'
+    audiences: audiences
+  }
+}
+
+resource contentReleaseReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, contentRelease.id, readerRole)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', readerRole)
+    principalId: contentRelease.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 output appPrincipalId string = app.properties.principalId
 output appClientId string = app.properties.clientId
 output infraPrincipalId string = infra.properties.principalId
 output infraClientId string = infra.properties.clientId
 output whatIfPrincipalId string = whatIf.properties.principalId
 output whatIfClientId string = whatIf.properties.clientId
+output contentCheckClientId string = contentCheck.properties.clientId
+output contentReleaseClientId string = contentRelease.properties.clientId

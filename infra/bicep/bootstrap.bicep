@@ -11,6 +11,9 @@ param project string = 'dndwithin'
 @description('The repo as it appears in GitHub\'s OIDC subject (owner@id/name@id).')
 param githubRepo string
 
+@description('The content repo in its customized OIDC subject (repository_owner_id:<id>:repository_id:<id>).')
+param contentRepoSubject string
+
 param tags object = {
   project: project
   environment: 'prod'
@@ -20,6 +23,7 @@ var readerRole = 'acdd72a7-3385-48ef-bd42-f606fba81ae7'
 var acrPushRole = '8311e382-0749-4cb8-b61a-304f252e45ec'
 var acrPullRole = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 var blobDataContributorRole = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+var blobDataReaderRole = '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
 var kvSecretsUserRole = '4633458b-17de-408a-b874-0445c86b69e6'
 var kvSecretsOfficerRole = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
 var vmDeployerRole = guid(subscription().id, project, 'vm-deployer')
@@ -58,6 +62,7 @@ module identities 'identities.bicep' = {
   params: {
     project: project
     githubRepo: githubRepo
+    contentRepoSubject: contentRepoSubject
     tags: tags
   }
 }
@@ -138,7 +143,13 @@ module sharedAccess 'modules/rg-access.bicep' = {
   scope: sharedRg
   params: {
     principalId: identities.outputs.infraPrincipalId
-    assignableRoleIds: [acrPushRole, acrPullRole, blobDataContributorRole, kvSecretsUserRole]
+    assignableRoleIds: [
+      acrPushRole
+      acrPullRole
+      blobDataContributorRole
+      blobDataReaderRole
+      kvSecretsUserRole
+    ]
   }
 }
 
@@ -187,5 +198,8 @@ module iaasLock 'modules/rg-lock.bicep' = {
 output AZURE_CLIENT_ID string = identities.outputs.appClientId
 output AZURE_INFRA_CLIENT_ID string = identities.outputs.infraClientId
 output AZURE_WHATIF_CLIENT_ID string = identities.outputs.whatIfClientId
+// Content repository variables.
+output AZURE_CONTENT_CHECK_CLIENT_ID string = identities.outputs.contentCheckClientId
+output AZURE_CONTENT_RELEASE_CLIENT_ID string = identities.outputs.contentReleaseClientId
 output AZURE_TENANT_ID string = tenant().tenantId
 output AZURE_SUBSCRIPTION_ID string = subscription().subscriptionId

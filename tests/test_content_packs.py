@@ -7,12 +7,13 @@ from app.content import loader
 from app.content.schema import ItemDef
 from app.features.schema import UsesDef
 
-CONTENT = Path(__file__).resolve().parents[1] / "content"
+ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_committed_packs_are_valid(monkeypatch):
-    # Only committed packs: content-private isn't available in CI.
-    monkeypatch.setattr(loader.settings, "content_paths", str(CONTENT))
+# content/ is still committed until the packs move to their own repo.
+@pytest.mark.parametrize("folder", [ROOT / "tests/fixtures/content", ROOT / "content"])
+def test_committed_packs_are_valid(monkeypatch, folder):
+    monkeypatch.setattr(loader.settings, "content_paths", str(folder))
     packs = loader.discover()
     assert packs, "no content packs found"
     for pack in packs:

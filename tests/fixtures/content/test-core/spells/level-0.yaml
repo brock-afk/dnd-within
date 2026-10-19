@@ -1,0 +1,32 @@
+- slug: test-cantrip-a
+  name: Test Cantrip A
+  level: 0
+  school: evocation
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.
+
+- slug: test-cantrip-b
+  name: Test Cantrip B
+  level: 0
+  school: evocation
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.
+
+- slug: test-cantrip-c
+  name: Test Cantrip C
+  level: 0
+  school: evocation
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: distance, feet: 60}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.

@@ -1,6 +1,6 @@
 """Integration tests run on a real MySQL database (dnd_within_test, see tests/conftest.py):
-migrated to head and loaded with the committed content packs once per run. Each test runs in a
-transaction that's rolled back afterwards."""
+migrated to head and loaded with the fixture pack (tests/fixtures/content) once per run. Each
+test runs in a transaction that's rolled back afterwards."""
 
 import pytest
 from alembic import command

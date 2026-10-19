@@ -1,0 +1,80 @@
+- slug: find-familiar
+  name: Find Familiar
+  level: 1
+  school: conjuration
+  classes: [wizard]
+  casting_time: {unit: hour, amount: 1}
+  ritual: true
+  range: {kind: distance, feet: 10}
+  components:
+    verbal: true
+    somatic: true
+    material: {text: incense, cost_gp: 10, consumed: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.
+
+- slug: test-spell-a
+  name: Test Spell A
+  level: 1
+  school: abjuration
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.
+
+- slug: test-spell-b
+  name: Test Spell B
+  level: 1
+  school: abjuration
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.
+
+- slug: test-spell-c
+  name: Test Spell C
+  level: 1
+  school: abjuration
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.
+
+- slug: test-spell-d
+  name: Test Spell D
+  level: 1
+  school: abjuration
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.
+
+- slug: test-spell-e
+  name: Test Spell E
+  level: 1
+  school: abjuration
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.
+
+- slug: test-spell-f
+  name: Test Spell F
+  level: 1
+  school: abjuration
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true, somatic: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.

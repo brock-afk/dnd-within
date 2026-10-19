@@ -1,0 +1,60 @@
+slug: wizard
+name: Wizard
+summary: Test class.
+hit_die: 6
+saving_throws: [INT, WIS]
+spellcasting:
+  ability: INT
+  prepared: [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 18, 19, 21, 22, 23, 24, 25]
+  ritual_casting: spellbook
+  slots: full
+features:
+- slug: proficiencies
+  name: Proficiencies
+  summary: Test feature.
+  applies_to: starting_class
+  choices:
+  - slug: skills
+    name: Skill Proficiencies
+    kind: skill
+    count: 2
+    criteria:
+      from: [arcana, history, insight, investigation, medicine, nature, religion]
+- slug: spellcasting
+  name: Spellcasting
+  summary: Test feature.
+  choices:
+  - slug: cantrips
+    name: Cantrips
+    kind: spell
+    count: 3
+    criteria: {class: wizard, level: 0}
+  - slug: spellbook
+    name: Spellbook
+    kind: spellbook
+    count: 6
+    criteria: {class: wizard, level: 1}
+  - slug: spellbook-2
+    name: Spellbook
+    kind: spellbook
+    count: 2
+    level: 2
+    criteria: {class: wizard, max_level: 1}
+- slug: ritual-adept
+  name: Ritual Adept
+  summary: Test feature.
+- slug: scholar
+  name: Scholar
+  level: 2
+  summary: Test feature.
+  choices:
+  - slug: scholar
+    name: Scholar
+    kind: expertise
+    criteria:
+      from: [arcana, history, investigation, medicine, nature, religion]
+- slug: arcane-recovery
+  name: Arcane Recovery
+  uses: {max: 1, recharge: long_rest}
+  slot_recovery: {budget: half_class_level, max_slot_level: 5}
+  summary: Test feature.

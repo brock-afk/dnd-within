@@ -30,7 +30,7 @@ def test_long_rest_ends_max_hp_effects_and_restores_hp(db, character):
 
 def _wand(db, character, regain, expended, attuned=True) -> Feature:
     """A magic item with charges that regain `regain` dice at dawn, `expended` of them spent."""
-    source = db.scalar(select(Source).where(Source.slug == "phb-2024"))
+    source = db.scalar(select(Source).where(Source.slug == "test-core"))
     wand = Item(
         source_id=source.id,
         slug="test-wand",

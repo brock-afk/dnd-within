@@ -19,7 +19,7 @@ REFUSED = "Find Familiar is always prepared (Familiar Gift)."
 @pytest.fixture
 def find_familiar(db, character) -> Spell:
     """Find Familiar, always prepared through a carried charm's Familiar Gift."""
-    source = db.scalar(select(Source).where(Source.slug == "phb-2024"))
+    source = db.scalar(select(Source).where(Source.slug == "test-core"))
     spell = db.scalar(select(Spell).where(Spell.slug == "find-familiar"))
     charm = Item(
         source_id=source.id, slug="test-charm", name="Test Charm", category="magic", summary=""

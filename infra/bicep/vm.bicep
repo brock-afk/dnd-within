@@ -21,6 +21,10 @@ param sharedResourceGroupName string
 param ciIdentityId string
 param ciPrincipalId string
 
+@description('The content repo\'s release identity, which gets the deploy role on this VM.')
+param contentIdentityId string
+param contentPrincipalId string
+
 @description('The VM Deployer custom role, from bootstrap.bicep.')
 param vmDeployerRoleId string
 
@@ -148,6 +152,16 @@ resource ciDeployer 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   properties: {
     roleDefinitionId: vmDeployerRoleId
     principalId: ciPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource contentDeployer 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(vm.id, contentIdentityId, 'vm-deployer')
+  scope: vm
+  properties: {
+    roleDefinitionId: vmDeployerRoleId
+    principalId: contentPrincipalId
     principalType: 'ServicePrincipal'
   }
 }

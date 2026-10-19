@@ -37,6 +37,16 @@ resource appIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-3
   scope: sharedRg
 }
 
+resource contentCheckIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
+  name: 'id-${project}-content-check'
+  scope: sharedRg
+}
+
+resource contentReleaseIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
+  name: 'id-${project}-content-release'
+  scope: sharedRg
+}
+
 module acr 'acr.bicep' = {
   name: 'acr'
   scope: sharedRg
@@ -46,6 +56,25 @@ module acr 'acr.bicep' = {
     appIdentityId: appIdentity.id
     appPrincipalId: appIdentity.properties.principalId
     tags: tags
+  }
+}
+
+// Content CI validates packs with the app image.
+module contentCheckPull 'modules/acr-pull.bicep' = {
+  name: 'acr-pull-${project}-content-check'
+  scope: sharedRg
+  params: {
+    registryName: acr.outputs.registryName
+    principalId: contentCheckIdentity.properties.principalId
+  }
+}
+
+module contentReleasePull 'modules/acr-pull.bicep' = {
+  name: 'acr-pull-${project}-content-release'
+  scope: sharedRg
+  params: {
+    registryName: acr.outputs.registryName
+    principalId: contentReleaseIdentity.properties.principalId
   }
 }
 
@@ -73,6 +102,8 @@ module vm 'vm.bicep' = {
     sharedResourceGroupName: sharedRg.name
     ciIdentityId: appIdentity.id
     ciPrincipalId: appIdentity.properties.principalId
+    contentIdentityId: contentReleaseIdentity.id
+    contentPrincipalId: contentReleaseIdentity.properties.principalId
     vmDeployerRoleId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
       guid(subscription().id, project, 'vm-deployer')
@@ -89,6 +120,16 @@ module backup 'backup.bicep' = {
     project: project
     vmPrincipalId: vm.outputs.principalId
     tags: tags
+  }
+}
+
+module content 'content.bicep' = {
+  name: 'content'
+  scope: sharedRg
+  params: {
+    accountName: backup.outputs.accountName
+    releasePrincipalId: contentReleaseIdentity.properties.principalId
+    vmPrincipalId: vm.outputs.principalId
   }
 }
 

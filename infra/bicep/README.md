@@ -6,7 +6,7 @@ Two deployments at subscription scope. `bootstrap.bicep` decides what the pipeli
 |---|---|---|
 | `bootstrap.bicep` | you | resource groups, custom roles, CI identities and their access, your blob and secret access, delete locks |
 | `governance.bicep` | bootstrap | policy assignments |
-| `identities.bicep` | bootstrap | the `github` (app), `infra` and `whatif` identities, in `rg-dndwithin-shared` |
+| `identities.bicep` | bootstrap | the `github` (app), `infra` and `whatif` identities, and the content repo's `content-check` and `content-release` identities, in `rg-dndwithin-shared` |
 | `modules/rg-access.bicep` | bootstrap | Contributor, plus role assignment limited to named roles, for the infra identity |
 | `modules/vm-deployer-role.bicep` | bootstrap | custom role: read a VM and run commands on it |
 | `modules/user-role.bicep` | bootstrap | Storage Blob Data Contributor and Key Vault Secrets Officer on `rg-dndwithin-shared` for whoever runs bootstrap |
@@ -14,11 +14,12 @@ Two deployments at subscription scope. `bootstrap.bicep` decides what the pipeli
 | `main.bicep` | infra.yml | wires the workload modules together |
 | `acr.bicep` | main | container registry; AcrPush for the app identity |
 | `network.bicep` | main | VNet, subnet + NSG, public IP |
-| `vm.bicep` | main | VM, NIC, disks, cloud-init; AcrPull for the VM; the VM Deployer role for the app identity |
+| `vm.bicep` | main | VM, NIC, disks, cloud-init; AcrPull for the VM; the VM Deployer role for the app and content-release identities |
 | `keyvault.bicep` | main | Key Vault (RBAC, purge protection) for the app's secrets; read access for the VM |
 | `vm-backup.bicep` | main | Recovery Services vault (GRS, soft delete) and an Enhanced daily policy protecting the VM, 14 days |
 | `monitoring.bicep` | main | Log Analytics, App Insights, email action group; alerts for the site down (uptime test on `/healthz`), VM backup failures, and no database backup in 24 hours |
 | `backup.bicep` | main | GRS storage for database backups: Entra-only, 14-day immutability, deleted after 35 days; write access for the VM |
+| `content.bicep` | main | `content-releases` container in the backup account: 365-day immutability; write access for the content-release identity, read access for the VM |
 
 Bootstrap:
 

@@ -3,7 +3,7 @@
 **/*.pyc
 .env
 .git/
-# Third-party content packs: copyrighted, never committed or built into the image.
+# Content packs: copyrighted, mounted from the private dnd-within-content repo.
 content-private/
 # Database dumps and backups: your data, never committed or built into the image.
 *.sql.gz

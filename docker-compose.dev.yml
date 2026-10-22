@@ -4,6 +4,14 @@ services:
   app:
     volumes:
       - .:/app
+      # Content packs come from the private dnd-within-content repo, cloned next to this one.
+      # Without create_host_path, a missing clone becomes an empty root-owned folder there.
+      - type: bind
+        source: ../dnd-within-content
+        target: /app/content-private
+        read_only: true
+        bind:
+          create_host_path: false
     environment:
       # Don't write root-owned __pycache__ dirs into the host project.
       PYTHONDONTWRITEBYTECODE: 1

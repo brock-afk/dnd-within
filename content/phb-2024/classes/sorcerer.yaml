@@ -1,5 +1,0 @@
-slug: sorcerer
-name: Sorcerer
-summary: A caster with raw magic in their blood.
-hit_die: 6
-saving_throws: [CON, CHA]

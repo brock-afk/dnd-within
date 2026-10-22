@@ -137,7 +137,7 @@ Security updates are installed by Ubuntu's unattended-upgrades. Azure Update Man
 
 - Single VM with no redundancy. A single-instance VM with Premium SSD has a 99.9% SLA.
 - `.env` on the VM is created manually. Its secrets are stored in Key Vault, but the VM does not read them from there.
-- SSH (port 22) is open to one administrator IP address, used to copy content packs to the VM.
+- SSH (port 22) is open to one administrator IP address, used to install content releases (`scripts/content-release.sh`).
 - Rollback restarts the previous image but does not reverse database migrations. A bad migration is recovered from the pre-deploy backup.
 - The database recovery point objective is up to 24 hours.
 - No guest OS metrics (disk usage, memory) are collected.

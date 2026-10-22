@@ -29,7 +29,7 @@ COPY app ./app
 USER app
 EXPOSE 8000
 # Lets `compose up --wait` (deploy-vm.sh) fail a deploy whose app never becomes healthy. The start
-# period covers migrations and content-pack imports on first boot.
+# period covers migrations on first boot.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --start-interval=2s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4)"]
 # Bring the database schema up to date, then start the app.

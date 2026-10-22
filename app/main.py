@@ -1,5 +1,4 @@
 import re
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
@@ -15,10 +14,9 @@ from app.auth.router import router as auth_router
 from app.auth.security import HashingBusy
 from app.backgrounds.router import router as backgrounds_router
 from app.characters.router import router as characters_router
-from app.content.importer import import_packs
 from app.core.config import settings
 from app.core.csrf import is_cross_origin
-from app.core.db import DbSession, SessionLocal
+from app.core.db import DbSession
 from app.core.templates import APP_DIR
 from app.features.router import router as features_router
 from app.homebrew.router import router as homebrew_router
@@ -29,17 +27,7 @@ from app.sharing.router import router as sharing_router
 from app.sheet.router import router as sheet_router
 from app.species.router import router as species_router
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # The schema is managed by Alembic (run on container start). Content comes from the
-    # packs in CONTENT_PATHS; only packs whose files changed are imported.
-    with SessionLocal() as db:
-        import_packs(db)
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.secret_key,

@@ -23,7 +23,7 @@ class Source(Base):
     name: Mapped[str] = mapped_column(String(120))
     kind: Mapped[str] = mapped_column(String(20))
     owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    # Set by the content importer; lets startup skip packs that haven't changed.
+    # Set by the content importer; lets an import skip packs that haven't changed.
     pack_version: Mapped[str | None] = mapped_column(String(40))
     pack_checksum: Mapped[str | None] = mapped_column(String(64))
     imported_at: Mapped[datetime | None] = mapped_column(DateTime)

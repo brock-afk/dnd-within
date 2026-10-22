@@ -25,7 +25,7 @@ from app.skills.models import Skill
 from app.species.models import Species
 from app.spells.models import Spell
 
-log = logging.getLogger("uvicorn.error")  # shows up in the app's log output
+log = logging.getLogger(__name__)
 
 
 class FeatureSync:

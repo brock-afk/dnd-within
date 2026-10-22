@@ -88,7 +88,7 @@ def client(db, character):
     """The real app on the test transaction, logged in as the character's owner."""
     app.dependency_overrides[get_db] = lambda: db
     try:
-        client = TestClient(app)  # not as a context manager: skips the startup import
+        client = TestClient(app)
         user = db.get(User, character.user_id)
         response = client.post("/login", data={"username": user.username, "password": PASSWORD})
         assert response.status_code == 200, response.text

@@ -9,7 +9,7 @@
 #   ./dev.sh exec app alembic upgrade head                    apply migrations without a restart
 #   ./dev.sh exec app alembic downgrade -1                    undo the latest migration
 #
-# Content packs are imported on startup when their files change.
+# Content packs are imported by hand, not on startup; import skips packs whose files haven't changed.
 #   ./dev.sh exec app python -m app.content check             validate every pack
 #   ./dev.sh exec app python -m app.content import [PACK] [--force]
 set -euo pipefail

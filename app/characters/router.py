@@ -107,7 +107,7 @@ def create_character(
         levels=[CharacterLevel(character_level=1, class_id=class_id, hp_method="max")],
     )
     db.add(character)
-    db.commit()
+    db.flush()
     return hx_redirect(f"/characters/{character.id}")
 
 
@@ -149,7 +149,6 @@ def rename_character(
             status_code=400,
         )
     character.name = name
-    db.commit()
     return _name_heading(request, character)
 
 
@@ -166,5 +165,4 @@ def delete_character(
         )
     # Classes, skills, spells and choice picks are removed by ON DELETE CASCADE.
     db.delete(character)
-    db.commit()
     return hx_redirect("/characters")

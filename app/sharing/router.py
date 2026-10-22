@@ -74,12 +74,10 @@ async def shared_events(request: Request, token: str):
 def share(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
     """Share publicly with a new link, replacing any old one."""
     make_link(db, character)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
 @router.post("/characters/{character_id}/share/stop", response_class=HTMLResponse)
 def stop(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
     stop_sharing(db, character)
-    db.commit()
     return refresh_sheet(request, db, user, character)

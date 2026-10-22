@@ -177,7 +177,8 @@ def refresh_sheet(
     notices=None,
 ):
     """Re-render the sheet and morph it into place (see app/core/templates.py)."""
-    db.expire_all()  # sessions don't expire on commit; reload what just changed
+    db.flush()  # expiring drops changes not yet sent to the database
+    db.expire_all()  # reload what just changed
     response = render_sheet(
         request,
         db,
@@ -231,7 +232,6 @@ def change_hp(
         return refresh_sheet(request, db, user, character, pending_damage=value)
     state = play_state(db, character)
     (take_damage if action == "damage" else heal)(state, value, maximum)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -268,7 +268,6 @@ def react_to_damage(
 
     set_uses_remaining(db, character, reaction.uses, reaction.uses.remaining - 1)
     take_damage(play_state(db, character), value, maximum)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -286,7 +285,6 @@ def change_temp_hp(
         errors = {"temp_hp": "Enter a whole number from 0 to 999."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
     set_temp_hp(play_state(db, character), value, source.strip()[:80])
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -308,7 +306,6 @@ def add_hp_effect(
     db.add(CharacterHpEffect(character_id=character.id, label=label, max_hp_delta=value))
     # Starting an effect like Aid heals by the increase; a drain only caps current HP.
     track_max_change(db, character, old_max, heal=value > 0)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -326,7 +323,6 @@ def end_hp_effect(
     # Ending an effect never heals: Aid ending only caps current HP, and a drain wearing off
     # raises max HP without restoring any.
     track_max_change(db, character, old_max, heal=False)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -351,7 +347,6 @@ def cast_ac_spell(
     if error:
         return refresh_sheet(request, db, user, character, {"ac_effect": error}, status_code=400)
     apply_ac_spell(db, character, found)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -381,7 +376,6 @@ def add_ac_effect(
         errors = {"ac_effect": f"Give the effect a name and {problem}."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
     db.add(CharacterAcEffect(character_id=character.id, label=label, kind=kind, value=amount))
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -395,7 +389,6 @@ def end_ac_effect(
     if effect is None or effect.character_id != character.id:
         raise HTTPException(status_code=404)
     db.delete(effect)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -477,7 +470,6 @@ def save_prepared(
     db.add_all(
         CharacterPreparedSpell(character_id=character.id, spell_id=book[key]) for key in picks
     )
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -509,7 +501,7 @@ def remove_copied_spell(
         error = "Only copied spells can be removed here. Change level-up spells on the Build page."
         return _render_prepared_editor(request, db, character, picks, error, status_code=400)
     db.delete(entry)
-    db.commit()
+    db.flush()
     db.expire_all()
     return _render_prepared_editor(request, db, character, [p for p in picks if p != remove])
 
@@ -532,7 +524,6 @@ def set_slots(
         errors = {"slots": "That isn't a valid number of slots."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
     set_slots_remaining(db, character, level, value)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -549,7 +540,6 @@ def cast_spell(
     found, error = _spend_slot(db, character, spell, slot_level)
     if error:
         return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -578,7 +568,6 @@ def cast_free(
     if error:
         return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
     set_uses_remaining(db, character, uses, uses.remaining - granted[0].charge_cost)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -630,7 +619,6 @@ def set_play_choice(
             return refresh_sheet(request, db, user, character, errors, status_code=400)
     else:
         kind.clear(db, [choice.id], character.id)
-        db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -654,7 +642,6 @@ def set_uses(
         errors = {"uses": "That isn't a valid number of uses."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
     set_uses_remaining(db, character, uses, value)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -676,7 +663,6 @@ def use_feature(
         error = f"{feature.name} takes {feature.spends_amount}; {uses.remaining} left."
         return refresh_sheet(request, db, user, character, {"uses": error}, status_code=400)
     set_uses_remaining(db, character, uses, uses.remaining - feature.spends_amount)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -715,7 +701,6 @@ def short_rest_hit_die(
 
     spend_hit_die(db, character, dice.character_class.id)
     heal(play_state(db, character), hit_die_healing(int(roll), con_mod), maximum)
-    db.commit()
     return refresh_sheet(request, db, user, character, resting=True)
 
 
@@ -780,7 +765,6 @@ def short_rest_recover(
     for level, n in counts.items():
         set_slots_remaining(db, character, level, slots[level].remaining + n)
     set_uses_remaining(db, character, uses, uses.remaining - 1)
-    db.commit()
     return refresh_sheet(request, db, user, character, resting=True)
 
 
@@ -789,14 +773,12 @@ def short_rest_finish(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter
 ):
     finish_short_rest(db, character)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
 @router.post("/characters/{character_id}/sheet/long-rest", response_class=HTMLResponse)
 def take_long_rest(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
     long_rest(db, character)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -929,5 +911,4 @@ def copy_spell(
             source_note=note.strip()[:120] or None,
         )
     )
-    db.commit()
     return refresh_sheet(request, db, user, character)

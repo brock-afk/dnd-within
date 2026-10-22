@@ -18,7 +18,11 @@ def count_queries():
     queries = []
 
     def count(*args):
-        queries.append(args[2])  # the statement
+        statement = args[2]
+        # The test session turns each commit into savepoints; in production a commit isn't a
+        # statement at all.
+        if "SAVEPOINT" not in statement:
+            queries.append(statement)
 
     event.listen(engine, "before_cursor_execute", count)
     try:

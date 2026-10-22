@@ -146,7 +146,6 @@ def add(
         return _render_confirm(
             request, db, character, item, q, quantity, spell_id, error, status_code=400
         )
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -169,7 +168,6 @@ def quantity(
     if delta not in ("1", "-1"):
         raise HTTPException(status_code=400)
     change_quantity(db, _row(db, character, row_id), int(delta))
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -182,7 +180,6 @@ def use(request: Request, db: DbSession, user: CurrentUser, character: OwnedChar
             request, db, user, character, {"inventory": f"{row.name} isn't used up."}, 400
         )
     use_one(db, row)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -214,7 +211,6 @@ def heal_with(
             f", {amount - gained} over your max." if gained < amount else "."
         )
     use_one(db, row)
-    db.commit()
     return refresh_sheet(request, db, user, character, notices={"hp": notice})
 
 
@@ -229,7 +225,6 @@ def cast_ac_scroll(
         raise HTTPException(status_code=400)  # not an AC scroll, or its effect is already on
     apply_ac_spell(db, character, row.spell)
     use_one(db, row)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -247,7 +242,6 @@ def attune(
         return refresh_sheet(request, db, user, character, {"inventory": error}, 400)
     # Ending attunement ends the item's benefits, and picks made for them (its tool).
     remove_inapplicable_picks(db, character)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -261,7 +255,6 @@ def notes(
     notes: Annotated[str, Form()] = "",
 ):
     _row(db, character, row_id).notes = notes.strip()[:255] or None
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -279,7 +272,6 @@ def remove(
     db.delete(_row(db, character, row_id))
     db.flush()
     remove_inapplicable_picks(db, character)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -335,7 +327,6 @@ def change_coins(
             error = f"You don't have {raw} {labels[coin].lower()}, even breaking larger coins."
             return _coins_block(request, db, character, amount, coin, error, status_code=400)
     set_coins(db, character, new)
-    db.commit()
     return refresh_sheet(request, db, user, character)
 
 
@@ -366,5 +357,4 @@ def coins(
             return _coins_form(request, character, typed, error, status_code=400)
         values[column] = int(raw)
     set_coins(db, character, values)
-    db.commit()
     return refresh_sheet(request, db, user, character)

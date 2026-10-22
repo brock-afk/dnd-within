@@ -125,9 +125,7 @@ def _save(request, db, user, form: ItemForm, item: Item | None):
     saved = save_item(db, user, item_def, form.definition(), item)
     if character is not None:
         add_item(db, character, saved, 1)
-        db.commit()
         return hx_redirect(f"/characters/{character.id}/sheet")
-    db.commit()
     return hx_redirect("/homebrew")
 
 
@@ -160,5 +158,4 @@ def delete_confirm(request: Request, db: DbSession, user: CurrentUser, item_id: 
 @router.post("/homebrew/items/{item_id}/delete")
 def delete(db: DbSession, user: CurrentUser, item_id: int):
     delete_item(db, _owned(db, user, item_id))
-    db.commit()
     return hx_redirect("/homebrew")

@@ -83,7 +83,6 @@ def level_up(
         )
     )
     track_max_change(db, character, old_max, heal=True)  # current HP rises with the max
-    db.commit()
     return refresh_character_page(request, db, user, character)
 
 
@@ -97,5 +96,4 @@ def level_down(request: Request, db: DbSession, user: CurrentUser, character: Ow
     track_max_change(db, character, old_max, heal=False)  # current HP is capped at the new max
     # Features from the removed level are gone, so their picks go too.
     remove_inapplicable_picks(db, character)
-    db.commit()
     return refresh_character_page(request, db, user, character)

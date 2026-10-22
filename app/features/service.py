@@ -305,7 +305,7 @@ def remove_inapplicable_picks(db: Session, character: Character) -> None:
 def fill_fixed_choices(db: Session, character: Character) -> None:
     """Pick choices that offer exactly as many options as they ask for, like a background's
     Animal Handling. A choice the save rejects (the character already has that skill from
-    elsewhere) is left to pick by hand, as the rules say to choose another. Commits."""
+    elsewhere) is left to pick by hand, as the rules say to choose another."""
     for group in feature_groups(db, character):
         for fv in group.features:
             for cv in fv.choices:

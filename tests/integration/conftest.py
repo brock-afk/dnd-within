@@ -84,14 +84,31 @@ def stone_giant(db, character) -> Character:
 
 
 @pytest.fixture
-def client(db, character):
+def serve_with():
+    """Serve the app's requests on a given session, committing when a route returns and
+    rolling back when it raises, like get_db."""
+
+    def serve(session: Session) -> None:
+        def get_test_db():
+            try:
+                yield session
+            except Exception:
+                session.rollback()
+                raise
+            session.commit()
+
+        app.dependency_overrides[get_db] = get_test_db
+
+    yield serve
+    app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def client(db, character, serve_with):
     """The real app on the test transaction, logged in as the character's owner."""
-    app.dependency_overrides[get_db] = lambda: db
-    try:
-        client = TestClient(app)
-        user = db.get(User, character.user_id)
-        response = client.post("/login", data={"username": user.username, "password": PASSWORD})
-        assert response.status_code == 200, response.text
-        yield client
-    finally:
-        app.dependency_overrides.clear()
+    serve_with(db)
+    client = TestClient(app)
+    user = db.get(User, character.user_id)
+    response = client.post("/login", data={"username": user.username, "password": PASSWORD})
+    assert response.status_code == 200, response.text
+    yield client

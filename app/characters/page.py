@@ -96,7 +96,8 @@ def refresh_character_page(
 ) -> HTMLResponse:
     """The full page, with headers telling htmx to morph just the page body into place,
     whatever element sent the request."""
-    # Sessions don't expire objects on commit, so relationships loaded before the change
-    # (e.g. a class row's subclass) would render stale. Reload everything from the database.
+    # Relationships loaded before the change (e.g. a class row's subclass) would render stale,
+    # so reload everything. Flush first: expiring drops changes not yet sent to the database.
+    db.flush()
     db.expire_all()
     return morph_in_place(render_character_page(request, db, user, character), PAGE_SELECTOR)

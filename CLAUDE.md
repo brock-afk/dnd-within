@@ -48,6 +48,7 @@ Deploying: to Azure, being set up step by step (infrastructure as code in `infra
 ```bash
 scripts/dump-dev-db.sh                # local: dump the dev database
 scripts/restore-db.sh <file or blob>  # server: back up, then load a dump (local file or a blob in db-backups)
+scripts/content-release.sh <tag>      # server, over SSH for now: install and import a content release
 scripts/backup.sh                     # server: daily (systemd timer) and before each deploy; uploads to blob storage
 scripts/restore-drill.sh              # server: restore the newest blob into a scratch DB and compare row counts
 ```

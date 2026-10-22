@@ -77,7 +77,7 @@ The workflow logs in through OIDC with no stored secrets. It needs the repositor
 
 ### Server setup
 
-Copy `.env.production.example` to `/opt/dnd-within/.env` and fill in every value. `INVITE_CODE` gates registration; leaving it empty opens sign-up. Content packs go in `/opt/dnd-within/content-private/`, copied from the `dnd-within-content` repo, then imported with `docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm --no-deps app python -m app.content import`.
+Copy `.env.production.example` to `/opt/dnd-within/.env` and fill in every value. `INVITE_CODE` gates registration; leaving it empty opens sign-up. Content packs are installed from a release of the `dnd-within-content` repo with `ssh az-dnd 'bash /opt/dnd-within/scripts/content-release.sh <tag>'`, which downloads it from the `content-releases` container, checks it with the running image, puts it in `/opt/dnd-within/content-private/` and imports it.
 
 Keep the app a single process: live shared views (`app/sharing/live.py`) and login rate limits (`app/auth/limits.py`) are held in memory, so extra processes would delay live updates by up to 60 s and multiply allowed guesses. Running more than one would need a shared store for both, such as MySQL or Redis.
 
@@ -87,5 +87,6 @@ Keep the app a single process: live shared views (`app/sharing/live.py`) and log
 scripts/backup.sh                     # server: daily (systemd timer) and before each deploy; uploads to blob storage
 scripts/restore-drill.sh              # server: restore the newest blob into a scratch DB and compare row counts
 scripts/restore-db.sh <file or blob>  # server: back up, then load a dump (local file or a blob in db-backups)
+scripts/content-release.sh <tag>      # server: install and import a content release from content-releases
 scripts/dump-dev-db.sh                # local dev database
 ```

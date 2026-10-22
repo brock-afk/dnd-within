@@ -16,6 +16,7 @@ from app.backgrounds.models import Background
 from app.classes.models import CharacterClass, Subclass
 from app.content.loader import Pack, discover, import_order, resolve, split_ref
 from app.content.models import Source
+from app.core.config import settings
 from app.feats.models import Feat
 from app.features.models import Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.schema import ChoiceDef, FeatureDef
@@ -368,8 +369,12 @@ def import_pack(db: Session, pack: Pack, by_slug: dict[str, Pack]) -> None:
 def import_packs(db: Session, only: str | None = None, force: bool = False) -> bool:
     """Import every valid pack whose files changed since its last import (or all of them with
     `force`). Invalid packs are skipped with their errors logged, and keep their previous data.
-    Returns False if any pack was invalid or failed."""
+    Returns False if no packs were found, or any pack was invalid or failed."""
     packs = import_order(discover())
+    if not packs:
+        # Packs come from a mounted repo, so a missing clone or copy would otherwise go unnoticed.
+        log.warning("No content packs found in CONTENT_PATHS (%s).", settings.content_paths)
+        return False
     by_slug = {p.slug: p for p in packs}
     all_ok = True
     for pack in packs:

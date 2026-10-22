@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 from pydantic import ValidationError
 
@@ -7,13 +5,8 @@ from app.content import loader
 from app.content.schema import ItemDef
 from app.features.schema import UsesDef
 
-ROOT = Path(__file__).resolve().parents[1]
 
-
-# content/ is still committed until the packs move to their own repo.
-@pytest.mark.parametrize("folder", [ROOT / "tests/fixtures/content", ROOT / "content"])
-def test_committed_packs_are_valid(monkeypatch, folder):
-    monkeypatch.setattr(loader.settings, "content_paths", str(folder))
+def test_fixture_packs_are_valid():
     packs = loader.discover()
     assert packs, "no content packs found"
     for pack in packs:

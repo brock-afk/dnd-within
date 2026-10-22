@@ -7,7 +7,7 @@ services:
     image: ${APP_IMAGE:?Set APP_IMAGE in .env}
     build: !reset null
     volumes:
-      # Third-party packs live on the server, never in the image.
+      # Every content pack, copied here from the private dnd-within-content repo; none are in the image.
       - ./content-private:/app/content-private:ro
     environment:
       SESSION_HTTPS_ONLY: "true"

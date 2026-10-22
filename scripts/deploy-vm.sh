@@ -32,13 +32,26 @@ az login --identity --allow-no-subscriptions --output none
 az acr login --name "${image%%.*}"
 
 compose=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
+# Pulled first so the content check below can run the new image.
+APP_IMAGE=$image "${compose[@]}" pull --quiet
+# The new image must accept the packs installed here; checked before the backup, which a failure
+# would waste. The output stays on the VM because the workflow log is public and errors can
+# quote pack files. The glob is the loader's own rule for what counts as a pack.
+if ! compgen -G "content-private/*/pack.yaml" > /dev/null; then
+    echo "Warning: no content packs in content-private, so the content check was skipped"
+elif ! APP_IMAGE=$image "${compose[@]}" run --rm --no-deps -T app python -m app.content check \
+    > content-check.log 2>&1; then
+    echo "Content check failed: see /opt/dnd-within/content-check.log on the VM"
+    exit 1
+else
+    echo "Content check passed"
+fi
 # The new image may migrate the schema, and migrations only go forward. Skipped on a fresh VM.
 if [ -n "$("${compose[@]}" ps --status running --quiet db)" ]; then
     scripts/backup.sh
 fi
 # The new image goes in through the environment (which beats .env), so if it never gets healthy
 # .env still names the last good one to roll back to. Migrations it ran aren't undone.
-APP_IMAGE=$image "${compose[@]}" pull --quiet
 if ! APP_IMAGE=$image "${compose[@]}" up -d --remove-orphans --wait --wait-timeout 180; then
     echo "Unhealthy: rolling back to the image in .env"
     "${compose[@]}" up -d --remove-orphans --wait --wait-timeout 180 || true

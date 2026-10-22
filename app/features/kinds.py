@@ -119,7 +119,7 @@ class ChoiceKind:
             )
             for t in targets
         )
-        db.commit()
+        db.flush()
         return None
 
     def unavailable(self, db: Session, choice: Choice, character_id: int) -> dict[str, str]:
@@ -321,7 +321,7 @@ class SubclassKind(ChoiceKind):
         if subclass is None or row is None:
             return "That isn't one of the options."
         row.subclass_id = subclass.id
-        db.commit()
+        db.flush()
         return None
 
     def unavailable(self, db, choice, character_id):
@@ -411,7 +411,7 @@ class AbilityScoresKind(ChoiceKind):
             )
             for abbr, n in split.items()
         )
-        db.commit()
+        db.flush()
         return None
 
     def unavailable(self, db, choice, character_id):

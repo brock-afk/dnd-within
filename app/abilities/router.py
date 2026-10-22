@@ -189,7 +189,6 @@ def save_abilities(
         setattr(character, column, score)
     # A Constitution change moves max HP: an increase raises current HP too, a decrease caps it.
     track_max_change(db, character, old_max, heal=True)
-    db.commit()
     return refresh_character_page(request, db, user, character)
 
 
@@ -316,5 +315,4 @@ def save_increases(
     remove_inapplicable_picks(db, character)
     # A Constitution increase raises max HP, and current HP with it.
     track_max_change(db, character, old_max, heal=True)
-    db.commit()
     return refresh_character_page(request, db, user, character)

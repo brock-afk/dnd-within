@@ -32,8 +32,13 @@ NullableJSON = JSON(none_as_null=True)
 
 
 def get_db() -> Iterator[Session]:
+    """One transaction per request, so a change made in several steps is saved whole or not
+    at all. Leaving the `with` after an exception rolls back."""
     with SessionLocal() as db:
         yield db
+        db.commit()
 
 
-DbSession = Annotated[Session, Depends(get_db)]
+# Function scope commits before the response is sent: a failed commit is an error response,
+# never a page showing changes that weren't saved.
+DbSession = Annotated[Session, Depends(get_db, scope="function")]

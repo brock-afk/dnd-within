@@ -100,5 +100,4 @@ def save_choice(
     remove_inapplicable_picks(db, character)
     # A pick can change max HP, e.g. a background's Constitution increase.
     track_max_change(db, character, old_max, heal=True)
-    db.commit()
     return refresh_character_page(request, db, user, character)

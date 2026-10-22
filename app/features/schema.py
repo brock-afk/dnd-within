@@ -1,6 +1,6 @@
 """Typed definitions for writing features in code (classes/data.py, species/data.py).
 
-Mistakes in content data fail loudly at startup instead of showing up as broken pages.
+Mistakes in content data fail loudly on check or import instead of showing up as broken pages.
 """
 
 import re

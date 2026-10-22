@@ -78,7 +78,7 @@ Game content (classes, subclasses, species, skills, spells, and their features/c
 - `<pack>/pack.yaml` plus `classes/`, `subclasses/<class>/`, `species/`, `backgrounds/`, `feats/`, `spells/level-N.yaml`, `skills.yaml`.
 - Packs are copyrighted and live in the private `dnd-within-content` repo, never here or in the image. Both compose files mount it at `/app/content-private`. `CONTENT_PATHS` (default `content-private`) controls where packs are discovered. Tests use only `tests/fixtures/content`.
 - `app/content/loader.py` parses packs into Pydantic models (`app/content/schema.py`, `app/features/schema.py`; all `extra="forbid"`) and checks cross-references. A reference can be a plain slug, which is looked up in this pack and then its `requires`, or `pack/slug`. It never touches the DB.
-- `app/content/importer.py` upserts each pack in one transaction on app startup, but only when the pack's checksum changed. Rows are matched by slug within their `Source` and updated in place, so IDs survive re-imports. Rows that disappear from a pack are **retired, not deleted**, because characters reference them.
+- `app/content/importer.py` upserts each pack in one transaction when `python -m app.content import` runs (never on app startup), but only when the pack's checksum changed. Rows are matched by slug within their `Source` and updated in place, so IDs survive re-imports. Rows that disappear from a pack are **retired, not deleted**, because characters reference them.
 
 Adding a new content capability usually means changing these together: the YAML schema (`*/schema.py`), the loader's reference checks, the importer, the DB model, and a migration.
 

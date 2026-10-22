@@ -38,7 +38,7 @@ Integration tests use a separate `dnd_within_test` database, never the dev data.
 
 ### Content packs
 
-Packs are copyrighted, so they live in the private `dnd-within-content` repo, never in this repo or the image. Clone it next to this one: `docker-compose.dev.yml` mounts `../dnd-within-content` at `/app/content-private`. Packs import on startup when their checksum changes. Tests use only `tests/fixtures/content`.
+Packs are copyrighted, so they live in the private `dnd-within-content` repo, never in this repo or the image. Clone it next to this one: `docker-compose.dev.yml` mounts `../dnd-within-content` at `/app/content-private`. The app doesn't import packs on startup: after changing one, run the import command below. Tests use only `tests/fixtures/content`.
 
 ```bash
 ./dev.sh exec app python -m app.content check             # validate every pack
@@ -77,7 +77,7 @@ The workflow logs in through OIDC with no stored secrets. It needs the repositor
 
 ### Server setup
 
-Copy `.env.production.example` to `/opt/dnd-within/.env` and fill in every value. `INVITE_CODE` gates registration; leaving it empty opens sign-up. Content packs go in `/opt/dnd-within/content-private/`, copied from the `dnd-within-content` repo.
+Copy `.env.production.example` to `/opt/dnd-within/.env` and fill in every value. `INVITE_CODE` gates registration; leaving it empty opens sign-up. Content packs go in `/opt/dnd-within/content-private/`, copied from the `dnd-within-content` repo, then imported with `docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm --no-deps app python -m app.content import`.
 
 Keep the app a single process: live shared views (`app/sharing/live.py`) and login rate limits (`app/auth/limits.py`) are held in memory, so extra processes would delay live updates by up to 60 s and multiply allowed guesses. Running more than one would need a shared store for both, such as MySQL or Redis.
 

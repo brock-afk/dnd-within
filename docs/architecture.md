@@ -88,10 +88,11 @@ Infrastructure is split into two deployments:
 Application deploys run `scripts/deploy-vm.sh` on the VM through `az vm run-command`:
 
 1. Extract the compose files, Caddyfile and scripts, and install the backup systemd timer.
-2. Take a database backup before starting the new image, since migrations run at startup and only go forward.
-3. Start the new image with `docker compose up --wait --wait-timeout 180`, which returns non-zero if a container is not healthy within the timeout.
-4. On failure, start the previous image recorded in `.env` and exit with an error.
-5. On success, record the new image in `.env`. The workflow then requests `/healthz` over the public endpoint.
+2. Validate the packs in `content-private` with the new image (`python -m app.content check`) and stop if any is invalid. The output goes to `content-check.log` on the VM, not to the public workflow log. If the folder has no packs, this step only warns.
+3. Take a database backup before starting the new image, since migrations run at startup and only go forward.
+4. Start the new image with `docker compose up --wait --wait-timeout 180`, which returns non-zero if a container is not healthy within the timeout.
+5. On failure, start the previous image recorded in `.env` and exit with an error.
+6. On success, record the new image in `.env`. The workflow then tags the image `deployed` in the registry (content CI validates against that tag) and requests `/healthz` over the public endpoint.
 
 GitHub Actions are pinned to commit SHAs and container images to digests. Dependabot opens weekly update pull requests, grouping minor and patch updates and ignoring MySQL minor and major versions to stay on the 8.4 LTS line. The application container runs as a non-root user, and pip is removed from the image.
 

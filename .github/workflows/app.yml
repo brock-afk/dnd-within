@@ -121,6 +121,16 @@ jobs:
           } > deploy.sh
           .github/scripts/vm-run.sh deploy.sh "Deploy succeeded"
 
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      # Content CI validates packs against the image production runs. Right after the deploy step,
+      # which only succeeds once the VM runs this image, so a failed smoke test can't leave the tag
+      # behind. imagetools retags the manifest without pulling it.
+      - name: Tag the image as deployed
+        run: |
+          az acr login --name "$REGISTRY"
+          docker buildx imagetools create --tag "$IMAGE:deployed" "$IMAGE:$GITHUB_SHA"
+
       # From outside, so it also catches what the VM can't see: DNS, the NSG, Caddy and the certificate.
       - name: Smoke test
         run: curl --fail --silent --show-error --max-time 10 --retry 5 --retry-delay 5 --retry-all-errors "https://$SITE/healthz"

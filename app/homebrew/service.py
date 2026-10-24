@@ -11,11 +11,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.models import User
+from app.characters.models import Character
 from app.content.importer import FeatureSync
 from app.content.loader import split_ref
 from app.content.models import Source
 from app.content.schema import ItemDef
+from app.homebrew.form import ItemForm, build_item_def
 from app.inventory.models import Item
+from app.inventory.service import add_item
 
 
 def homebrew_source(db: Session, user: User) -> Source:
@@ -45,25 +48,6 @@ class HomebrewSync(FeatureSync):
         if row is None:
             raise LookupError(f"{ref!r} isn't in the database")
         return row
-
-
-def user_items(db: Session, user: User) -> list[Item]:
-    """The user's homebrew items that haven't been deleted, by name."""
-    return list(
-        db.scalars(
-            select(Item)
-            .join(Source, Source.id == Item.source_id)
-            .where(Source.owner_user_id == user.id, Item.retired_at.is_(None))
-            .order_by(Item.name)
-        )
-    )
-
-
-def owned_item(db: Session, user: User, item_id: int) -> Item | None:
-    item = db.get(Item, item_id)
-    if item is None or item.retired_at is not None:
-        return None
-    return item if db.get(Source, item.source_id).owner_user_id == user.id else None
 
 
 def _unique_slug(db: Session, source: Source, slug: str, item: Item | None) -> str:
@@ -105,6 +89,21 @@ def save_item(
     HomebrewSync(db)._sync_features("item_id", item.id, item_def.features)
     db.flush()
     return item
+
+
+def save_from_form(
+    db: Session, user: User, form: ItemForm, item: Item | None, character: Character | None
+) -> dict[str, str]:
+    """Save the editor's item (a new one when `item` is None) and, when the editor was opened
+    from `character`'s Add item, add one to their inventory. Returns {field: problem} instead,
+    with nothing saved, when the form isn't valid."""
+    item_def, errors = build_item_def(db, form)
+    if errors:
+        return errors
+    saved = save_item(db, user, item_def, form.definition(), item)
+    if character is not None:
+        add_item(db, character, saved, 1)
+    return {}
 
 
 def delete_item(db: Session, item: Item) -> None:

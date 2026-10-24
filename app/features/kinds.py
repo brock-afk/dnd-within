@@ -13,10 +13,12 @@ from sqlalchemy.orm import Session
 
 from app.abilities.models import CharacterAbilityBonus
 from app.backgrounds.models import Background
+from app.characters.models import Character
 from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
 from app.content.queries import available
 from app.feats.models import Feat
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
+from app.sheet.slots import slot_maximums
 from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.species.models import Species
 from app.spells.models import CharacterSpell, Spell, SpellbookEntry
@@ -70,14 +72,14 @@ class ChoiceKind:
         """Extra columns to set on each new pick row."""
         return {}
 
-    def options_query(self, choice: Choice) -> Select:
+    def options_query(self, choice: Choice, character: Character) -> Select:
         raise NotImplementedError
 
     def view(self, obj) -> OptionView:
         raise NotImplementedError
 
-    def options(self, db: Session, choice: Choice) -> list[OptionView]:
-        return [self.view(obj) for obj in db.scalars(self.options_query(choice))]
+    def options(self, db: Session, choice: Choice, character: Character) -> list[OptionView]:
+        return [self.view(obj) for obj in db.scalars(self.options_query(choice, character))]
 
     def picked(self, db: Session, choice: Choice, character_id: int) -> list[OptionView]:
         fk = getattr(self.pick, self.target_fk)
@@ -92,7 +94,8 @@ class ChoiceKind:
     def save(self, db: Session, choice: Choice, character_id: int, keys: list[str]) -> str | None:
         """Replace this choice's picks. Returns an error message instead if they aren't valid."""
         ids = [int(k) for k in keys if k.isdigit()]
-        targets = db.scalars(self.options_query(choice).where(self.target.id.in_(ids))).all()
+        query = self.options_query(choice, db.get(Character, character_id))
+        targets = db.scalars(query.where(self.target.id.in_(ids))).all()
         if len(targets) != len(keys):
             return "That isn't one of the options."
 
@@ -165,7 +168,7 @@ class OptionKind(ChoiceKind):
 
     target, pick, target_fk = ChoiceOption, CharacterChoicePick, "option_id"
 
-    def options_query(self, choice):
+    def options_query(self, choice, character):
         return (
             select(ChoiceOption)
             .where(ChoiceOption.choice_id == choice.id, available(ChoiceOption))
@@ -184,7 +187,7 @@ class SkillKind(ChoiceKind):
     known_label = "Already proficient"
     known_from = "Proficient from"
 
-    def options_query(self, choice):
+    def options_query(self, choice, character):
         query = select(Skill).where(available(Skill))
         if "skill_ids" in choice.criteria:
             query = query.where(Skill.id.in_(choice.criteria["skill_ids"]))
@@ -209,7 +212,7 @@ class ExpertiseKind(SkillKind):
     def unavailable(self, db, choice, character_id):
         result = super().unavailable(db, choice, character_id)
         proficient = self._proficient(db, character_id)
-        for skill in db.scalars(self.options_query(choice)):
+        for skill in db.scalars(self.options_query(choice, db.get(Character, character_id))):
             if skill.id not in proficient:
                 result.setdefault(str(skill.id), "Not proficient")
         return result
@@ -239,15 +242,28 @@ class ExpertiseKind(SkillKind):
         )
 
 
+def class_slot_level(character: Character, class_id: int) -> int:
+    """The highest spell level this class's own slot table reaches at the character's level in
+    that class (a Warlock's Pact Magic slot level), never a multiclass combined table: 2024
+    multiclassing picks each class's spells by that class's level alone. 0 without slots."""
+    cc = next((cc for cc in character.classes if cc.class_id == class_id), None)
+    spellcasting = cc.character_class.spellcasting if cc else None
+    if not spellcasting or cc.level < 1:
+        return 0
+    return max(slot_maximums(spellcasting.get("slots", "full"), cc.level))
+
+
 class SpellKind(ChoiceKind):
-    """Spells known from a class's list, like cantrips. criteria: {"class_id": ...} plus either
-    "level" (an exact spell level) or "max_level" (levels 1 up to it), and optionally "school"
-    (Evocation Savant). The class is resolved from its slug on import."""
+    """Spells from a class's list, like cantrips or a Warlock's prepared spells. criteria:
+    {"class_id": ...} plus either "level" (an exact spell level) or "max_level" (levels 1 up to
+    it, or "class_slots": up to `class_slot_level`, so a pick made at level 1 can later be
+    changed to a higher-level spell), and optionally "school" (Evocation Savant). The class is
+    resolved from its slug on import."""
 
     target, pick, target_fk = Spell, CharacterSpell, "spell_id"
     noun = ("spell", "spells")
 
-    def options_query(self, choice):
+    def options_query(self, choice, character):
         criteria = choice.criteria
         query = (
             select(Spell)
@@ -257,7 +273,10 @@ class SpellKind(ChoiceKind):
         if "level" in criteria:
             query = query.where(Spell.level == criteria["level"])
         else:
-            query = query.where(Spell.level.between(1, criteria["max_level"]))
+            max_level = criteria["max_level"]
+            if max_level == "class_slots":
+                max_level = class_slot_level(character, criteria["class_id"])
+            query = query.where(Spell.level.between(1, max_level))
         if "school" in criteria:
             query = query.where(Spell.school == criteria["school"])
         return query.order_by(Spell.level, Spell.name)
@@ -294,7 +313,7 @@ class SubclassKind(ChoiceKind):
 
     target = Subclass
 
-    def options_query(self, choice):
+    def options_query(self, choice, character):
         return (
             select(Subclass)
             .where(Subclass.class_id == choice.feature.class_id, available(Subclass))
@@ -320,7 +339,8 @@ class SubclassKind(ChoiceKind):
 
     def save(self, db, choice, character_id, keys):
         ids = [int(k) for k in keys if k.isdigit()]
-        subclass = db.scalar(self.options_query(choice).where(Subclass.id.in_(ids)))
+        query = self.options_query(choice, db.get(Character, character_id))
+        subclass = db.scalar(query.where(Subclass.id.in_(ids)))
         row = self._class_row(db, choice.feature.class_id, character_id)
         if subclass is None or row is None:
             return "That isn't one of the options."
@@ -385,7 +405,7 @@ class AbilityScoresKind(ChoiceKind):
             self.key(amounts), ", ".join(f"{abbr} +{n}" for abbr, n in amounts.items())
         )
 
-    def options(self, db, choice):
+    def options(self, db, choice, character):
         return [self._view(split) for split in self._splits(choice)]
 
     def picked_amounts(self, db: Session, choice: Choice, character_id: int) -> dict[str, int]:

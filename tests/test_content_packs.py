@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from app.content import loader
 from app.content.schema import ItemDef
-from app.features.schema import OptionDef, UsesDef
+from app.features.schema import ChoiceDef, OptionDef, UsesDef
 
 
 def test_fixture_packs_are_valid():
@@ -67,3 +67,23 @@ def test_loader_checks_spells_in_option_features(tmp_path, monkeypatch):
         "species/folk > legacy > legacy > infernal > rebuke > spells" in e and "no-such-spell" in e
         for e in found.errors
     ), found.errors
+
+
+def _spell_choice(max_level) -> dict:
+    return {
+        "slug": "spells",
+        "name": "Spells",
+        "kind": "spell",
+        "criteria": {"class": "warlock", "max_level": max_level},
+    }
+
+
+@pytest.mark.parametrize("max_level", [1, 9, "class_slots"])
+def test_spell_choice_max_level_accepts_levels_and_class_slots(max_level):
+    assert ChoiceDef.model_validate(_spell_choice(max_level)).criteria["max_level"] == max_level
+
+
+@pytest.mark.parametrize("max_level", [0, 10, "slots", True, 2.5])
+def test_spell_choice_max_level_rejects_anything_else(max_level):
+    with pytest.raises(ValidationError, match="max_level is a spell level"):
+        ChoiceDef.model_validate(_spell_choice(max_level))

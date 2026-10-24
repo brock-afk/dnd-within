@@ -236,7 +236,7 @@ def play_choices(
         PlayChoice(
             fv.feature,
             cv.choice,
-            KINDS[cv.choice.kind].options(db, cv.choice),
+            KINDS[cv.choice.kind].options(db, cv.choice, character),
             cv.picked[0] if cv.picked else None,
         )
         for group in (feature_groups(db, character) if groups is None else groups)
@@ -321,6 +321,6 @@ def fill_fixed_choices(db: Session, character: Character) -> None:
                 if cv.picked or cv.choice.in_play:
                     continue
                 kind = KINDS[cv.choice.kind]
-                options = kind.options(db, cv.choice)
+                options = kind.options(db, cv.choice, character)
                 if len(options) == cv.choice.count:
                     kind.save(db, cv.choice, character.id, [o.key for o in options])

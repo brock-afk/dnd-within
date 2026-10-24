@@ -28,10 +28,34 @@ FULL_CASTER = [
     [4, 3, 3, 3, 3, 2, 2, 1, 1],
 ]
 
-PROGRESSIONS = {"full": FULL_CASTER}
+# Pact Magic (the Warlock): (slot level, number of slots) at each class level. Every slot is
+# the same level.
+PACT_MAGIC = [
+    (1, 1),
+    (1, 2),
+    (2, 2),
+    (2, 2),
+    (3, 2),
+    (3, 2),
+    (4, 2),
+    (4, 2),
+    (5, 2),
+    (5, 2),
+    *[(5, 3)] * 6,
+    *[(5, 4)] * 4,
+]
 
 
 def slot_maximums(progression: str, class_level: int) -> dict[int, int]:
     """{spell level: number of slots} at this class level."""
-    counts = PROGRESSIONS[progression][class_level - 1]
+    if progression == "pact":
+        level, count = PACT_MAGIC[class_level - 1]
+        return {level: count}
+    counts = FULL_CASTER[class_level - 1]
     return {level: count for level, count in enumerate(counts, start=1)}
+
+
+def slot_kind(progression: str) -> str:
+    """Which pool a progression's slots are tracked in. Pact Magic slots are separate from
+    Spellcasting slots: they come back on a short rest, and a multiclass character has both."""
+    return "pact" if progression == "pact" else "spellcasting"

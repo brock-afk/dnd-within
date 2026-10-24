@@ -24,7 +24,11 @@ from app.spells.models import CharacterSpell, Spell, SpellbookEntry
 
 def source_name(db: Session, feature: Feature) -> str:
     """What a feature belongs to, as the player knows it: "Wizard", "Goliath", "Familiar
-    Trainer", "Transmuter" or "Familiar Friend"."""
+    Trainer", "Transmuter" or "Familiar Friend". A picked option's feature belongs to whatever
+    offers the choice (a Fiendish Legacy's spells to "Tiefling")."""
+    if feature.option_id is not None:
+        option = db.get(ChoiceOption, feature.option_id)
+        return source_name(db, db.get(Choice, option.choice_id).feature)
     for model, parent_id in [
         (CharacterClass, feature.class_id),
         (Subclass, feature.subclass_id),

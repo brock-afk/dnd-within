@@ -119,6 +119,18 @@ class OptionDef(BaseModel):
     when: Text120 | None = None  # when it's used, e.g. "Reaction, when you take damage"
     damage_reaction: DamageReactionDef | None = None
     grants: GrantsDef | None = None
+    # Features that apply while it's picked, unlocked by level like the owning feature's (a
+    # Fiendish Legacy's spells).
+    features: list[FeatureDef] = []
+
+    @model_validator(mode="after")
+    def check_features(self):
+        # One level of nesting: an option's features can't offer choices of their own.
+        if nested := [f.slug for f in self.features if f.choices]:
+            raise ValueError(f"{self.slug}: an option's features can't have choices ({nested})")
+        if problems := spends_errors(self.features):
+            raise ValueError(f"{self.slug}: " + "; ".join(problems))
+        return self
 
 
 class ChoiceDef(BaseModel):
@@ -288,3 +300,7 @@ def spends_errors(features: list[FeatureDef]) -> list[str]:
         for f in features
         if f.spends and (f.spends.feature not in with_uses or f.spends.feature == f.slug)
     ]
+
+
+# Options hold features, which hold choices of options: resolve the cycle now FeatureDef exists.
+OptionDef.model_rebuild()

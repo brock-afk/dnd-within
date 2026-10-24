@@ -1,0 +1,45 @@
+# A species whose choice options own features, like the Tiefling's Fiendish Legacy: each
+# legacy grants a resistance, a cantrip at level 1, and a spell at level 3 castable once per
+# Long Rest without a slot.
+slug: legacy-folk
+name: Legacy Folk
+summary: Test species with legacies that grant spells.
+features:
+- slug: legacy
+  name: Legacy
+  summary: Your legacy grants a resistance, a cantrip, and a spell at level 3.
+  choices:
+  - slug: legacy
+    name: Legacy
+    kind: option
+    options:
+    - slug: ember
+      name: Ember
+      summary: Fire resistance, Test Cantrip A, and Test Spell A at level 3.
+      grants: {resistances: [fire]}
+      features:
+      - slug: ember-cantrip
+        name: Ember Legacy
+        summary: You know Test Cantrip A.
+        spells: [{spell: test-cantrip-a}]
+      - slug: ember-spell
+        name: Ember Legacy (level 3)
+        level: 3
+        uses: {max: 1, recharge: long_rest}
+        summary: Test Spell A is always prepared. Cast it once per Long Rest without a slot.
+        spells: [{spell: test-spell-a, free_cast: true}]
+    - slug: frost
+      name: Frost
+      summary: Cold resistance, Test Cantrip B, and Test Spell B at level 3.
+      grants: {resistances: [cold]}
+      features:
+      - slug: frost-cantrip
+        name: Frost Legacy
+        summary: You know Test Cantrip B.
+        spells: [{spell: test-cantrip-b}]
+      - slug: frost-spell
+        name: Frost Legacy (level 3)
+        level: 3
+        uses: {max: 1, recharge: long_rest}
+        summary: Test Spell B is always prepared. Cast it once per Long Rest without a slot.
+        spells: [{spell: test-spell-b, free_cast: true}]

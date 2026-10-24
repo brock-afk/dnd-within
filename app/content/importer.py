@@ -146,6 +146,12 @@ class FeatureSync:
                 option.retired_at = None
             for option in options.values():
                 option.retired_at = option.retired_at or self.now
+            self._retire_features_of("option_id", [o.id for o in options.values()])
+            # Every option, so features dropped from the pack are retired too.
+            self.db.flush()  # new options need ids to own features
+            by_slug = {o.slug: o for o in choice.options}
+            for odef in cdef.options:
+                self._sync_features("option_id", by_slug[odef.slug].id, odef.features)
         for choice in existing.values():
             choice.retired_at = choice.retired_at or self.now
 

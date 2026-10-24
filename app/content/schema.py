@@ -5,7 +5,7 @@ Feature, choice and option definitions are shared with app/features/schema.py.
 """
 
 import re
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -61,16 +61,19 @@ class SpeciesDef(Strict):
 
 
 class Spellcasting(Strict):
-    """How a class casts spells. Spell slots will be added here too."""
+    """How a class casts spells."""
 
     ability: Ability
-    # Spells you can prepare at each class level, 1 through 20.
-    prepared: list[int] = Field(min_length=20, max_length=20)
+    # Spells you can prepare at each class level, 1 through 20, changed daily from a spellbook
+    # (the Wizard). Left out by casters who pick their list through spell choices on level up
+    # (the Warlock).
+    prepared: Annotated[list[int], Field(min_length=20, max_length=20)] | None = None
     # Which ritual spells you can cast as rituals: only prepared ones (the general rule), or any
     # in your spellbook without preparing them (the Wizard's Ritual Adept).
     ritual_casting: Literal["prepared", "spellbook"] = "prepared"
-    # Spell slot progression; the tables themselves live in app/sheet/slots.py.
-    slots: Literal["full"] = "full"
+    # Spell slot progression; the tables themselves live in app/sheet/slots.py. "pact" is Pact
+    # Magic: a few slots, all one level, back on a short rest.
+    slots: Literal["full", "pact"] = "full"
 
 
 class ClassDef(Strict):

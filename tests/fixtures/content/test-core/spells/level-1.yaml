@@ -78,3 +78,25 @@
   components: {verbal: true, somatic: true}
   duration: {kind: instantaneous}
   summary: Test spell.
+
+- slug: pact-spell-a
+  name: Pact Spell A
+  level: 1
+  school: evocation
+  classes: [test-pact]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.
+
+- slug: pact-spell-b
+  name: Pact Spell B
+  level: 1
+  school: evocation
+  classes: [test-pact]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.

@@ -1,0 +1,22 @@
+# Pact Magic and a spell list picked on level up, like the Warlock.
+slug: test-pact
+name: Test Pact
+summary: Test class with Pact Magic.
+hit_die: 8
+saving_throws: [WIS, CHA]
+spellcasting:
+  ability: CHA
+  slots: pact
+features:
+- slug: pact-magic
+  name: Pact Magic
+  summary: Test spellcasting with pact slots; spells are picked on level up.
+  choices:
+  - slug: spells
+    name: Spells
+    kind: spell
+    criteria: {class: test-pact, max_level: class_slots}
+- slug: patron-gift
+  name: Patron Gift
+  summary: Pact Spell B is always prepared.
+  spells: [{spell: pact-spell-b}]

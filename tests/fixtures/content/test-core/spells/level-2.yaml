@@ -1,0 +1,10 @@
+- slug: pact-spell-c
+  name: Pact Spell C
+  level: 2
+  school: evocation
+  classes: [test-pact]
+  casting_time: {unit: action}
+  range: {kind: self}
+  components: {verbal: true}
+  duration: {kind: instantaneous}
+  summary: Test spell.

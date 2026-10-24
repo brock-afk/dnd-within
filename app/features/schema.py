@@ -191,6 +191,17 @@ class ChoiceDef(BaseModel):
                 )
             if unknown := keys - SPELL_CRITERIA:
                 raise ValueError(f"{self.slug}: unknown spell criteria {sorted(unknown)}")
+            # "class_slots": up to the highest level the class's own slots reach at the
+            # character's level in it (a Warlock's pact slot level); see kinds.class_slot_level.
+            max_level = self.criteria.get("max_level")
+            if (
+                max_level is not None
+                and max_level != "class_slots"
+                and (type(max_level) is not int or not 1 <= max_level <= 9)
+            ):
+                raise ValueError(
+                    f"{self.slug}: max_level is a spell level from 1 to 9, or 'class_slots'"
+                )
             school = self.criteria.get("school")
             if school is not None and school not in get_args(School):
                 raise ValueError(f"{self.slug}: unknown school {school!r}")

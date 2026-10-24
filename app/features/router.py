@@ -24,6 +24,8 @@ from app.sheet.service import max_hp, track_max_change
 
 router = APIRouter(tags=["features"])
 
+SPELL_KINDS = ("spell", "spellbook")
+
 
 def _get_choice(db: Session, character: Character, choice_id: int) -> Choice:
     choice = applicable_choice(db, character, choice_id)
@@ -33,17 +35,17 @@ def _get_choice(db: Session, character: Character, choice_id: int) -> Choice:
 
 
 def _unavailable(db, character, choice) -> dict[str, str]:
-    """{key: why} for options that can't be picked. A spellbook choice also can't take a spell
-    a feature already keeps always prepared."""
+    """{key: why} for options that can't be picked. A spell or spellbook choice also can't take
+    a spell a feature already keeps always prepared (a Fiend Warlock's Fiend Spells)."""
     known = KINDS[choice.kind].unavailable(db, choice, character.id)
-    if choice.kind == "spellbook":
+    if choice.kind in SPELL_KINDS:
         for spell_id, feature in always_prepared_spells(db, character).items():
             known.setdefault(str(spell_id), f"Always prepared ({feature})")
     return known
 
 
 def _render_form(request, db, character, choice, selected, error=None, status_code=200):
-    options = KINDS[choice.kind].options(db, choice)
+    options = KINDS[choice.kind].options(db, choice, character)
     return templates.TemplateResponse(
         request,
         "features/partials/choice_form.html",
@@ -90,7 +92,7 @@ def save_choice(
         wanted = "one" if choice.count == 1 else f"exactly {choice.count}"
         error = f"Choose {wanted}." + (f" You picked {len(picks)}." if picks else "")
     else:
-        error = always_prepared_error(db, character, picks) if choice.kind == "spellbook" else None
+        error = always_prepared_error(db, character, picks) if choice.kind in SPELL_KINDS else None
         if error is None:
             error = KINDS[choice.kind].save(db, choice, character.id, picks)
 

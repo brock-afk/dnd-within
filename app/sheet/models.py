@@ -112,18 +112,23 @@ class CharacterPreparedSpell(Base):
 
 
 class CharacterSpellSlot(Base):
-    """Spell slots used at one slot level. The maximum is calculated from class levels
-    (app/sheet/slots.py), so this stores slots *used*: gaining a level adds slots that are
-    available right away."""
+    """Spell slots used at one slot level, in one pool. The maximum is calculated from class
+    levels (app/sheet/slots.py), so this stores slots *used*: gaining a level adds slots that
+    are available right away. Pact Magic slots are their own pool (`kind` "pact"): they come
+    back on a short rest, and a multiclass character can have both at the same level."""
 
     __tablename__ = "character_spell_slots"
     __table_args__ = (
         CheckConstraint("slot_level BETWEEN 1 AND 9", name="slot_level_range"),
         CheckConstraint("expended >= 0", name="expended_non_negative"),
+        CheckConstraint("kind IN ('spellcasting', 'pact')", name="kind_values"),
     )
 
     character_id: Mapped[int] = mapped_column(
         ForeignKey("characters.id", ondelete="CASCADE"), primary_key=True
+    )
+    kind: Mapped[str] = mapped_column(
+        String(20), primary_key=True, default="spellcasting", server_default="spellcasting"
     )
     slot_level: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     expended: Mapped[int] = mapped_column(SmallInteger, default=0)

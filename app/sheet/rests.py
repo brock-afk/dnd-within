@@ -178,7 +178,12 @@ def recovery_budget(uses: FeatureUses) -> int:
 
 
 def finish_short_rest(db: Session, character: Character) -> None:
-    """Restore every use that recharges on a short rest."""
+    """Restore every use that recharges on a short rest, and every Pact Magic slot."""
+    db.execute(
+        delete(CharacterSpellSlot).where(
+            CharacterSpellSlot.character_id == character.id, CharacterSpellSlot.kind == "pact"
+        )
+    )
     for uses in feature_uses(db, character):
         if uses.recharge == "short_rest":
             db.execute(

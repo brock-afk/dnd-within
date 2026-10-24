@@ -19,7 +19,7 @@ from app.sheet.models import (
     CharacterSpellSlot,
 )
 from app.sheet.rules import apply_max_change, current_hp, proficiency_bonus, skill_bonus
-from app.sheet.slots import slot_maximums
+from app.sheet.slots import slot_kind, slot_maximums
 from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.spells.models import Spell
 from app.spells.queries import character_spells, spellbook
@@ -465,9 +465,11 @@ def _spellcasting(character: Character) -> tuple[int, dict] | None:
 
 
 def prepared_limit(character: Character) -> int | None:
-    """How many spells the character can prepare, from their spellcasting class's table."""
+    """How many spells the character can prepare from their spellbook, from their spellcasting
+    class's table; None for a class without one (its spells are picked on level up)."""
     found = _spellcasting(character)
-    return found[1]["prepared"][found[0] - 1] if found else None
+    table = found[1].get("prepared") if found else None
+    return table[found[0] - 1] if table else None
 
 
 RITUALS_GROUP = "Rituals · no slot, +10 minutes"
@@ -524,16 +526,23 @@ def castable_spells(
 ) -> list[CastableSpell]:
     """Everything the character can cast right now: cantrips; every spell castable as a
     ritual (prepared rituals, plus for a Wizard's Ritual Adept the other rituals in the
-    spellbook); and prepared spells by level, cast with slots. A prepared ritual is listed
+    spellbook); and prepared spells by level (from the spellbook, or picked on level up), cast
+    with slots. A prepared ritual is listed
     twice, since it can be cast either way. Pass `groups` if they're already worked out."""
     prepared = prepared_spell_ids(db, character)
     found = _spellcasting(character)
     rituals_from_book = bool(found) and found[1].get("ritual_casting") == "spellbook"
     granted = granted_spells(db, character, groups)
 
-    rows = [
-        CastableSpell(cs.spell) for cs in character_spells(db, character.id) if cs.spell.level == 0
-    ]
+    rows = []
+    for cs in character_spells(db, character.id):
+        if cs.spell.level == 0:
+            rows.append(CastableSpell(cs.spell))
+        elif not (cs.spell_id in granted and granted[cs.spell_id][0].always_prepared):
+            # Spells picked on level up (a Warlock's) are its prepared list.
+            rows.append(CastableSpell(cs.spell, prepared=True))
+            if cs.spell.ritual:
+                rows.append(CastableSpell(cs.spell, prepared=True, in_ritual_section=True))
     for entry in spellbook(db, character.id):
         if entry.spell_id in granted and granted[entry.spell_id][0].always_prepared:
             continue  # listed below as always prepared
@@ -584,6 +593,7 @@ class SlotLevel:
     level: int
     maximum: int
     expended: int
+    kind: str = "spellcasting"  # or "pact": Pact Magic, back on a short rest
 
     @property
     def remaining(self) -> int:
@@ -596,24 +606,32 @@ def spell_slots(db: Session, character: Character) -> dict[int, SlotLevel]:
     if not found:
         return {}
     class_level, spellcasting = found
-    maximums = slot_maximums(spellcasting.get("slots", "full"), class_level)
+    progression = spellcasting.get("slots", "full")
+    kind = slot_kind(progression)
     used = {
         row.slot_level: row.expended
         for row in db.scalars(
-            select(CharacterSpellSlot).where(CharacterSpellSlot.character_id == character.id)
+            select(CharacterSpellSlot).where(
+                CharacterSpellSlot.character_id == character.id, CharacterSpellSlot.kind == kind
+            )
         )
     }
-    return {lvl: SlotLevel(lvl, mx, used.get(lvl, 0)) for lvl, mx in maximums.items()}
+    return {
+        lvl: SlotLevel(lvl, mx, used.get(lvl, 0), kind)
+        for lvl, mx in slot_maximums(progression, class_level).items()
+    }
 
 
 def set_slots_remaining(db: Session, character: Character, level: int, remaining: int) -> None:
     """Record that `remaining` slots of this level are left (the caller validated it)."""
-    maximum = spell_slots(db, character)[level].maximum
-    row = db.get(CharacterSpellSlot, (character.id, level))
+    slot = spell_slots(db, character)[level]
+    row = db.get(CharacterSpellSlot, (character.id, slot.kind, level))
     if row is None:
-        row = CharacterSpellSlot(character_id=character.id, slot_level=level, expended=0)
+        row = CharacterSpellSlot(
+            character_id=character.id, kind=slot.kind, slot_level=level, expended=0
+        )
         db.add(row)
-    row.expended = maximum - remaining
+    row.expended = slot.maximum - remaining
 
 
 def prepared_spell_ids(db: Session, character: Character) -> set[int]:

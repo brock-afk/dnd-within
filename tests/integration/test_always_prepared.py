@@ -54,7 +54,8 @@ def test_level_up_spellbook_choice_blocks_it(db, client, character, find_familia
     url = f"/characters/{character.id}/choices/{choice.id}"
     assert KNOWN in client.get(url).text
 
-    others = [o.key for o in KINDS["spellbook"].options(db, choice) if o.name != "Find Familiar"]
+    options = KINDS["spellbook"].options(db, choice, character)
+    others = [o.key for o in options if o.name != "Find Familiar"]
     picks = [str(find_familiar.id), *others[: choice.count - 1]]
     response = client.post(url, data={"picks": picks})
     assert response.status_code == 400

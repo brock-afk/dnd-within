@@ -8,8 +8,9 @@ from app.core.db import engine
 # once, not once per section (it was 140 queries when each section looked them up).
 MAX_QUERIES = 46
 # Damage with a reaction to offer: the route checks for reactions, then the prompt reuses the
-# sheet's feature uses (it was 86 queries when the prompt looked them up again).
-MAX_DAMAGE_PROMPT_QUERIES = 69
+# sheet's feature uses (it was 86 queries when the prompt looked them up again). Each lookup
+# also checks the picked Giant Ancestry for features of its own.
+MAX_DAMAGE_PROMPT_QUERIES = 71
 
 
 @contextmanager

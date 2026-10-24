@@ -7,7 +7,7 @@ from app.characters.models import Character
 from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
 from app.content.queries import available
 from app.features.kinds import KINDS, OptionView
-from app.features.models import Choice, Feature
+from app.features.models import Choice, ChoiceOption, Feature
 from app.inventory.models import CharacterItem, Item
 from app.spells.models import Spell
 
@@ -72,23 +72,32 @@ def _views(
     db: Session, character: Character, features, level: int, level_name: str = "Level"
 ) -> list[FeatureView]:
     """Features with the choices unlocked at `level` (the class level, or the character level
-    for species features). `level_name` labels those levels, e.g. "Wizard"."""
-    return [
-        FeatureView(
-            f,
-            [
-                ChoiceView(
-                    c,
-                    KINDS[c.kind].picked(db, c, character.id),
-                    level=max(f.level, c.level),
-                    level_name=level_name,
-                )
-                for c in f.choices
-                if c.level <= level and c.retired_at is None
-            ],
-        )
-        for f in features
-    ]
+    for species features), each followed by the features of the options picked in its choices
+    (a Fiendish Legacy's spells), unlocked by the same level. `level_name` labels those
+    levels, e.g. "Wizard"."""
+    views = []
+    for f in features:
+        choices = [
+            ChoiceView(
+                c,
+                KINDS[c.kind].picked(db, c, character.id),
+                level=max(f.level, c.level),
+                level_name=level_name,
+            )
+            for c in f.choices
+            if c.level <= level and c.retired_at is None
+        ]
+        views.append(FeatureView(f, choices))
+        picked = [int(o.key) for cv in choices if cv.choice.kind == "option" for o in cv.picked]
+        if picked:
+            option_features = db.scalars(
+                select(Feature)
+                .join(ChoiceOption, ChoiceOption.id == Feature.option_id)
+                .where(Feature.option_id.in_(picked), Feature.level <= level, available(Feature))
+                .order_by(ChoiceOption.position, Feature.position)
+            )
+            views.extend(FeatureView(of, []) for of in option_features)
+    return views
 
 
 def _active_item_ids(db: Session, character: Character) -> list[int]:

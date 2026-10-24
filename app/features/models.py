@@ -20,15 +20,17 @@ from app.core.db import Base, NullableJSON
 class Feature(Base):
     """A trait or class feature, like Giant Ancestry or Spellcasting.
 
-    Belongs to exactly one source: a class, a species, a subclass, a background, a feat or an
-    item (a magic item's charges and benefits, which apply while it's attuned or carried).
+    Belongs to exactly one source: a class, a species, a subclass, a background, a feat, an
+    item (a magic item's charges and benefits, which apply while it's attuned or carried), or
+    a choice option (a Fiendish Legacy's spells, which apply while it's picked).
     """
 
     __tablename__ = "features"
     __table_args__ = (
         CheckConstraint(
             "(class_id IS NOT NULL) + (species_id IS NOT NULL) + (subclass_id IS NOT NULL)"
-            " + (background_id IS NOT NULL) + (feat_id IS NOT NULL) + (item_id IS NOT NULL) = 1",
+            " + (background_id IS NOT NULL) + (feat_id IS NOT NULL) + (item_id IS NOT NULL)"
+            " + (option_id IS NOT NULL) = 1",
             name="one_source",
         ),
         CheckConstraint(
@@ -40,6 +42,7 @@ class Feature(Base):
         UniqueConstraint("background_id", "slug"),
         UniqueConstraint("feat_id", "slug"),
         UniqueConstraint("item_id", "slug"),
+        UniqueConstraint("option_id", "slug"),
         CheckConstraint("action IN ('action', 'bonus_action', 'reaction')", name="action_values"),
         CheckConstraint(
             "(spends_feature_id IS NULL) = (spends_amount IS NULL)", name="spends_together"
@@ -54,6 +57,7 @@ class Feature(Base):
     background_id: Mapped[int | None] = mapped_column(ForeignKey("backgrounds.id"))
     feat_id: Mapped[int | None] = mapped_column(ForeignKey("feats.id"))
     item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id"))
+    option_id: Mapped[int | None] = mapped_column(ForeignKey("choice_options.id"))
     slug: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(80))
     summary: Mapped[str] = mapped_column(String(500))

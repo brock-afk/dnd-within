@@ -2,14 +2,11 @@
 Pact class: its slots are one level and come back on a short rest, and its spell choice offers
 spells up to that slot level."""
 
-import pytest
 from sqlalchemy import select
 
-from app.characters.models import Character
-from app.classes.models import CharacterClass, CharacterClassLevel
+from app.classes.models import CharacterClass
 from app.features.kinds import KINDS
 from app.features.models import Choice, Feature
-from app.leveling.models import CharacterLevel
 from app.sheet.rests import finish_short_rest
 from app.sheet.service import castable_spells, set_slots_remaining, spell_slots
 from app.spells.models import Spell
@@ -31,42 +28,15 @@ def _choice(db) -> Choice:
     )
 
 
-def _level_up_to(db, character, level: int) -> None:
-    pact = _class_id(db, "test-pact")
-    for n in range(character.level + 1, level + 1):
-        character.levels.append(CharacterLevel(character_level=n, class_id=pact, hp_method="fixed"))
-    db.flush()
-
-
 def _names(db, character) -> list[str]:
     return [o.name for o in KINDS["spell"].options(db, _choice(db), character)]
 
 
-@pytest.fixture
-def warlock(db, character) -> Character:
-    """A level 1 Test Pact character, owned by the test character's user."""
-    pact = _class_id(db, "test-pact")
-    warlock = Character(
-        user_id=character.user_id,
-        name="Pact",
-        species_id=character.species_id,
-        ability_method="manual",
-        **dict.fromkeys(["strength", "dexterity", "constitution", "intelligence", "wisdom"], 10),
-        charisma=15,
-    )
-    warlock.classes.append(CharacterClassLevel(class_id=pact, position=0))
-    warlock.levels.append(CharacterLevel(character_level=1, class_id=pact, hp_method="max"))
-    db.add(warlock)
-    db.flush()
-    db.refresh(warlock)
-    return warlock
-
-
-def test_pact_slots_follow_the_class_level(db, warlock):
+def test_pact_slots_follow_the_class_level(db, warlock, level_up):
     [slot] = spell_slots(db, warlock).values()
     assert (slot.level, slot.maximum, slot.kind) == (1, 1, "pact")
 
-    _level_up_to(db, warlock, 3)
+    level_up(warlock, 3)
     [slot] = spell_slots(db, warlock).values()
     assert (slot.level, slot.maximum) == (2, 2)
 
@@ -84,12 +54,12 @@ def test_short_rest_restores_pact_slots_only(db, warlock, character):
     assert spell_slots(db, character)[1].remaining == 0
 
 
-def test_spell_choice_offers_spells_up_to_the_slot_level(db, warlock):
+def test_spell_choice_offers_spells_up_to_the_slot_level(db, warlock, level_up):
     assert _names(db, warlock) == ["Pact Spell A", "Pact Spell B"]
     too_high = str(_spell_id(db, "pact-spell-c"))
     assert KINDS["spell"].save(db, _choice(db), warlock.id, [too_high]) is not None
 
-    _level_up_to(db, warlock, 3)
+    level_up(warlock, 3)
     assert _names(db, warlock) == ["Pact Spell A", "Pact Spell B", "Pact Spell C"]
     assert KINDS["spell"].save(db, _choice(db), warlock.id, [too_high]) is None
 

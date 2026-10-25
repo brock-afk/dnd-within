@@ -338,10 +338,16 @@ def cast_ac_spell(
     spell: Annotated[str, Form()] = "",
     slot_level: Annotated[str, Form()] = "",
 ):
-    """Cast a prepared AC spell on yourself (Mage Armor, Barkskin): spend the slot and
-    apply its effect. Casting from the spell list doesn't, since the target may be someone else."""
-    if spell not in {str(a.spell.id) for a in ac_spells(db, character)}:
-        found, error = None, "Only prepared spells that change your AC can be cast here."
+    """Cast an AC spell on yourself (Mage Armor, Barkskin): spend the slot, or with
+    `slot_level` "at_will" cast it free through a feature like Armor of Shadows, and apply its
+    effect. Casting from the spell list doesn't, since the target may be someone else."""
+    offered = {str(a.spell.id): a for a in ac_spells(db, character)}
+    ac = offered.get(spell)
+    if ac is None:
+        found, error = None, "Only spells that change your AC can be cast here."
+    elif slot_level == "at_will":
+        found = ac.spell if ac.at_will_from else None
+        error = None if found else f"{ac.spell.name} isn't cast at will."
     else:
         found, error = _spend_slot(db, character, spell, slot_level)
     if error:

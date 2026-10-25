@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.characters.models import Character
 from app.classes.models import CharacterClass
+from app.features.kinds import owner_level
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.features.service import FeatureGroup, feature_groups
 from app.sheet.models import (
@@ -51,16 +52,6 @@ class FeatureUses:
     def rest_only(self) -> bool:
         """Used only during a rest (like Arcane Recovery), so it lives in the rest panel."""
         return self.feature.slot_recovery is not None
-
-
-def _class_level(character: Character, feature: Feature) -> int:
-    if feature.class_id is not None:
-        return character.class_level(feature.class_id)
-    if feature.subclass_id is not None:
-        for cc in character.classes:
-            if cc.subclass_id == feature.subclass_id:
-                return cc.level
-    return character.level
 
 
 def _maximum(character: Character, feature: Feature) -> int:
@@ -103,7 +94,7 @@ def feature_uses(
             feature = fv.feature
             if not feature.uses:
                 continue
-            level = _class_level(character, feature)
+            level = owner_level(db, character, feature)
             options = tuple(picked.get(feature.id, ()))
             result.append(
                 FeatureUses(

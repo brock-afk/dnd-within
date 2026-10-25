@@ -219,7 +219,7 @@ def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
                 if choice.kind in ("skill", "expertise"):
                     for ref in choice.criteria.get("from", []):
                         check(ref, "skills", where)
-                elif choice.kind in ("spell", "spellbook"):
+                elif choice.kind in ("spell", "spellbook") and "class" in choice.criteria:
                     check(choice.criteria["class"], "classes", where)
                 for option in choice.options:
                     check_features(option.features, f"{where} > {option.slug}")

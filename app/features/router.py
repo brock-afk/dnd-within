@@ -11,7 +11,7 @@ from app.characters.models import Character
 from app.characters.page import refresh_character_page
 from app.core.db import DbSession
 from app.core.templates import templates
-from app.features.kinds import KINDS
+from app.features.kinds import KINDS, choice_count, owner_level
 from app.features.models import Choice
 from app.features.service import (
     always_prepared_error,
@@ -44,6 +44,11 @@ def _unavailable(db, character, choice) -> dict[str, str]:
     return known
 
 
+def _count(db, character, choice) -> int:
+    """How many to pick now; a growing choice (invocations) counts by the owner's level."""
+    return choice_count(choice, owner_level(db, character, choice.feature))
+
+
 def _render_form(request, db, character, choice, selected, error=None, status_code=200):
     options = KINDS[choice.kind].options(db, choice, character)
     return templates.TemplateResponse(
@@ -53,6 +58,7 @@ def _render_form(request, db, character, choice, selected, error=None, status_co
             "character": character,
             "choice": choice,
             "level_label": choice_level_label(db, choice),
+            "count": _count(db, character, choice),
             "options": options,
             # Spell choices get filters; the schools listed are the ones among the options.
             "filter_schools": sorted({o.school for o in options if o.school}),
@@ -88,8 +94,9 @@ def save_choice(
     picks = list(dict.fromkeys(picks))  # drop duplicates, keep order
 
     old_max = max_hp(db, character)
-    if len(picks) != choice.count:
-        wanted = "one" if choice.count == 1 else f"exactly {choice.count}"
+    count = _count(db, character, choice)
+    if len(picks) != count:
+        wanted = "one" if count == 1 else f"exactly {count}"
         error = f"Choose {wanted}." + (f" You picked {len(picks)}." if picks else "")
     else:
         error = always_prepared_error(db, character, picks) if choice.kind in SPELL_KINDS else None

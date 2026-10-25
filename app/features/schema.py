@@ -54,7 +54,7 @@ School = Literal[
 ]
 
 # Allowed criteria for spell and spellbook choices.
-SPELL_CRITERIA = {"class", "level", "max_level", "school", "acquired_via"}
+SPELL_CRITERIA = {"class", "level", "max_level", "school", "ritual", "acquired_via"}
 
 
 class DamageReactionDef(BaseModel):
@@ -110,6 +110,23 @@ class GrantsDef(BaseModel):
         return self.model_dump(exclude_defaults=True)
 
 
+class RequiresDef(BaseModel):
+    """What an option needs before it can be picked: a level (the class level for a class's
+    choices, else the character level), and/or a sibling option of the same choice picked too
+    (Thirsting Blade: Warlock 5 and Pact of the Blade)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    level: int | None = Field(default=None, ge=2, le=20)
+    option: Slug | None = None
+
+    @model_validator(mode="after")
+    def check(self):
+        if self.level is None and self.option is None:
+            raise ValueError("requires needs a level or an option")
+        return self
+
+
 class OptionDef(BaseModel):
     model_config = ConfigDict(extra="forbid")  # typos are errors, not ignored
 
@@ -119,15 +136,19 @@ class OptionDef(BaseModel):
     when: Text120 | None = None  # when it's used, e.g. "Reaction, when you take damage"
     damage_reaction: DamageReactionDef | None = None
     grants: GrantsDef | None = None
+    requires: RequiresDef | None = None
     # Features that apply while it's picked, unlocked by level like the owning feature's (a
-    # Fiendish Legacy's spells).
+    # Fiendish Legacy's spells). They can have choices (Pact of the Tome's cantrips), but those
+    # choices' options can't own features: nesting stops there.
     features: list[FeatureDef] = []
 
     @model_validator(mode="after")
     def check_features(self):
-        # One level of nesting: an option's features can't offer choices of their own.
-        if nested := [f.slug for f in self.features if f.choices]:
-            raise ValueError(f"{self.slug}: an option's features can't have choices ({nested})")
+        nested = [o.slug for f in self.features for c in f.choices for o in c.options if o.features]
+        if nested:
+            raise ValueError(
+                f"{self.slug}: options inside an option's features can't own features ({nested})"
+            )
         if problems := spends_errors(self.features):
             raise ValueError(f"{self.slug}: " + "; ".join(problems))
         return self
@@ -141,7 +162,12 @@ class ChoiceDef(BaseModel):
     kind: Literal[
         "option", "skill", "expertise", "spell", "spellbook", "subclass", "ability_scores"
     ]
-    count: int = Field(default=1, ge=1)
+    # How many to pick, or how many at each level 1-20 for a choice that grows (a Warlock's
+    # invocations: 1, 3, 3, 3, 5, ...). Levels are the class level for a class's choices.
+    count: (
+        Annotated[int, Field(ge=1)]
+        | Annotated[list[Annotated[int, Field(ge=1)]], Field(min_length=20, max_length=20)]
+    ) = 1
     level: int = Field(default=1, ge=1, le=20)  # class/character level the choice unlocks at
     criteria: dict[str, Any] = {}
     options: list[OptionDef] = []
@@ -149,10 +175,25 @@ class ChoiceDef(BaseModel):
     # during play (the Transmuter's Stone benefit). Optional: it can be left unpicked.
     in_play: bool = False
 
+    @property
+    def max_count(self) -> int:
+        return max(self.count) if isinstance(self.count, list) else self.count
+
     @model_validator(mode="after")
     def check_kind(self):
-        if self.kind == "option" and len(self.options) < self.count:
-            raise ValueError(f"{self.slug}: needs at least {self.count} options")
+        if self.kind == "option" and len(self.options) < self.max_count:
+            raise ValueError(f"{self.slug}: needs at least {self.max_count} options")
+        slugs = {o.slug for o in self.options}
+        for o in self.options:
+            if (
+                o.requires
+                and o.requires.option
+                and (o.requires.option not in slugs or o.requires.option == o.slug)
+            ):
+                raise ValueError(
+                    f"{self.slug} > {o.slug}: requires {o.requires.option!r}, which isn't "
+                    "another option of this choice"
+                )
         if self.kind != "option" and self.options:
             raise ValueError(f"{self.slug}: only kind 'option' lists its own options")
         if self.in_play and (self.kind != "option" or self.count != 1):
@@ -184,11 +225,18 @@ class ChoiceDef(BaseModel):
                 )
         if self.kind in ("spell", "spellbook"):
             keys = self.criteria.keys()
-            if "class" not in keys or ("level" in keys) == ("max_level" in keys):
+            if ("level" in keys) == ("max_level" in keys):
                 raise ValueError(
-                    f"{self.slug}: spell choices need criteria 'class' and exactly one of "
-                    "'level' (an exact spell level) or 'max_level' (levels 1 up to it)"
+                    f"{self.slug}: spell choices need exactly one of criteria 'level' (an exact "
+                    "spell level) or 'max_level' (levels 1 up to it)"
                 )
+            # Without a class, any class's spells (Pact of the Tome); only for an exact level.
+            if "class" not in keys and (self.kind == "spellbook" or "max_level" in keys):
+                raise ValueError(
+                    f"{self.slug}: 'class' is needed for spellbook choices and with 'max_level'"
+                )
+            if "ritual" in keys and self.criteria["ritual"] is not True:
+                raise ValueError(f"{self.slug}: 'ritual' is true (only rituals) or left out")
             if unknown := keys - SPELL_CRITERIA:
                 raise ValueError(f"{self.slug}: unknown spell criteria {sorted(unknown)}")
             # "class_slots": up to the highest level the class's own slots reach at the
@@ -246,7 +294,9 @@ class SlotRecoveryDef(BaseModel):
 
 
 class FeatureSpellDef(BaseModel):
-    """A spell a feature gives you (Wondrous Alteration's Alter Self, a magic item's spell)."""
+    """A spell a feature gives you (Wondrous Alteration's Alter Self, a magic item's spell). A
+    free cast spends the feature's uses, or with no uses on the feature it's at will (Armor of
+    Shadows' Mage Armor)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -262,7 +312,7 @@ class FeatureSpellDef(BaseModel):
     @model_validator(mode="after")
     def check(self):
         if not self.always_prepared and not self.free_cast:
-            raise ValueError(f"{self.spell}: a spell that isn't prepared must be cast with uses")
+            raise ValueError(f"{self.spell}: a spell that isn't prepared must be cast free")
         return self
 
 
@@ -296,10 +346,8 @@ class FeatureDef(BaseModel):
 
     @model_validator(mode="after")
     def check_spells(self):
-        if any(s.free_cast for s in self.spells) and self.uses is None:
-            raise ValueError(
-                f"{self.slug}: free_cast spells spend the feature's uses, so it needs uses"
-            )
+        if self.uses is None and any(s.free_cast and s.charges != 1 for s in self.spells):
+            raise ValueError(f"{self.slug}: spells cast at will don't spend charges")
         return self
 
 

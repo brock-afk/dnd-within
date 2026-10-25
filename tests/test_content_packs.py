@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from app.content import loader
 from app.content.schema import ItemDef
-from app.features.schema import ChoiceDef, OptionDef, UsesDef
+from app.features.schema import ChoiceDef, FeatureDef, OptionDef, UsesDef
 
 
 def test_fixture_packs_are_valid():
@@ -40,11 +40,26 @@ def _option(features: list[dict]) -> dict:
     return {"slug": "infernal", "name": "Infernal", "summary": "A legacy.", "features": features}
 
 
-def test_option_features_cant_have_choices():
-    nested = {"slug": "pick", "name": "Pick", "kind": "skill"}
-    feature = {"slug": "spell", "name": "Spell", "summary": "A spell.", "choices": [nested]}
-    with pytest.raises(ValidationError, match="an option's features can't have choices"):
-        OptionDef.model_validate(_option([feature]))
+def _feature_with_choice(choice: dict) -> dict:
+    return {"slug": "tome", "name": "Tome", "summary": "A book.", "choices": [choice]}
+
+
+def test_option_features_can_have_choices():
+    cantrips = {"slug": "cantrips", "name": "Cantrips", "kind": "spell", "criteria": {"level": 0}}
+    option = OptionDef.model_validate(_option([_feature_with_choice(cantrips)]))
+    assert option.features[0].choices[0].slug == "cantrips"
+
+
+def test_nesting_stops_at_options_inside_option_features():
+    inner = {
+        "slug": "deep",
+        "name": "Deep",
+        "summary": "Too deep.",
+        "features": [{"slug": "x", "name": "X", "summary": "X."}],
+    }
+    choice = {"slug": "pick", "name": "Pick", "kind": "option", "options": [inner]}
+    with pytest.raises(ValidationError, match="can't own features"):
+        OptionDef.model_validate(_option([_feature_with_choice(choice)]))
 
 
 def test_loader_checks_spells_in_option_features(tmp_path, monkeypatch):
@@ -87,3 +102,69 @@ def test_spell_choice_max_level_accepts_levels_and_class_slots(max_level):
 def test_spell_choice_max_level_rejects_anything_else(max_level):
     with pytest.raises(ValidationError, match="max_level is a spell level"):
         ChoiceDef.model_validate(_spell_choice(max_level))
+
+
+def _options(n: int, **first) -> list[dict]:
+    return [
+        {"slug": f"o{i}", "name": f"O{i}", "summary": "An option.", **(first if i == 0 else {})}
+        for i in range(n)
+    ]
+
+
+def _option_choice(count, options) -> dict:
+    return {"slug": "inv", "name": "Inv", "kind": "option", "count": count, "options": options}
+
+
+def test_choice_count_can_grow_with_level():
+    table = [1, 3, 3, 3, 5] + [5] * 15
+    assert ChoiceDef.model_validate(_option_choice(table, _options(5))).max_count == 5
+    with pytest.raises(ValidationError, match="needs at least 5 options"):
+        ChoiceDef.model_validate(_option_choice(table, _options(4)))
+
+
+@pytest.mark.parametrize("count", [[1] * 19, [0] + [1] * 19, 0])
+def test_choice_count_rejects_bad_tables(count):
+    with pytest.raises(ValidationError):
+        ChoiceDef.model_validate(_option_choice(count, _options(5)))
+
+
+def test_option_requires_a_sibling_option():
+    blade = _options(2, requires={"option": "o1"})
+    assert ChoiceDef.model_validate(_option_choice(1, blade)).options[0].requires.option == "o1"
+    for requires in [{"option": "missing"}, {"option": "o0"}]:
+        with pytest.raises(ValidationError, match="isn't another option"):
+            ChoiceDef.model_validate(_option_choice(1, _options(2, requires=requires)))
+    with pytest.raises(ValidationError, match="requires needs a level or an option"):
+        ChoiceDef.model_validate(_option_choice(1, _options(2, requires={})))
+
+
+def _feature(spells: list[dict], uses: dict | None = None) -> dict:
+    feature = {"slug": "f", "name": "F", "summary": "F.", "spells": spells}
+    return feature | ({"uses": uses} if uses else {})
+
+
+def test_free_cast_without_uses_is_at_will():
+    at_will = {"spell": "mage-armor", "free_cast": True, "always_prepared": False}
+    assert FeatureDef.model_validate(_feature([at_will])).uses is None
+    with pytest.raises(ValidationError, match="don't spend charges"):
+        FeatureDef.model_validate(_feature([at_will | {"charges": 2}]))
+    with pytest.raises(ValidationError, match="must be cast free"):
+        FeatureDef.model_validate(_feature([{"spell": "x", "always_prepared": False}]))
+
+
+@pytest.mark.parametrize(
+    ("criteria", "ok"),
+    [
+        ({"level": 0}, True),  # any class's cantrips
+        ({"level": 1, "ritual": True}, True),
+        ({"max_level": 2}, False),  # a level range needs a class
+        ({"class": "wizard", "level": 1, "ritual": False}, False),
+    ],
+)
+def test_spell_choice_class_and_ritual_criteria(criteria, ok):
+    choice = {"slug": "s", "name": "S", "kind": "spell", "criteria": criteria}
+    if ok:
+        ChoiceDef.model_validate(choice)
+    else:
+        with pytest.raises(ValidationError):
+            ChoiceDef.model_validate(choice)

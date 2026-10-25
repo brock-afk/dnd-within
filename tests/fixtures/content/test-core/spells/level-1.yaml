@@ -100,3 +100,15 @@
   components: {verbal: true}
   duration: {kind: instantaneous}
   summary: Test spell.
+
+- slug: test-armor
+  name: Test Armor
+  level: 1
+  school: abjuration
+  classes: [wizard]
+  casting_time: {unit: action}
+  range: {kind: touch}
+  components: {verbal: true, somatic: true}
+  duration: {kind: timed, amount: 8, unit: hour}
+  ac_effect: {kind: base, value: 13}
+  summary: Test spell with an AC effect, like Mage Armor.

@@ -20,3 +20,58 @@ features:
   name: Patron Gift
   summary: Pact Spell B is always prepared.
   spells: [{spell: pact-spell-b}]
+# Like Eldritch Invocations: more picks as the class levels, prerequisites, spells cast at will
+# or once per Long Rest, and a pact with its own any-class picks.
+- slug: invocations
+  name: Invocations
+  summary: Test invocations.
+  choices:
+  - slug: invocations
+    name: Invocations
+    kind: option
+    count: [1, 3, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
+    options:
+    - slug: shadow-armor
+      name: Shadow Armor
+      summary: Test Armor on yourself at will.
+      features:
+      - slug: shadow-armor
+        name: Shadow Armor
+        summary: Cast Test Armor on yourself without a spell slot.
+        spells: [{spell: test-armor, always_prepared: false, free_cast: true}]
+    - slug: deep-gift
+      name: Deep Gift
+      summary: Pact Spell A once per Long Rest.
+      requires: {level: 5}
+      features:
+      - slug: deep-gift
+        name: Deep Gift
+        summary: Cast Pact Spell A once per Long Rest without a spell slot.
+        uses: {max: 1, recharge: long_rest}
+        spells: [{spell: pact-spell-a, always_prepared: false, free_cast: true}]
+    - slug: blade-pact
+      name: Blade Pact
+      summary: A pact weapon.
+    - slug: thirsting
+      name: Thirsting
+      summary: Needs the Blade Pact.
+      requires: {option: blade-pact}
+    - slug: tome-pact
+      name: Tome Pact
+      summary: A book of spells from any class.
+      features:
+      - slug: tome
+        name: Book of Shadows
+        summary: A cantrip and a ritual from any class.
+        choices:
+        - slug: tome-cantrips
+          name: Book Cantrips
+          kind: spell
+          criteria: {level: 0}
+        - slug: tome-rituals
+          name: Book Rituals
+          kind: spell
+          criteria: {level: 1, ritual: true}
+    - slug: keen-mind
+      name: Keen Mind
+      summary: Text only.

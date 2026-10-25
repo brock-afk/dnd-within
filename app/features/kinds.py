@@ -6,7 +6,7 @@ the exception: its pick is stored on the character's class row. Adding a new kin
 (languages, tools, feats, ...) means adding a subclass here and to KINDS.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from sqlalchemy import Select, delete, select
 from sqlalchemy.orm import Session
@@ -24,13 +24,47 @@ from app.species.models import Species
 from app.spells.models import CharacterSpell, Spell, SpellbookEntry
 
 
+def owner_feature(db: Session, feature: Feature) -> Feature:
+    """The feature a picked option's feature hangs under (its option's choice's feature),
+    else the feature itself. It decides which level the feature and its choices go by."""
+    while feature.option_id is not None:
+        option = db.get(ChoiceOption, feature.option_id)
+        feature = db.get(Choice, option.choice_id).feature
+    return feature
+
+
+def owner_level(db: Session, character: Character, feature: Feature) -> int:
+    """The level a feature's uses and choices go by: its class's level for a class or subclass
+    feature (an invocation's too), else the character level."""
+    feature = owner_feature(db, feature)
+    if feature.class_id is not None:
+        return character.class_level(feature.class_id)
+    if feature.subclass_id is not None:
+        for cc in character.classes:
+            if cc.subclass_id == feature.subclass_id:
+                return cc.level
+    return character.level
+
+
+def owner_level_name(db: Session, feature: Feature) -> str:
+    """What those levels are called: the class ("Warlock") or "Level"."""
+    feature = owner_feature(db, feature)
+    class_id = feature.class_id
+    if class_id is None and feature.subclass_id is not None:
+        class_id = db.get(Subclass, feature.subclass_id).class_id
+    return db.get(CharacterClass, class_id).name if class_id else "Level"
+
+
+def choice_count(choice: Choice, level: int) -> int:
+    """How many to pick at this (owner) level: a growing choice's count for the level."""
+    return choice.count_by_level[level - 1] if choice.count_by_level else choice.count
+
+
 def source_name(db: Session, feature: Feature) -> str:
     """What a feature belongs to, as the player knows it: "Wizard", "Goliath", "Familiar
     Trainer", "Transmuter" or "Familiar Friend". A picked option's feature belongs to whatever
     offers the choice (a Fiendish Legacy's spells to "Tiefling")."""
-    if feature.option_id is not None:
-        option = db.get(ChoiceOption, feature.option_id)
-        return source_name(db, db.get(Choice, option.choice_id).feature)
+    feature = owner_feature(db, feature)
     for model, parent_id in [
         (CharacterClass, feature.class_id),
         (Subclass, feature.subclass_id),
@@ -154,6 +188,18 @@ class ChoiceKind:
         query = select(self.pick.choice_id).where(self.pick.character_id == character_id)
         return {cid for cid in db.scalars(query) if cid is not None}
 
+    def trim(self, db: Session, choice: Choice, character_id: int, count: int) -> bool:
+        """Drop the newest picks beyond `count`, when a growing choice shrinks (a level
+        lost). Returns whether any went."""
+        ids = db.scalars(
+            select(self.pick.id)
+            .where(self.pick.character_id == character_id, self.pick.choice_id == choice.id)
+            .order_by(self.pick.id)
+        ).all()
+        if extra := ids[count:]:
+            db.execute(delete(self.pick).where(self.pick.id.in_(extra)))
+        return bool(extra)
+
     def clear(self, db: Session, choice_ids: list[int], character_id: int) -> None:
         """Remove the character's picks for these choices. Doesn't commit."""
         db.execute(
@@ -177,6 +223,76 @@ class OptionKind(ChoiceKind):
 
     def view(self, option):
         return OptionView(str(option.id), option.name, option.summary)
+
+    def options(self, db, choice, character):
+        """Options with their prerequisites shown, e.g. "Needs Warlock 5 · Pact of the Blade"."""
+        names = {o.slug: o.name for o in choice.options}
+        level_name = owner_level_name(db, choice.feature)
+        views = []
+        for option in db.scalars(self.options_query(choice, character)):
+            needs = option.requires or {}
+            labels = [f"{level_name} {needs['level']}"] if "level" in needs else []
+            labels += [names[needs["option"]]] if "option" in needs else []
+            view = self.view(option)
+            if labels:
+                view = replace(view, warnings=(f"Needs {' · '.join(labels)}",))
+            views.append(view)
+        return views
+
+    def unavailable(self, db, choice, character_id):
+        """Also options whose level the character hasn't reached. One that needs another option
+        stays pickable, since both can be picked together."""
+        result = super().unavailable(db, choice, character_id)
+        level = owner_level(db, db.get(Character, character_id), choice.feature)
+        level_name = owner_level_name(db, choice.feature)
+        for option in choice.options:
+            needed = (option.requires or {}).get("level")
+            if needed and level < needed:
+                result.setdefault(str(option.id), f"From {level_name} {needed}")
+        return result
+
+    def save(self, db, choice, character_id, keys):
+        character = db.get(Character, character_id)
+        for option in choice.options:
+            if str(option.id) in keys and (
+                problem := self._problem(db, character, choice, option, set(keys))
+            ):
+                return problem
+        return super().save(db, choice, character_id, keys)
+
+    def drop_unmet(self, db: Session, character: Character) -> bool:
+        """Delete picks whose prerequisites no longer hold (a level lost, or the option they
+        need unpicked). Returns whether any went; remove_inapplicable_picks repeats until none
+        do, since dropping one can break another."""
+        dropped = False
+        for choice_id in self.picked_choice_ids(db, character.id):
+            choice = db.get(Choice, choice_id)
+            keys = {o.key for o in self.picked(db, choice, character.id)}
+            failing = [
+                o.id
+                for o in choice.options
+                if str(o.id) in keys and self._problem(db, character, choice, o, keys)
+            ]
+            if failing:
+                db.execute(
+                    delete(CharacterChoicePick).where(
+                        CharacterChoicePick.character_id == character.id,
+                        CharacterChoicePick.option_id.in_(failing),
+                    )
+                )
+                dropped = True
+        return dropped
+
+    def _problem(self, db, character, choice, option, keys: set[str]) -> str | None:
+        """Why `option` can't be picked together with `keys` (form keys), if it can't."""
+        needs = option.requires or {}
+        if needs.get("level", 0) > owner_level(db, character, choice.feature):
+            return f"{option.name} needs {owner_level_name(db, choice.feature)} {needs['level']}."
+        if "option" in needs:
+            required = next(o for o in choice.options if o.slug == needs["option"])
+            if str(required.id) not in keys:
+                return f"{option.name} needs {required.name}."
+        return None
 
 
 class SkillKind(ChoiceKind):
@@ -265,11 +381,11 @@ class SpellKind(ChoiceKind):
 
     def options_query(self, choice, character):
         criteria = choice.criteria
-        query = (
-            select(Spell)
-            .join(Spell.classes)
-            .where(CharacterClass.id == criteria["class_id"], available(Spell))
-        )
+        query = select(Spell).where(available(Spell))
+        if "class_id" in criteria:  # else any class's spells (Pact of the Tome)
+            query = query.join(Spell.classes).where(CharacterClass.id == criteria["class_id"])
+        if criteria.get("ritual"):
+            query = query.where(Spell.ritual.is_(True))
         if "level" in criteria:
             query = query.where(Spell.level == criteria["level"])
         else:

@@ -95,6 +95,8 @@
                if row.uses_slots else [] %}
 {% set free = free_uses.get(row.granted_by.id) if row.free_cast is defined and row.free_cast and free_cast_url else none %}
 {% set free = free if free and free.remaining >= row.charge_cost else none %}
+{% set at_will = row.at_will is defined and row.at_will %}
+{% if at_will %}<span class="cast-none muted">At will · {{ row.granted_by.name }}</span>{% endif %}
 {% if usable or free %}
 <details class="cast-menu">
   <summary class="cast-button">Cast</summary>
@@ -113,7 +115,7 @@
     {% endfor %}
   </form>
 </details>
-{% else %}
+{% elif not at_will %}
 <span class="cast-none muted">{{ "No charges left" if row.charge_only is defined and row.charge_only else "No slots left" }}</span>
 {% endif %}
 {% endmacro %}

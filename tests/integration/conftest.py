@@ -112,3 +112,39 @@ def client(db, character, serve_with):
     response = client.post("/login", data={"username": user.username, "password": PASSWORD})
     assert response.status_code == 200, response.text
     yield client
+
+
+@pytest.fixture
+def warlock(db, character) -> Character:
+    """A level 1 character in the fixture pack's Test Pact class (Pact Magic, invocations),
+    owned by the test character's user."""
+    pact = db.scalar(select(CharacterClass.id).where(CharacterClass.slug == "test-pact"))
+    warlock = Character(
+        user_id=character.user_id,
+        name="Pact",
+        species_id=character.species_id,
+        ability_method="manual",
+        **dict.fromkeys(["strength", "dexterity", "constitution", "intelligence", "wisdom"], 10),
+        charisma=15,
+    )
+    warlock.classes.append(CharacterClassLevel(class_id=pact, position=0))
+    warlock.levels.append(CharacterLevel(character_level=1, class_id=pact, hp_method="max"))
+    db.add(warlock)
+    db.flush()
+    db.refresh(warlock)
+    return warlock
+
+
+@pytest.fixture
+def level_up(db):
+    """level_up(character, level): add levels in the character's starting class up to `level`."""
+
+    def level_up(character: Character, level: int) -> None:
+        class_id = character.classes[0].class_id
+        for n in range(character.level + 1, level + 1):
+            character.levels.append(
+                CharacterLevel(character_level=n, class_id=class_id, hp_method="fixed")
+            )
+        db.flush()
+
+    return level_up

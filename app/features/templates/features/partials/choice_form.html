@@ -5,13 +5,13 @@
       class="choice-form{% if error %} has-error{% endif %}">
   <div class="choice-form-header">
     <h3 class="section-title">{{ choice.name }}{% if level_label %} · {{ level_label }}{% endif %}</h3>
-    <span class="muted">Choose {{ choice.count }}</span>
+    <span class="muted">Choose {{ count }}</span>
   </div>
   {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}
 
   {{ filter_bar(filter_schools, noun) }}
 
-  {{ choice_grid("picks", options, selected=selected, multiple=choice.count > 1, value_key="key",
+  {{ choice_grid("picks", options, selected=selected, multiple=count > 1, value_key="key",
                  known=known, noun=noun) }}
 
   <div class="form-actions">

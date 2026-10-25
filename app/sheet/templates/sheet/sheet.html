@@ -193,9 +193,14 @@
           <li>
             <span><strong>{{ a.spell.name }}</strong>
               <span class="muted">{{ ac_effect_text(a.effect.kind, a.effect.value) }}</span></span>
-            {% if a.slots %}
+            {% if a.slots or a.at_will_from %}
             <form hx-post="/characters/{{ character.id }}/sheet/ac-effects/cast" class="ac-cast-slots">
               <input type="hidden" name="spell" value="{{ a.spell.id }}">
+              {% if a.at_will_from %}
+              <button type="submit" name="slot_level" value="at_will" class="secondary-button">
+                At will · {{ a.at_will_from }}
+              </button>
+              {% endif %}
               {% for slot in a.slots %}
               <button type="submit" name="slot_level" value="{{ slot.level }}" class="secondary-button">
                 Level {{ slot.level }} · {{ slot.remaining }} left

@@ -125,6 +125,9 @@ class Choice(Base):
     name: Mapped[str] = mapped_column(String(80))
     kind: Mapped[str] = mapped_column(String(20))
     count: Mapped[int] = mapped_column(default=1)
+    # How many to pick at each level 1-20, for a choice that grows with level (a Warlock's
+    # invocations); `count` is then its first value. See app/features/kinds.py:choice_count.
+    count_by_level: Mapped[list[int] | None] = mapped_column(NullableJSON)
     # Available once the class (or, for species, the character) reaches this level, as well as
     # the feature's own level. Lets one feature hold choices that unlock over time, like the
     # Wizard's two new spellbook spells per level.
@@ -159,6 +162,9 @@ class ChoiceOption(Base):
     damage_reaction: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
     # While picked: {"save_proficiencies": ["CON"]}; see app/features/schema.py:GrantsDef.
     grants: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
+    # Can only be picked from a level, and/or with a sibling option picked too:
+    # {"level": 5, "option": "pact-of-the-blade"}; see app/features/schema.py:RequiresDef.
+    requires: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
     position: Mapped[int] = mapped_column(default=0)
     retired_at: Mapped[datetime | None] = mapped_column(DateTime)  # removed from its pack
 

@@ -51,6 +51,8 @@ class FeatureSync:
             }
         if choice.kind in ("spell", "spellbook"):
             rest = {k: v for k, v in choice.criteria.items() if k != "class"}
+            if "class" not in choice.criteria:
+                return rest  # any class's spells
             return {
                 "class_id": self._id(CharacterClass, choice.criteria["class"], "classes"),
                 **rest,
@@ -120,7 +122,9 @@ class FeatureSync:
                 feature.choices.append(choice)
             choice.name = cdef.name
             choice.kind = cdef.kind
-            choice.count = cdef.count
+            growing = isinstance(cdef.count, list)
+            choice.count = cdef.count[0] if growing else cdef.count
+            choice.count_by_level = cdef.count if growing else None
             choice.level = cdef.level
             choice.criteria = self._criteria(cdef)
             choice.in_play = cdef.in_play
@@ -142,6 +146,9 @@ class FeatureSync:
                     else None
                 )
                 option.grants = odef.grants.stored() if odef.grants else None
+                option.requires = (
+                    odef.requires.model_dump(exclude_none=True) if odef.requires else None
+                )
                 option.position = opt_position
                 option.retired_at = None
             for option in options.values():

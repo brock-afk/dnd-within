@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from sqlalchemy import case, delete, select
 from sqlalchemy.orm import Session
@@ -370,6 +370,7 @@ class AcSpell:
 
     spell: Spell
     slots: list[SlotLevel]  # the slot levels it can be cast with right now
+    at_will_from: str = ""  # the feature that casts it at will, without a slot
 
     @property
     def effect(self) -> dict:
@@ -394,22 +395,29 @@ def ac_spells(
     castable: list[CastableSpell] | None = None,
     slots: dict[int, SlotLevel] | None = None,
 ) -> list[AcSpell]:
-    """Prepared spells with an AC effect, each with its usable slot levels. Spells whose effect
-    is already active are left out: it's listed with an End button instead. Pass `castable`
-    and `slots` if they're already worked out."""
+    """Spells with an AC effect the character can cast on themselves: prepared ones, with
+    their usable slot levels, and ones a feature casts at will (Armor of Shadows), once each.
+    Spells whose effect is already active are left out: it's listed with an End button
+    instead. Pass `castable` and `slots` if they're already worked out."""
     if castable is None:
         castable = castable_spells(db, character)
     if slots is None:
         slots = spell_slots(db, character)
     active = active_ac_spell_ids(db, character)
-    return [
-        AcSpell(
-            row.spell,
-            [s for s in slots.values() if s.level >= row.spell.level and s.remaining > 0],
-        )
-        for row in castable
-        if row.uses_slots and row.spell.details.get("ac_effect") and row.spell.id not in active
-    ]
+    found: dict[int, AcSpell] = {}
+    for row in castable:
+        spell = row.spell
+        if not spell.details.get("ac_effect") or spell.id in active:
+            continue
+        if not (row.uses_slots or row.at_will):
+            continue
+        ac = found.setdefault(spell.id, AcSpell(spell, []))
+        if row.uses_slots:
+            usable = [s for s in slots.values() if s.level >= spell.level and s.remaining > 0]
+            found[spell.id] = replace(ac, slots=usable)
+        if row.at_will:
+            found[spell.id] = replace(found[spell.id], at_will_from=row.granted_by.name)
+    return list(found.values())
 
 
 def _ends_on_long_rest(spell: Spell) -> bool:
@@ -500,6 +508,12 @@ class CastableSpell:
     @property
     def uses_slots(self) -> bool:
         return not self.in_ritual_section and self.spell.level > 0 and not self.charge_only
+
+    @property
+    def at_will(self) -> bool:
+        """Cast free with no limit: the granting feature has no uses to spend (Armor of
+        Shadows' Mage Armor)."""
+        return self.free_cast and self.granted_by is not None and self.granted_by.uses is None
 
     @property
     def free_label(self) -> str:

@@ -4,10 +4,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.characters.models import Character
-from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
+from app.classes.models import CharacterClassLevel, Subclass
 from app.content.queries import available
-from app.features.kinds import KINDS, OptionView
-from app.features.models import Choice, ChoiceOption, Feature
+from app.features.kinds import (
+    KINDS,
+    OptionView,
+    choice_count,
+    owner_level,
+    owner_level_name,
+)
+from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.inventory.models import CharacterItem, Item
 from app.spells.models import Spell
 
@@ -18,6 +24,7 @@ class ChoiceView:
     picked: list[OptionView]
     level: int = 1  # the class level (character level for species, backgrounds, feats)
     level_name: str = "Level"  # "Wizard" for class and subclass choices, so "Wizard 2"
+    count: int = 1  # how many to pick now: a growing choice's count at the current level
 
     @property
     def level_label(self) -> str:
@@ -26,7 +33,7 @@ class ChoiceView:
 
     @property
     def done(self) -> bool:
-        return len(self.picked) >= self.choice.count
+        return len(self.picked) >= self.count
 
 
 @dataclass
@@ -73,8 +80,8 @@ def _views(
 ) -> list[FeatureView]:
     """Features with the choices unlocked at `level` (the class level, or the character level
     for species features), each followed by the features of the options picked in its choices
-    (a Fiendish Legacy's spells), unlocked by the same level. `level_name` labels those
-    levels, e.g. "Wizard"."""
+    (a Fiendish Legacy's spells, an invocation's), unlocked by the same level, with their own
+    choices (Pact of the Tome's cantrips). `level_name` labels those levels, e.g. "Wizard"."""
     views = []
     for f in features:
         choices = [
@@ -83,6 +90,7 @@ def _views(
                 KINDS[c.kind].picked(db, c, character.id),
                 level=max(f.level, c.level),
                 level_name=level_name,
+                count=choice_count(c, level),
             )
             for c in f.choices
             if c.level <= level and c.retired_at is None
@@ -95,8 +103,9 @@ def _views(
                 .join(ChoiceOption, ChoiceOption.id == Feature.option_id)
                 .where(Feature.option_id.in_(picked), Feature.level <= level, available(Feature))
                 .order_by(ChoiceOption.position, Feature.position)
-            )
-            views.extend(FeatureView(of, []) for of in option_features)
+            ).all()
+            # The schema stops nesting here: these features' options own no features.
+            views.extend(_views(db, character, option_features, level, level_name))
     return views
 
 
@@ -247,15 +256,10 @@ def play_choices(
 
 
 def choice_level_label(db: Session, choice: Choice) -> str:
-    """Like ChoiceView.level_label, for a choice on its own (e.g. its form)."""
-    feature = choice.feature
-    level = max(feature.level, choice.level)
-    if level <= 1:
-        return ""
-    if feature.class_id is None and feature.subclass_id is None:
-        return f"Level {level}"  # species, background and feat choices go by character level
-    class_id = feature.class_id or db.get(Subclass, feature.subclass_id).class_id
-    return f"{db.get(CharacterClass, class_id).name} {level}"
+    """Like ChoiceView.level_label, for a choice on its own (e.g. its form). Species,
+    background and feat choices go by character level ("Level 3")."""
+    level = max(choice.feature.level, choice.level)
+    return f"{owner_level_name(db, choice.feature)} {level}" if level > 1 else ""
 
 
 def applicable_choice(db: Session, character: Character, choice_id: int) -> Choice | None:
@@ -265,6 +269,22 @@ def applicable_choice(db: Session, character: Character, choice_id: int) -> Choi
         return None
     feature = choice.feature
     unlocks_at = max(feature.level, choice.level)
+    if feature.option_id is not None:
+        # A picked option's feature (Pact of the Tome): the option must be picked, in a choice
+        # the character has, and the owner's level reached.
+        option = db.get(ChoiceOption, feature.option_id)
+        picked = db.scalar(
+            select(CharacterChoicePick.id).where(
+                CharacterChoicePick.character_id == character.id,
+                CharacterChoicePick.option_id == option.id,
+            )
+        )
+        ok = (
+            picked is not None
+            and applicable_choice(db, character, option.choice_id) is not None
+            and unlocks_at <= owner_level(db, character, feature)
+        )
+        return choice if ok else None
     if feature.item_id is not None:
         ok = feature.item_id in _active_item_ids(db, character) and unlocks_at <= character.level
         return choice if ok else None
@@ -287,11 +307,13 @@ def applicable_choice(db: Session, character: Character, choice_id: int) -> Choi
 
 def remove_inapplicable_picks(db: Session, character: Character) -> None:
     """Delete picks for choices the character no longer has, e.g. after losing a level or
-    switching subclass, plus Expertise in skills they're no longer proficient in.
+    switching subclass; options whose prerequisites no longer hold; the newest picks of a
+    growing choice beyond its count; and Expertise in skills they're no longer proficient in.
 
     Repeats until nothing changes, because clearing one pick can make others stale: clearing
-    a subclass removes its features, so their picks go too. Doesn't commit; the caller does,
-    together with whatever made the picks stale.
+    a subclass removes its features, so their picks go too, and unpicking Pact of the Blade
+    drops Thirsting Blade. Doesn't commit; the caller does, together with whatever made the
+    picks stale.
     """
     while True:
         changed = False
@@ -304,6 +326,16 @@ def remove_inapplicable_picks(db: Session, character: Character) -> None:
             if stale:
                 source.clear(db, stale, character.id)
                 changed = True
+        # Options whose prerequisite (a level, another option) no longer holds, before
+        # trimming, so a trim never keeps a pick that's about to go anyway.
+        changed |= KINDS["option"].drop_unmet(db, character)
+        # A growing choice that shrank (a level lost) keeps its oldest picks.
+        for source in KINDS.values():
+            for cid in source.picked_choice_ids(db, character.id):
+                choice = db.get(Choice, cid)
+                if choice.count_by_level:
+                    count = choice_count(choice, owner_level(db, character, choice.feature))
+                    changed |= source.trim(db, choice, character.id, count)
         if not changed:
             break
         db.flush()
@@ -322,5 +354,5 @@ def fill_fixed_choices(db: Session, character: Character) -> None:
                     continue
                 kind = KINDS[cv.choice.kind]
                 options = kind.options(db, cv.choice, character)
-                if len(options) == cv.choice.count:
+                if len(options) == cv.count:
                     kind.save(db, cv.choice, character.id, [o.key for o in options])

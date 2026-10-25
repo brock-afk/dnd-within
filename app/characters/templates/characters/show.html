@@ -141,7 +141,7 @@
     <li class="card pending-choice" id="choice-{{ cv.choice.id }}">
       <div>
         <span class="character-name">{{ cv.choice.name }}</span>
-        <span class="muted">{% if cv.level_label %}· {{ cv.level_label }} {% endif %}· choose {{ cv.choice.count }}</span>
+        <span class="muted">{% if cv.level_label %}· {{ cv.level_label }} {% endif %}· choose {{ cv.count }}</span>
       </div>
       {{ choose_button(cv.choice, "Choose") }}
     </li>

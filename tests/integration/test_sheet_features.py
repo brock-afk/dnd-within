@@ -2,6 +2,8 @@
 in-play choices, and ones whose content gives an action or a `when`), and passive features in
 their Attributes row. Untagged ones are for the Build page only."""
 
+import re
+
 from sqlalchemy import select
 
 from app.content.models import Source
@@ -60,7 +62,7 @@ def test_rows_grouped_by_what_using_them_takes(db, warlock, level_up):
         "Other": ["Giant Ancestry"],
     }
     favor = features.groups[1][1][0].entry
-    assert (favor.source, favor.when) == ("Test Pact", "When an enemy drops to 0 Hit Points")
+    assert favor.source == "Test Pact"  # under Triggered because of its `when`
     assert features.groups[0][1][0].entry.source == "Invocations"
     assert features.digest == "Blade Pact · Patron's Favor · Thirsting · Giant Ancestry 2/2"
 
@@ -161,18 +163,19 @@ def test_rows_say_what_they_do(client, db, warlock, stone_giant, level_up):
     _pick(db, warlock, "deep-gift", "keen-mind")
     db.commit()
 
-    # A tracked feature without picked options shows its own summary; the full rules text is
-    # for the Build page.
+    # A tracked feature without picked options shows its own summary. With full rules text, the
+    # summary swaps for it in place (a <details>): both are in the page, never shown together.
     sheet = client.get(f"/characters/{warlock.id}/sheet").text
-    assert "Cast Pact Spell A once per Long Rest without a spell slot." in sheet
-    assert "Full text" not in sheet and "The full rules text of Deep Gift." not in sheet
-    # A tracked feature's own timing is a tag too (and puts it under Triggered).
-    assert '<span class="spell-tag">When you finish a Short Rest</span>' in sheet
+    toggle = re.search(r'<details class="text-toggle">(.*?)</details>', sheet, re.S)
+    assert toggle, "Deep Gift has full text, so its summary toggles"
+    assert "Cast Pact Spell A once per Long Rest without a spell slot." in toggle[1]
+    assert '<p class="text-full">The full rules text of Deep Gift.</p>' in toggle[1]
+    assert "Full text" in toggle[1] and "Summary" in toggle[1]
 
-    # A picked boon's timing is a tag, not a bold heading.
+    # Timing (`when`) only groups rows under Triggered; it isn't shown as a tag any more.
+    assert "When you finish a Short Rest" not in sheet
     sheet = client.get(f"/characters/{stone_giant.id}/sheet").text
-    assert '<span class="spell-tag">When you take damage</span>' in sheet
-    assert "<strong>When you take damage" not in sheet
+    assert "When you take damage" not in sheet
 
 
 def test_item_abilities_get_their_own_rows(client, db, warlock):

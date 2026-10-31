@@ -195,7 +195,7 @@ class FeatureEntry:
     name: str
     source: str  # "Warlock", "Tiefling", or the choice it was picked in ("Eldritch Invocations")
     summary: str
-    when: str = ""  # its timing, e.g. "When you hit with your pact weapon"
+    description: str = ""  # a feature's full rules text, where the pack has it
 
 
 @dataclass(frozen=True)
@@ -317,7 +317,9 @@ def sheet_features(
                     found.append((_action_group(f.action, f.when), row))
             elif not feature.uses and not _shown_elsewhere(feature):
                 source = source_name(db, feature)
-                entry = FeatureEntry(feature.name, source, feature.summary, feature.when or "")
+                entry = FeatureEntry(
+                    feature.name, source, feature.summary, feature.description or ""
+                )
                 place(feature.action, feature.when, feature.sheet, entry)
             for cv in fv.choices:
                 if cv.choice.id in in_play:
@@ -327,7 +329,7 @@ def sheet_features(
                 keys = {o.key for o in cv.picked}
                 for o in cv.choice.options:
                     if str(o.id) in keys:
-                        entry = FeatureEntry(o.name, cv.choice.name, o.summary, o.when or "")
+                        entry = FeatureEntry(o.name, cv.choice.name, o.summary)
                         place(o.action, o.when, o.sheet, entry)
     return SheetFeatures(
         [

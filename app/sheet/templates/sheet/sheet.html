@@ -4,6 +4,9 @@
 {% block scripts %}{% if read_only %}<script src="{{ static_url('live.js') }}" defer></script>{% endif %}{% endblock %}
 {% from "partials/page_tabs.html" import page_tabs %}
 {% from "partials/dice.html" import roll_button %}
+{#- Passive features in a row of Attributes: name, then what it does. -#}
+{% macro trait_lines(entries) %}{% for e in entries or [] %}<span>{{ e.name }} <span class="muted">· {{ e.summary }}</span></span>{% endfor %}{% endmacro %}
+
 {% macro signed(n) %}{{ "+" if n >= 0 else "−" }}{{ n | abs }}{% endmacro %}
 {% macro ac_effect_text(kind, value) -%}
 {%- if kind == "base" %}AC becomes {{ value }} + DEX{% elif kind == "minimum" %}AC at least {{ value }}{% else %}{{ signed(value) }} AC{% endif -%}
@@ -377,6 +380,23 @@
 {% endcall %}
 {% endif %}
 
+{#- What features and picked options let the character do in a turn, when their content says
+    so (app/sheet/service.py:sheet_features). Passive ones go in Attributes, below. -#}
+{% if sheet_features.actions %}
+{% call section("actions", "Actions", sheet_features.actions_digest) %}
+  {% for label, entries in sheet_features.actions %}
+  <h3 class="group-title">{{ label }}</h3>
+  {% for e in entries %}
+  <div class="resource">
+    <span class="resource-label">{{ e.name }} <span class="resource-option">· {{ e.source }}</span></span>
+    {% if e.when %}<span class="spell-tag">{{ e.when }}</span>{% endif %}
+    <p class="resource-detail">{{ e.summary }}</p>
+  </div>
+  {% endfor %}
+  {% endfor %}
+{% endcall %}
+{% endif %}
+
 {% if skills %}
 {% set skills_digest %}{% for row in skills if row.proficient %}{{ row.skill.name }} {{ signed(row.bonus) }}{{ " · " if not loop.last }}{% endfor %}{% endset %}
 {% call section("skills", "Skills", skills_digest, classes="order-late") %}
@@ -403,24 +423,34 @@
 {% call section("attributes", "Attributes",
                 "Speed %d ft" % attributes.speed ~ (" · Darkvision %d ft" % attributes.darkvision if attributes.darkvision else ""),
                 classes="order-late") %}
+  {#- Passive features placed in the row they affect, like Devil's Sight under Senses. -#}
+  {% set traits = sheet_features.traits %}
   <dl class="attributes">
-    {% if attributes.saves %}
+    {% if attributes.saves or traits.saves %}
     <dt>Saving throws</dt>
-    <dd>{% for names, source in attributes.save_groups %}<span>{{ names | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
+    <dd>{% for names, source in attributes.save_groups %}<span>{{ names | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}
+      {{- trait_lines(traits.saves) }}</dd>
     {% endif %}
     <dt>Speed</dt>
-    <dd><span>{{ attributes.speed }} ft{% if attributes.speed_parts | length > 1 %} <span class="muted">· {{ attributes.speed_parts | join(", ") }}</span>{% else %} <span class="muted">· {{ character.species.name }}</span>{% endif %}</span></dd>
-    {% if attributes.darkvision %}
-    <dt>Darkvision</dt>
-    <dd><span>{{ attributes.darkvision }} ft <span class="muted">· {{ attributes.darkvision_sources | join(", ") }}</span></span></dd>
+    <dd><span>{{ attributes.speed }} ft{% if attributes.speed_parts | length > 1 %} <span class="muted">· {{ attributes.speed_parts | join(", ") }}</span>{% else %} <span class="muted">· {{ character.species.name }}</span>{% endif %}</span>
+      {{- trait_lines(traits.speed) }}</dd>
+    {% if attributes.darkvision or traits.senses %}
+    <dt>Senses</dt>
+    <dd>{% if attributes.darkvision %}<span>Darkvision {{ attributes.darkvision }} ft <span class="muted">· {{ attributes.darkvision_sources | join(", ") }}</span></span>{% endif %}
+      {{- trait_lines(traits.senses) }}</dd>
     {% endif %}
-    {% if attributes.resistances %}
+    {% if attributes.resistances or traits.resistances %}
     <dt>Resistances</dt>
-    <dd>{% for types, source in attributes.resistance_groups %}<span>{{ types | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
+    <dd>{% for types, source in attributes.resistance_groups %}<span>{{ types | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}
+      {{- trait_lines(traits.resistances) }}</dd>
     {% endif %}
     {% if attributes.tools %}
     <dt>Tools</dt>
     <dd>{% for tools, source in attributes.tool_groups %}<span>{{ tools | join(", ") }} <span class="muted">· {{ source }}</span></span>{% endfor %}</dd>
+    {% endif %}
+    {% if traits.traits %}
+    <dt>Traits</dt>
+    <dd>{{ trait_lines(traits.traits) }}</dd>
     {% endif %}
   </dl>
 {% endcall %}

@@ -7,6 +7,7 @@ from app.abilities.rules import ABILITIES, modifier
 from app.abilities.service import AbilityView, ability_views
 from app.characters.models import Character
 from app.content.queries import available
+from app.features.kinds import source_name
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.service import FeatureGroup, applicable_choice, feature_groups
 from app.inventory.models import Item
@@ -177,6 +178,89 @@ class Attributes:
     @property
     def tool_groups(self) -> list[tuple[list[str], str]]:
         return _by_source(self.tools, sorted(self.tools))
+
+
+# --- Actions and placed traits --------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FeatureEntry:
+    """A feature or picked option the Play sheet shows: in Actions, or in a row of Attributes."""
+
+    name: str
+    source: str  # "Warlock", "Tiefling", or the choice it was picked in ("Eldritch Invocations")
+    summary: str
+    when: str = ""  # its timing, e.g. "When you hit with your pact weapon"
+
+
+@dataclass(frozen=True)
+class SheetFeatures:
+    actions: list[tuple[str, list[FeatureEntry]]]  # ("Bonus Actions", entries), in turn order
+    traits: dict[str, list[FeatureEntry]]  # passive ones by Attributes row: "senses", "saves"...
+
+    @property
+    def actions_digest(self) -> str:
+        """The collapsed Actions section's summary: the names, as every section lists them."""
+        return " · ".join(e.name for _, entries in self.actions for e in entries)
+
+
+ACTION_GROUPS = [
+    ("action", "Actions"),
+    ("bonus_action", "Bonus Actions"),
+    ("reaction", "Reactions"),
+    ("triggered", "Triggered"),
+]
+
+
+def _in_resources(feature: Feature) -> bool:
+    """Shown elsewhere already: limited uses and slot recovery (Resources, the Short rest
+    panel), spending another feature's uses (Resources), or a magic item's (Inventory)."""
+    return bool(
+        feature.uses or feature.slot_recovery or feature.spends_feature_id or feature.item_id
+    )
+
+
+def _action_group(action: str | None, when: str | None) -> str | None:
+    """Its Actions group: what using it takes, "triggered" with only a `when`, else None."""
+    return action or ("triggered" if when else None)
+
+
+def sheet_features(
+    db: Session, character: Character, groups: list[FeatureGroup] | None = None
+) -> SheetFeatures:
+    """The features and picked options the Play sheet shows, by what their content says: with
+    an `action` or a `when` in Actions (Pact of the Blade, Dark One's Blessing), with `sheet` in
+    that row of Attributes (Devil's Sight with Senses). Anything else, like a Tiefling's Size, is
+    for the Build page. Picked options of a feature with uses are left out: Resources lists them
+    with it. Pass `groups` if they're already worked out."""
+    found: list[tuple[str | None, str | None, FeatureEntry]] = []  # (action group, row, entry)
+    for group in feature_groups(db, character) if groups is None else groups:
+        for fv in group.features:
+            feature = fv.feature
+            if _in_resources(feature):
+                continue
+            entry = FeatureEntry(
+                feature.name, source_name(db, feature), feature.summary, feature.when or ""
+            )
+            found.append((_action_group(feature.action, feature.when), feature.sheet, entry))
+            for cv in fv.choices:
+                if cv.choice.kind != "option" or cv.choice.in_play:
+                    continue
+                keys = {o.key for o in cv.picked}
+                for o in cv.choice.options:
+                    if str(o.id) in keys:
+                        entry = FeatureEntry(o.name, cv.choice.name, o.summary, o.when or "")
+                        found.append((_action_group(o.action, o.when), o.sheet, entry))
+    actions = [
+        (label, entries)
+        for action, label in ACTION_GROUPS
+        if (entries := [e for a, _, e in found if a == action])
+    ]
+    traits: dict[str, list[FeatureEntry]] = {}
+    for action, row, entry in found:
+        if row and not action:
+            traits.setdefault(row, []).append(entry)
+    return SheetFeatures(actions, traits)
 
 
 def attributes(

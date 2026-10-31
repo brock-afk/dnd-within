@@ -16,6 +16,14 @@ features:
     name: Spells
     kind: spell
     criteria: {class: test-pact, max_level: class_slots}
+- slug: patrons-whisper
+  name: Patron's Whisper
+  summary: Advantage on saves against your patron's enemies.
+  sheet: saves
+- slug: patrons-favor
+  name: Patron's Favor
+  summary: Gain temporary hit points.
+  when: When an enemy drops to 0 Hit Points
 - slug: patron-gift
   name: Patron Gift
   summary: Pact Spell B is always prepared.
@@ -52,9 +60,11 @@ features:
     - slug: blade-pact
       name: Blade Pact
       summary: A pact weapon.
+      action: bonus_action
     - slug: thirsting
       name: Thirsting
       summary: Needs the Blade Pact.
+      when: When you attack with your pact weapon
       requires: {option: blade-pact}
     - slug: tome-pact
       name: Tome Pact
@@ -75,3 +85,12 @@ features:
     - slug: keen-mind
       name: Keen Mind
       summary: Text only.
+      sheet: traits
+    - slug: dark-sight
+      name: Dark Sight
+      summary: See in magical darkness too.
+      grants: {darkvision: 60}
+      sheet: senses
+    - slug: plain-gift
+      name: Plain Gift
+      summary: Build page only.

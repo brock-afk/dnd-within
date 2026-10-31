@@ -66,6 +66,7 @@ from app.sheet.service import (
     prepared_spell_ids,
     search_copyable,
     set_slots_remaining,
+    sheet_features,
     skill_rows,
     spell_slots,
     spell_warnings,
@@ -119,6 +120,7 @@ def render_sheet(
         "resources": [u for u in uses if not u.rest_only],
         "free_uses": {u.feature.id: u for u in uses},
         "play_choices": play_choices(db, character, groups),
+        "sheet_features": sheet_features(db, character, groups),
         "castable": castable,
         "slots": slots,
         # Always-prepared spells don't count, even if also picked from the book before.

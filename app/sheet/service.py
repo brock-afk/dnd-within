@@ -196,22 +196,37 @@ class FeatureEntry:
     source: str  # "Warlock", "Tiefling", or the choice it was picked in ("Eldritch Invocations")
     summary: str
     when: str = ""  # its timing, e.g. "When you hit with your pact weapon"
-    description: str = ""  # a feature's full rules text, where the pack has it
 
 
 @dataclass(frozen=True)
 class FeatureRow:
-    """One row of the Features section: a feature with uses to track (pips), a choice made in
-    play (the Transmuter's Stone benefit), or a feature or picked option to read."""
+    """One row of the Features section: a feature with uses to track (pips), an ability that
+    spends those uses (`spender`, with `uses` its pool: a magic item's charges), a choice made
+    in play (the Transmuter's Stone benefit), or a feature or picked option to read."""
 
     uses: FeatureUses | None = None
+    spender: Feature | None = None
     choice: PlayChoice | None = None
     entry: FeatureEntry | None = None
+    source: str = ""  # for uses and spender rows: "Warlock", "Tome of Bal'vir"
+
+    @property
+    def name(self) -> str:
+        """A tracked feature's name without its source repeated: a homebrew item's "Tome of
+        Bal'vir charges" is "Charges", next to "· Tome of Bal'vir"."""
+        if self.spender:
+            return self.spender.name
+        name = self.uses.feature.name
+        if self.source and name.startswith(self.source) and name != self.source:
+            return name.removeprefix(self.source).strip().capitalize()
+        return name
 
     @property
     def digest(self) -> str:
+        if self.spender:
+            return self.spender.name
         if self.uses:
-            return f"{self.uses.feature.name} {self.uses.remaining}/{self.uses.maximum}"
+            return f"{self.name} {self.uses.remaining}/{self.uses.maximum}"
         if self.choice:
             return self.choice.picked.name
         return self.entry.name
@@ -251,13 +266,16 @@ def _action_group(action: str | None, when: str | None) -> str | None:
 def _uses_group(uses: FeatureUses) -> str | None:
     """A tracked feature's group: its own action or `when`; else its picked option's (Giant
     Ancestry's Stone's Endurance is a Reaction); else the casting time of the spell its uses
-    cast for free (Infernal Legacy's Hellish Rebuke). Anything longer, or nothing, is Other."""
+    cast for free (Infernal Legacy's Hellish Rebuke). A pool other abilities spend, anything
+    longer, or nothing, is Other."""
     feature = uses.feature
     if group := _action_group(feature.action, feature.when):
         return group
     for option in uses.options:
         if group := _action_group(option.action, option.when):
             return group
+    if uses.spenders:  # a pool other abilities spend (an item's charges): each has its own row
+        return None
     units = {fs.spell.details["casting_time"]["unit"] for fs in feature.spells if fs.free_cast}
     unit = units.pop() if len(units) == 1 else None
     return unit if unit in ("action", "bonus_action", "reaction") else None
@@ -290,17 +308,16 @@ def sheet_features(
     for group in groups:
         for fv in group.features:
             feature = fv.feature
-            if uses_row := tracked.get(feature.id):
-                found.append((_uses_group(uses_row), FeatureRow(uses=uses_row)))
+            if pool := tracked.get(feature.id):
+                source = source_name(db, feature)
+                found.append((_uses_group(pool), FeatureRow(uses=pool, source=source)))
+                # Abilities spending these uses go by what using them takes (Bonus Actions…).
+                for f in pool.spenders:
+                    row = FeatureRow(uses=pool, spender=f, source=source_name(db, f))
+                    found.append((_action_group(f.action, f.when), row))
             elif not feature.uses and not _shown_elsewhere(feature):
                 source = source_name(db, feature)
-                entry = FeatureEntry(
-                    feature.name,
-                    source,
-                    feature.summary,
-                    feature.when or "",
-                    feature.description or "",
-                )
+                entry = FeatureEntry(feature.name, source, feature.summary, feature.when or "")
                 place(feature.action, feature.when, feature.sheet, entry)
             for cv in fv.choices:
                 if cv.choice.id in in_play:

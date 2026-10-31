@@ -245,6 +245,39 @@ def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
             check(ref, "classes", f"spells/{spell.slug}")
 
 
+def build_page_only(pack: Pack) -> list[str]:
+    """Features and options that will show only on the Build page, never on the Play sheet,
+    because nothing about them has a place there (see app/sheet/service.py:sheet_features):
+    no uses, picks, spells or grants, and no `action`, `when` or `sheet`. Usually a missing
+    tag; `sheet: none` marks the deliberate ones. A magic item's show in the Inventory."""
+    shown_by = ("uses", "slot_recovery", "spends", "choices", "spells", "grants", "action", "when")
+    option_shown_by = ("action", "when", "grants", "features", "damage_reaction")
+    found = []
+
+    def walk(features: list[FeatureDef], where: str):
+        for feature in features:
+            here = f"{where} > {feature.slug}"
+            if feature.sheet is None and not any(getattr(feature, k) for k in shown_by):
+                found.append(here)
+            for choice in feature.choices:
+                for option in choice.options:
+                    shown = feature.uses or choice.in_play or option.sheet is not None
+                    if not shown and not any(getattr(option, k) for k in option_shown_by):
+                        found.append(f"{here} > {choice.slug} > {option.slug}")
+                    walk(option.features, f"{here} > {choice.slug} > {option.slug}")
+
+    for kind, defs in [
+        ("species", pack.species),
+        ("classes", pack.classes),
+        ("subclasses", pack.subclasses),
+        ("feats", pack.feats),
+        ("backgrounds", pack.backgrounds),
+    ]:
+        for d in defs:
+            walk(d.features, f"{kind}/{d.slug}")
+    return found
+
+
 def import_order(packs: list[Pack]) -> list[Pack]:
     """Packs sorted so every pack comes after the packs it requires."""
     by_slug = {p.slug: p for p in packs}

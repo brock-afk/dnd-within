@@ -18,7 +18,8 @@ features:
       summary: Test option.
     - slug: stone
       name: Stone's Endurance (Stone Giant)
-      when: Reaction, when you take damage
+      action: reaction
+      when: When you take damage
       summary: Test option.
       damage_reaction: {kind: reduce, dice: 1d12, ability: CON}
     - slug: storm

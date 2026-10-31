@@ -1,14 +1,37 @@
-"""Where the Play sheet shows features and picked options, as their content says: Actions for
-ones with an action or a `when`, a row of Attributes for passive ones with `sheet`, and nowhere
-(the Build page only) for the rest."""
+"""The Play sheet's Features section, grouped by what using each row takes (features with uses,
+in-play choices, and ones whose content gives an action or a `when`), and passive features in
+their Attributes row. Untagged ones are for the Build page only."""
 
 from sqlalchemy import select
 
 from app.content.models import Source
 from app.features.kinds import KINDS
 from app.features.models import Choice, ChoiceOption, Feature
+from app.features.service import feature_groups, play_choices
 from app.inventory.models import CharacterItem, Item
+from app.sheet.rests import feature_uses
 from app.sheet.service import sheet_features
+
+
+def _features(db, character):
+    groups = feature_groups(db, character)
+    choices = play_choices(db, character, groups)
+    return sheet_features(db, character, groups, feature_uses(db, character, groups), choices)
+
+
+def _name(row) -> str:
+    if row.uses:
+        return row.uses.feature.name
+    return row.choice.picked.name if row.choice else row.entry.name
+
+
+def _groups(features) -> dict[str, list[str]]:
+    return {label: [_name(r) for r in rows] for label, rows in features.groups}
+
+
+def _all_names(features) -> list[str]:
+    names = [_name(r) for _, rows in features.groups for r in rows]
+    return names + [e.name for entries in features.traits.values() for e in entries]
 
 
 def _pick(db, character, *slugs: str) -> None:
@@ -21,33 +44,40 @@ def _pick(db, character, *slugs: str) -> None:
     db.flush()
 
 
-def _all_names(features) -> list[str]:
-    names = [e.name for _, entries in features.actions for e in entries]
-    return names + [e.name for entries in features.traits.values() for e in entries]
-
-
-def test_actions_grouped_by_what_using_them_takes(db, warlock, level_up):
+def test_rows_grouped_by_what_using_them_takes(db, warlock, level_up):
     level_up(warlock, 2)
     _pick(db, warlock, "blade-pact", "thirsting", "keen-mind")
 
-    features = sheet_features(db, warlock)
+    features = _features(db, warlock)
 
-    groups = [(label, [e.name for e in entries]) for label, entries in features.actions]
-    assert groups == [
-        ("Bonus Actions", ["Blade Pact"]),
-        ("Triggered", ["Patron's Favor", "Thirsting"]),
-    ]
-    favor = features.actions[1][1][0]
+    # Giant Ancestry (the fixture Goliath's) has uses but no boon picked: nothing says when.
+    assert _groups(features) == {
+        "Bonus Actions": ["Blade Pact"],
+        "Triggered": ["Patron's Favor", "Thirsting"],
+        "Other": ["Giant Ancestry"],
+    }
+    favor = features.groups[1][1][0].entry
     assert (favor.source, favor.when) == ("Test Pact", "When an enemy drops to 0 Hit Points")
-    assert features.actions[0][1][0].source == "Invocations"
-    assert features.actions_digest == "Blade Pact · Patron's Favor · Thirsting"
+    assert features.groups[0][1][0].entry.source == "Invocations"
+    assert features.digest == "Blade Pact · Patron's Favor · Thirsting · Giant Ancestry 2/2"
+
+
+def test_tracked_features_grouped_by_option_or_spell(db, warlock, stone_giant, level_up):
+    # Stone's Endurance is a reaction, so Giant Ancestry's uses are under Reactions.
+    assert _groups(_features(db, stone_giant))["Reactions"] == ["Giant Ancestry"]
+
+    level_up(warlock, 5)
+    _pick(db, warlock, "deep-gift", "keen-mind")
+    groups = _groups(_features(db, warlock))
+    assert groups["Actions"] == ["Deep Gift"]  # its free spell takes an action
+    assert "Large Form" in groups["Other"]  # uses, and nothing says what using it takes
 
 
 def test_passive_ones_go_to_their_attributes_row(db, warlock, level_up):
     level_up(warlock, 2)
     _pick(db, warlock, "keen-mind", "plain-gift", "dark-sight")
 
-    features = sheet_features(db, warlock)
+    features = _features(db, warlock)
 
     traits = {row: [e.name for e in entries] for row, entries in features.traits.items()}
     assert traits == {
@@ -59,11 +89,14 @@ def test_passive_ones_go_to_their_attributes_row(db, warlock, level_up):
     names = _all_names(features)
     for hidden in ["Plain Gift", "Pact Magic", "Invocations", "Patron Gift"]:
         assert hidden not in names
+    # `sheet: none` (deliberately Build page only) is stored as no placement.
+    plain = db.scalar(select(ChoiceOption).where(ChoiceOption.slug == "plain-gift"))
+    assert plain.sheet is None
 
 
-def test_resources_and_inventory_keep_theirs(db, warlock, stone_giant):
-    # Giant Ancestry has uses: its picked boon (Stone's Endurance) is listed in Resources.
-    assert not any("Stone" in n for n in _all_names(sheet_features(db, stone_giant)))
+def test_options_of_tracked_features_and_item_abilities_stay_in_their_row(db, warlock, stone_giant):
+    # Giant Ancestry lists its picked boon (Stone's Endurance) in its own row.
+    assert not any("Stone" in n for n in _all_names(_features(db, stone_giant)))
 
     source = db.scalar(select(Source).where(Source.slug == "test-core"))
     ring = Item(
@@ -74,7 +107,7 @@ def test_resources_and_inventory_keep_theirs(db, warlock, stone_giant):
     glow = Feature(item_id=ring.id, slug="glow", name="Glow", summary="It glows.", sheet="traits")
     db.add_all([glow, CharacterItem(character_id=warlock.id, item_id=ring.id)])
     db.flush()
-    assert "Glow" not in _all_names(sheet_features(db, warlock))
+    assert "Glow" not in _all_names(_features(db, warlock))
 
 
 def test_sheet_and_build_page(client, db, warlock):
@@ -82,13 +115,11 @@ def test_sheet_and_build_page(client, db, warlock):
     db.commit()  # the requests below share this session
 
     sheet = client.get(f"/characters/{warlock.id}/sheet").text
-    assert 'id="section-actions"' in sheet and "Triggered" in sheet  # Patron's Favor
+    assert 'id="section-features"' in sheet and "Triggered" in sheet  # Patron's Favor
+    assert 'id="section-resources"' not in sheet and 'id="section-actions"' not in sheet
     attributes = sheet[sheet.index('id="section-attributes"') :]
-    senses = attributes[
-        attributes.index("<dt>Senses</dt>") : attributes.index(
-            "</dd>", attributes.index("<dt>Senses</dt>")
-        )
-    ]
+    start = attributes.index("<dt>Senses</dt>")
+    senses = attributes[start : attributes.index("</dd>", start)]
     assert "Darkvision 60 ft" in senses and "Dark Sight" in senses
     assert "<dt>Saving throws</dt>" in attributes and "Advantage on saves against" in attributes
 
@@ -104,3 +135,38 @@ def test_build_page_shows_every_picked_option(client, db, warlock, level_up):
     build = client.get(f"/characters/{warlock.id}").text
     for summary in ["A pact weapon.", "Needs the Blade Pact.", "Text only."]:
         assert summary in build
+
+
+def test_pips_and_free_casts_still_work(client, db, warlock, level_up):
+    level_up(warlock, 5)
+    _pick(db, warlock, "deep-gift", "keen-mind")
+    db.commit()
+    gift = db.scalar(
+        select(Feature).where(Feature.slug == "deep-gift", Feature.option_id.is_not(None))
+    )
+    sheet = f"/characters/{warlock.id}/sheet"
+
+    form = {"spell": gift.spells[0].spell_id, "feature": gift.id}
+    response = client.post(f"{sheet}/cast-free", data=form)
+    assert response.status_code == 200 and "0 of 1" in response.text
+    response = client.post(f"{sheet}/uses/{gift.id}", data={"remaining": "1"})
+    assert response.status_code == 200 and "1 of 1" in response.text
+
+
+def test_rows_say_what_they_do(client, db, warlock, stone_giant, level_up):
+    level_up(warlock, 5)
+    _pick(db, warlock, "deep-gift", "keen-mind")
+    db.commit()
+
+    # A tracked feature without picked options shows its own summary, and its full text folded.
+    sheet = client.get(f"/characters/{warlock.id}/sheet").text
+    assert "Cast Pact Spell A once per Long Rest without a spell slot." in sheet
+    assert "<summary>Full text</summary>" in sheet
+    assert "The full rules text of Deep Gift." in sheet
+    # A tracked feature's own timing is a tag too (and puts it under Triggered).
+    assert '<span class="spell-tag">When you finish a Short Rest</span>' in sheet
+
+    # A picked boon's timing is a tag, not a bold heading.
+    sheet = client.get(f"/characters/{stone_giant.id}/sheet").text
+    assert '<span class="spell-tag">When you take damage</span>' in sheet
+    assert "<strong>When you take damage" not in sheet

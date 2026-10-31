@@ -58,9 +58,10 @@ SPELL_CRITERIA = {"class", "level", "max_level", "school", "ritual", "acquired_v
 
 
 # Where a passive feature or option shows on the Play sheet: a row of Attributes (Devil's
-# Sight with Senses, Eldritch Mind with saves). One with an action or a `when` shows in Actions;
-# anything else only on the Build page.
-Placement = Literal["senses", "saves", "speed", "resistances", "traits"]
+# Sight with Senses, Eldritch Mind with saves). One with an action or a `when` shows in
+# Features. "none" says it's meant for the Build page only (a Tiefling's Size), so
+# `python -m app.content check` doesn't list it as missing from the Play sheet.
+Placement = Literal["senses", "saves", "speed", "resistances", "traits", "none"]
 
 
 class DamageReactionDef(BaseModel):

@@ -42,6 +42,7 @@ features:
     criteria: {class: wizard, max_level: 1}
 - slug: ritual-adept
   name: Ritual Adept
+  sheet: traits
   summary: Test feature.
 - slug: scholar
   name: Scholar

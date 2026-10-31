@@ -6,11 +6,12 @@ from sqlalchemy import select
 
 from app.content.models import Source
 from app.features.kinds import KINDS
-from app.features.models import Choice, ChoiceOption, Feature
+from app.features.models import Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.service import feature_groups, play_choices
 from app.inventory.models import CharacterItem, Item
 from app.sheet.rests import feature_uses
 from app.sheet.service import sheet_features
+from app.spells.models import Spell
 
 
 def _features(db, character):
@@ -20,6 +21,8 @@ def _features(db, character):
 
 
 def _name(row) -> str:
+    if row.spender:
+        return row.spender.name
     if row.uses:
         return row.uses.feature.name
     return row.choice.picked.name if row.choice else row.entry.name
@@ -158,11 +161,11 @@ def test_rows_say_what_they_do(client, db, warlock, stone_giant, level_up):
     _pick(db, warlock, "deep-gift", "keen-mind")
     db.commit()
 
-    # A tracked feature without picked options shows its own summary, and its full text folded.
+    # A tracked feature without picked options shows its own summary; the full rules text is
+    # for the Build page.
     sheet = client.get(f"/characters/{warlock.id}/sheet").text
     assert "Cast Pact Spell A once per Long Rest without a spell slot." in sheet
-    assert "<summary>Full text</summary>" in sheet
-    assert "The full rules text of Deep Gift." in sheet
+    assert "Full text" not in sheet and "The full rules text of Deep Gift." not in sheet
     # A tracked feature's own timing is a tag too (and puts it under Triggered).
     assert '<span class="spell-tag">When you finish a Short Rest</span>' in sheet
 
@@ -170,3 +173,64 @@ def test_rows_say_what_they_do(client, db, warlock, stone_giant, level_up):
     sheet = client.get(f"/characters/{stone_giant.id}/sheet").text
     assert '<span class="spell-tag">When you take damage</span>' in sheet
     assert "<strong>When you take damage" not in sheet
+
+
+def test_item_abilities_get_their_own_rows(client, db, warlock):
+    """Like the Tome of Bal'vir: a pool of charges, and abilities that spend them."""
+    source = db.scalar(select(Source).where(Source.slug == "test-core"))
+    tome = Item(
+        source_id=source.id, slug="test-tome", name="Test Tome", category="magic", summary=""
+    )
+    db.add(tome)
+    db.flush()
+    charges = Feature(
+        item_id=tome.id,
+        slug="charges",
+        name="Test Tome charges",  # as the homebrew editor names them
+        summary="3 charges.",
+        uses={"max": 3, "recharge": "dawn"},
+    )
+    db.add_all([charges, CharacterItem(character_id=warlock.id, item_id=tome.id)])
+    db.flush()
+    # Like the Tome's Disguise Self: a spell its charges cast, which takes an action. The pool
+    # still goes under Other, since abilities spend it too.
+    spell = db.scalar(select(Spell.id).where(Spell.slug == "test-spell-a"))
+    db.add_all(
+        [
+            FeatureSpell(
+                feature_id=charges.id, spell_id=spell, free_cast=True, always_prepared=False
+            ),
+            Feature(
+                item_id=tome.id,
+                slug="quick",
+                name="Quick Trick",
+                summary="Fast.",
+                action="bonus_action",
+                spends_feature_id=charges.id,
+                spends_amount=1,
+            ),
+            Feature(
+                item_id=tome.id,
+                slug="parry",
+                name="Parry",
+                summary="Block.",
+                action="reaction",
+                spends_feature_id=charges.id,
+                spends_amount=1,
+            ),
+        ]
+    )
+    db.commit()
+
+    features = _features(db, warlock)
+
+    rows = {label: rows for label, rows in features.groups}
+    [quick] = [r for r in rows["Bonus Actions"] if _name(r) == "Quick Trick"]
+    [parry] = [r for r in rows["Reactions"] if _name(r) == "Parry"]
+    [pool] = [r for r in rows["Other"] if _name(r) == "Test Tome charges"]
+    assert quick.source == parry.source == pool.source == "Test Tome"
+    assert pool.name == "Charges"  # its source isn't repeated
+
+    sheet = f"/characters/{warlock.id}/sheet"
+    response = client.post(f"{sheet}/features/{quick.spender.id}/use")
+    assert response.status_code == 200 and "2 of 3" in response.text

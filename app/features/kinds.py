@@ -18,6 +18,7 @@ from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
 from app.content.queries import available
 from app.feats.models import Feat
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
+from app.inventory.models import Item
 from app.sheet.slots import slot_maximums
 from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.species.models import Species
@@ -71,6 +72,7 @@ def source_name(db: Session, feature: Feature) -> str:
         (Species, feature.species_id),
         (Background, feature.background_id),
         (Feat, feature.feat_id),
+        (Item, feature.item_id),
     ]:
         if parent_id is not None:
             return db.get(model, parent_id).name

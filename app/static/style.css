@@ -414,11 +414,10 @@ details[open] > .section-summary .section-digest { display: none; }
 .recovery-row input { width: 4rem; padding: 0.4rem; text-align: center; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }
 .resource-label { min-width: 8rem; font-size: 0.95rem; font-weight: 600; }
 
-/* Resources: what the picked option does */
+/* Features: tracked rows and what their picked options do */
 .resource + .resource { margin-top: 0.75rem; }
-.resource-option { font-weight: 400; color: var(--accent); }
+.resource-option { font-weight: 400; color: var(--muted); }
 .resource-detail { margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--muted); }
-.resource-detail strong { color: var(--text); font-weight: 600; }
 .resource-spender { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-top: 0.5rem; padding-left: 0.75rem; border-left: 2px solid var(--border); }
 .resource-spender-text { display: grid; gap: 0.1rem; font-size: 0.9rem; }
 .resource-spender-text .resource-detail { margin: 0; }

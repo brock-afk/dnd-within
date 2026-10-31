@@ -24,6 +24,12 @@ features:
   name: Patron's Favor
   summary: Gain temporary hit points.
   when: When an enemy drops to 0 Hit Points
+- slug: patrons-respite
+  name: Patron's Respite
+  level: 5
+  summary: Regain a little strength.
+  when: When you finish a Short Rest
+  uses: {max: 1, recharge: long_rest}
 - slug: patron-gift
   name: Patron Gift
   summary: Pact Spell B is always prepared.
@@ -55,6 +61,7 @@ features:
       - slug: deep-gift
         name: Deep Gift
         summary: Cast Pact Spell A once per Long Rest without a spell slot.
+        description: The full rules text of Deep Gift.
         uses: {max: 1, recharge: long_rest}
         spells: [{spell: pact-spell-a, always_prepared: false, free_cast: true}]
     - slug: blade-pact
@@ -94,3 +101,4 @@ features:
     - slug: plain-gift
       name: Plain Gift
       summary: Build page only.
+      sheet: none

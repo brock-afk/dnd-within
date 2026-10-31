@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING
 
 from sqlalchemy import case, delete, select
 from sqlalchemy.orm import Session
@@ -9,7 +10,7 @@ from app.characters.models import Character
 from app.content.queries import available
 from app.features.kinds import source_name
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature, FeatureSpell
-from app.features.service import FeatureGroup, applicable_choice, feature_groups
+from app.features.service import FeatureGroup, PlayChoice, applicable_choice, feature_groups
 from app.inventory.models import Item
 from app.leveling.service import hit_points
 from app.sheet.models import (
@@ -24,6 +25,9 @@ from app.sheet.slots import slot_kind, slot_maximums
 from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.spells.models import Spell
 from app.spells.queries import character_spells, spellbook
+
+if TYPE_CHECKING:
+    from app.sheet.rests import FeatureUses
 
 
 @dataclass
@@ -180,87 +184,142 @@ class Attributes:
         return _by_source(self.tools, sorted(self.tools))
 
 
-# --- Actions and placed traits --------------------------------------------------------------
+# --- Features and placed traits ------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class FeatureEntry:
-    """A feature or picked option the Play sheet shows: in Actions, or in a row of Attributes."""
+    """A feature or picked option to read on the Play sheet: in Features, or in a row of
+    Attributes."""
 
     name: str
     source: str  # "Warlock", "Tiefling", or the choice it was picked in ("Eldritch Invocations")
     summary: str
     when: str = ""  # its timing, e.g. "When you hit with your pact weapon"
+    description: str = ""  # a feature's full rules text, where the pack has it
+
+
+@dataclass(frozen=True)
+class FeatureRow:
+    """One row of the Features section: a feature with uses to track (pips), a choice made in
+    play (the Transmuter's Stone benefit), or a feature or picked option to read."""
+
+    uses: FeatureUses | None = None
+    choice: PlayChoice | None = None
+    entry: FeatureEntry | None = None
+
+    @property
+    def digest(self) -> str:
+        if self.uses:
+            return f"{self.uses.feature.name} {self.uses.remaining}/{self.uses.maximum}"
+        if self.choice:
+            return self.choice.picked.name
+        return self.entry.name
 
 
 @dataclass(frozen=True)
 class SheetFeatures:
-    actions: list[tuple[str, list[FeatureEntry]]]  # ("Bonus Actions", entries), in turn order
+    groups: list[tuple[str, list[FeatureRow]]]  # ("Bonus Actions", rows), in turn order
     traits: dict[str, list[FeatureEntry]]  # passive ones by Attributes row: "senses", "saves"...
 
     @property
-    def actions_digest(self) -> str:
-        """The collapsed Actions section's summary: the names, as every section lists them."""
-        return " · ".join(e.name for _, entries in self.actions for e in entries)
+    def digest(self) -> str:
+        """The collapsed section's summary: every row's name, with uses left on tracked ones."""
+        return " · ".join(row.digest for _, rows in self.groups for row in rows)
 
 
-ACTION_GROUPS = [
+FEATURE_GROUPS = [
     ("action", "Actions"),
     ("bonus_action", "Bonus Actions"),
     ("reaction", "Reactions"),
     ("triggered", "Triggered"),
+    (None, "Other"),
 ]
 
 
-def _in_resources(feature: Feature) -> bool:
-    """Shown elsewhere already: limited uses and slot recovery (Resources, the Short rest
-    panel), spending another feature's uses (Resources), or a magic item's (Inventory)."""
-    return bool(
-        feature.uses or feature.slot_recovery or feature.spends_feature_id or feature.item_id
-    )
+def _shown_elsewhere(feature: Feature) -> bool:
+    """Not a row of its own: slot recovery (the Short rest panel), spending another feature's
+    uses (listed under that feature), or a magic item's ability without uses (Inventory)."""
+    return bool(feature.slot_recovery or feature.spends_feature_id or feature.item_id)
 
 
 def _action_group(action: str | None, when: str | None) -> str | None:
-    """Its Actions group: what using it takes, "triggered" with only a `when`, else None."""
+    """Its group: what using it takes, "triggered" with only a `when`, else None."""
     return action or ("triggered" if when else None)
 
 
+def _uses_group(uses: FeatureUses) -> str | None:
+    """A tracked feature's group: its own action or `when`; else its picked option's (Giant
+    Ancestry's Stone's Endurance is a Reaction); else the casting time of the spell its uses
+    cast for free (Infernal Legacy's Hellish Rebuke). Anything longer, or nothing, is Other."""
+    feature = uses.feature
+    if group := _action_group(feature.action, feature.when):
+        return group
+    for option in uses.options:
+        if group := _action_group(option.action, option.when):
+            return group
+    units = {fs.spell.details["casting_time"]["unit"] for fs in feature.spells if fs.free_cast}
+    unit = units.pop() if len(units) == 1 else None
+    return unit if unit in ("action", "bonus_action", "reaction") else None
+
+
 def sheet_features(
-    db: Session, character: Character, groups: list[FeatureGroup] | None = None
+    db: Session,
+    character: Character,
+    groups: list[FeatureGroup],
+    uses: list[FeatureUses],
+    play_choices: list[PlayChoice],
 ) -> SheetFeatures:
-    """The features and picked options the Play sheet shows, by what their content says: with
-    an `action` or a `when` in Actions (Pact of the Blade, Dark One's Blessing), with `sheet` in
-    that row of Attributes (Devil's Sight with Senses). Anything else, like a Tiefling's Size, is
-    for the Build page. Picked options of a feature with uses are left out: Resources lists them
-    with it. Pass `groups` if they're already worked out."""
-    found: list[tuple[str | None, str | None, FeatureEntry]] = []  # (action group, row, entry)
-    for group in feature_groups(db, character) if groups is None else groups:
+    """The Play sheet's Features section, grouped by what using each row takes, and the
+    passive features placed in Attributes rows (Devil's Sight with Senses). Rows are features
+    with uses, choices made in play, and features or picked options whose content gives an
+    `action` or a `when` (Pact of the Blade, Dark One's Blessing). Untagged ones, like a
+    Tiefling's Size, are for the Build page. Picked options of a feature with uses show in its
+    row. Takes what render_sheet already worked out."""
+    tracked = {u.feature.id: u for u in uses if not u.rest_only}
+    in_play = {pc.choice.id: pc for pc in play_choices if pc.picked}
+    found: list[tuple[str | None, FeatureRow]] = []
+    traits: dict[str, list[FeatureEntry]] = {}
+
+    def place(action: str | None, when: str | None, sheet: str | None, entry: FeatureEntry):
+        if group := _action_group(action, when):
+            found.append((group, FeatureRow(entry=entry)))
+        elif sheet:
+            traits.setdefault(sheet, []).append(entry)
+
+    for group in groups:
         for fv in group.features:
             feature = fv.feature
-            if _in_resources(feature):
-                continue
-            entry = FeatureEntry(
-                feature.name, source_name(db, feature), feature.summary, feature.when or ""
-            )
-            found.append((_action_group(feature.action, feature.when), feature.sheet, entry))
+            if uses_row := tracked.get(feature.id):
+                found.append((_uses_group(uses_row), FeatureRow(uses=uses_row)))
+            elif not feature.uses and not _shown_elsewhere(feature):
+                source = source_name(db, feature)
+                entry = FeatureEntry(
+                    feature.name,
+                    source,
+                    feature.summary,
+                    feature.when or "",
+                    feature.description or "",
+                )
+                place(feature.action, feature.when, feature.sheet, entry)
             for cv in fv.choices:
-                if cv.choice.kind != "option" or cv.choice.in_play:
+                if cv.choice.id in in_play:
+                    found.append((None, FeatureRow(choice=in_play[cv.choice.id])))
+                if cv.choice.kind != "option" or cv.choice.in_play or feature.uses:
                     continue
                 keys = {o.key for o in cv.picked}
                 for o in cv.choice.options:
                     if str(o.id) in keys:
                         entry = FeatureEntry(o.name, cv.choice.name, o.summary, o.when or "")
-                        found.append((_action_group(o.action, o.when), o.sheet, entry))
-    actions = [
-        (label, entries)
-        for action, label in ACTION_GROUPS
-        if (entries := [e for a, _, e in found if a == action])
-    ]
-    traits: dict[str, list[FeatureEntry]] = {}
-    for action, row, entry in found:
-        if row and not action:
-            traits.setdefault(row, []).append(entry)
-    return SheetFeatures(actions, traits)
+                        place(o.action, o.when, o.sheet, entry)
+    return SheetFeatures(
+        [
+            (label, rows)
+            for key, label in FEATURE_GROUPS
+            if (rows := [row for group, row in found if group == key])
+        ],
+        traits,
+    )
 
 
 def attributes(

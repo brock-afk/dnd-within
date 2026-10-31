@@ -81,7 +81,7 @@ class FeatureSync:
             feature.grants = fdef.grants.stored() if fdef.grants else None
             feature.action = fdef.action
             feature.when = fdef.when
-            feature.sheet = fdef.sheet
+            feature.sheet = None if fdef.sheet == "none" else fdef.sheet
             self._sync_feature_spells(feature, fdef)
             feature.position = position
             feature.retired_at = None
@@ -143,7 +143,7 @@ class FeatureSync:
                 option.summary = odef.summary
                 option.when = odef.when
                 option.action = odef.action
-                option.sheet = odef.sheet
+                option.sheet = None if odef.sheet == "none" else odef.sheet
                 option.damage_reaction = (
                     odef.damage_reaction.model_dump(exclude_none=True)
                     if odef.damage_reaction

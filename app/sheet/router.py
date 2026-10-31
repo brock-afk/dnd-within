@@ -103,6 +103,7 @@ def render_sheet(
     # Every section below needs the character's features; look them up once.
     groups = feature_groups(db, character)
     uses = feature_uses(db, character, groups)
+    choices = play_choices(db, character, groups)
     attrs = attributes(db, character, groups)
     castable = castable_spells(db, character, groups)
     slots = spell_slots(db, character)
@@ -117,10 +118,9 @@ def render_sheet(
         "ac": armor_class(db, character, groups),
         "ac_spells": ac_spells(db, character, castable, slots),
         # Rest-only features (like Arcane Recovery) appear only in the Short rest panel.
-        "resources": [u for u in uses if not u.rest_only],
         "free_uses": {u.feature.id: u for u in uses},
-        "play_choices": play_choices(db, character, groups),
-        "sheet_features": sheet_features(db, character, groups),
+        "play_choices": choices,
+        "sheet_features": sheet_features(db, character, groups, uses, choices),
         "castable": castable,
         "slots": slots,
         # Always-prepared spells don't count, even if also picked from the book before.

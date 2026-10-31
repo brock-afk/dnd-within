@@ -191,3 +191,31 @@ def test_sheet_rejects_other_rows_and_feature_when_is_text():
         OptionDef.model_validate(_option([]) | {"sheet": "skills"})
     feature = FeatureDef.model_validate(_feature([]) | {"when": "When an enemy drops to 0 HP"})
     assert feature.when == "When an enemy drops to 0 HP"
+
+
+def test_check_lists_what_shows_only_on_the_build_page(tmp_path, monkeypatch):
+    pack = tmp_path / "notes"
+    (pack / "species").mkdir(parents=True)
+    (pack / "pack.yaml").write_text("slug: notes\nname: Notes\nkind: homebrew\nversion: 1\n")
+    (pack / "species" / "folk.yaml").write_text(
+        "slug: folk\nname: Folk\nsummary: Folk.\nfeatures:\n"
+        "- {slug: untagged, name: Untagged, summary: A rule with no place on the sheet.}\n"
+        "- {slug: on-purpose, name: On Purpose, summary: Build page only., sheet: none}\n"
+        "- {slug: passive, name: Passive, summary: Always on., sheet: traits}\n"
+        "- {slug: triggered, name: Triggered, summary: On a hit., when: When you hit}\n"
+        "- {slug: tracked, name: Tracked, summary: Uses., uses: {max: 1, recharge: long_rest}}\n"
+        "- slug: legacy\n  name: Legacy\n  summary: Pick one.\n  choices:\n"
+        "  - slug: legacy\n    name: Legacy\n    kind: option\n    options:\n"
+        "    - {slug: plain, name: Plain, summary: Nothing.}\n"
+        "    - {slug: quiet, name: Quiet, summary: Nothing., sheet: none}\n"
+        "    - {slug: fiery, name: Fiery, summary: Fire., grants: {resistances: [fire]}}\n"
+    )
+    monkeypatch.setattr(loader.settings, "content_paths", str(tmp_path))
+
+    [found] = loader.discover()
+
+    assert found.ok
+    assert loader.build_page_only(found) == [
+        "species/folk > untagged",
+        "species/folk > legacy > legacy > plain",
+    ]

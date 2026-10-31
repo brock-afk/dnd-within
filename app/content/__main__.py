@@ -11,7 +11,7 @@ import sys
 
 from app import models  # noqa: F401  (registers every table)
 from app.content.importer import import_packs
-from app.content.loader import discover
+from app.content.loader import build_page_only, discover
 from app.core.db import SessionLocal
 
 
@@ -29,6 +29,11 @@ def check() -> int:
                 f"{len(pack.feats)} feats, {len(pack.skills)} skills, {len(pack.spells)} spells, "
                 f"{len(pack.items)} items)"
             )
+            # Not an error: some are meant for the Build page, but those say so (sheet: none).
+            if missing := build_page_only(pack):
+                print(f"  Build page only (no action, when or sheet): {len(missing)}")
+                for where in missing:
+                    print(f"    {where}")
         else:
             failed = True
             print(f"{pack.slug}: {len(pack.errors)} problem(s)")

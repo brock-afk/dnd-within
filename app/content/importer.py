@@ -80,6 +80,8 @@ class FeatureSync:
             feature.slot_recovery = fdef.slot_recovery.model_dump() if fdef.slot_recovery else None
             feature.grants = fdef.grants.stored() if fdef.grants else None
             feature.action = fdef.action
+            feature.when = fdef.when
+            feature.sheet = fdef.sheet
             self._sync_feature_spells(feature, fdef)
             feature.position = position
             feature.retired_at = None
@@ -140,6 +142,8 @@ class FeatureSync:
                 option.name = odef.name
                 option.summary = odef.summary
                 option.when = odef.when
+                option.action = odef.action
+                option.sheet = odef.sheet
                 option.damage_reaction = (
                     odef.damage_reaction.model_dump(exclude_none=True)
                     if odef.damage_reaction

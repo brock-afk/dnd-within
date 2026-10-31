@@ -16,6 +16,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base, NullableJSON
 
+# Where a passive feature or option shows on the Play sheet; see app/features/schema.py:Placement.
+SHEET_VALUES = "sheet IN ('senses', 'saves', 'speed', 'resistances', 'traits')"
+
 
 class Feature(Base):
     """A trait or class feature, like Giant Ancestry or Spellcasting.
@@ -44,6 +47,7 @@ class Feature(Base):
         UniqueConstraint("item_id", "slug"),
         UniqueConstraint("option_id", "slug"),
         CheckConstraint("action IN ('action', 'bonus_action', 'reaction')", name="action_values"),
+        CheckConstraint(SHEET_VALUES, name="sheet_values"),
         CheckConstraint(
             "(spends_feature_id IS NULL) = (spends_amount IS NULL)", name="spends_together"
         ),
@@ -78,6 +82,10 @@ class Feature(Base):
     # Something you do (a magic item's Stonecunning): what it takes, and the uses it spends from
     # another feature of the same source (the item's charges). The sheet offers Use for it.
     action: Mapped[str | None] = mapped_column(String(20))  # action, bonus_action, reaction
+    # When a triggered one applies, e.g. "When an enemy drops to 0 Hit Points".
+    when: Mapped[str | None] = mapped_column(String(120))
+    # Where a passive one shows on the Play sheet: a row of Attributes (see FeatureDef.sheet).
+    sheet: Mapped[str | None] = mapped_column(String(20))
     spends_feature_id: Mapped[int | None] = mapped_column(ForeignKey("features.id"))
     spends_amount: Mapped[int | None] = mapped_column(SmallInteger)
     position: Mapped[int] = mapped_column(default=0)
@@ -148,7 +156,11 @@ class ChoiceOption(Base):
     """An option for a choice of kind "option", e.g. Fire's Burn for Giant Ancestry."""
 
     __tablename__ = "choice_options"
-    __table_args__ = (UniqueConstraint("choice_id", "slug"),)
+    __table_args__ = (
+        UniqueConstraint("choice_id", "slug"),
+        CheckConstraint("action IN ('action', 'bonus_action', 'reaction')", name="action_values"),
+        CheckConstraint(SHEET_VALUES, name="sheet_values"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     choice_id: Mapped[int] = mapped_column(ForeignKey("choices.id"))
@@ -157,6 +169,10 @@ class ChoiceOption(Base):
     summary: Mapped[str] = mapped_column(String(255))
     # When it's used, e.g. "Reaction, when you take damage".
     when: Mapped[str | None] = mapped_column(String(120))
+    # What using it takes, like a feature's `action`; groups it on the Play sheet's Features.
+    action: Mapped[str | None] = mapped_column(String(20))  # action, bonus_action, reaction
+    # Where a passive one shows on the Play sheet: a row of Attributes (see FeatureDef.sheet).
+    sheet: Mapped[str | None] = mapped_column(String(20))
     # {"kind": "reduce" | "retaliate", "dice": "1d12", "ability": "CON", ...}; see
     # app/features/schema.py:DamageReactionDef.
     damage_reaction: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)

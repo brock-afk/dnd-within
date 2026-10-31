@@ -168,3 +168,26 @@ def test_spell_choice_class_and_ritual_criteria(criteria, ok):
     else:
         with pytest.raises(ValidationError):
             ChoiceDef.model_validate(choice)
+
+
+@pytest.mark.parametrize("action", ["action", "bonus_action", "reaction"])
+def test_option_action_takes_feature_action_types(action):
+    assert OptionDef.model_validate(_option([]) | {"action": action}).action == action
+
+
+def test_option_action_rejects_other_values():
+    with pytest.raises(ValidationError):
+        OptionDef.model_validate(_option([]) | {"action": "free"})
+
+
+@pytest.mark.parametrize("sheet", ["senses", "saves", "speed", "resistances", "traits"])
+def test_sheet_placements(sheet):
+    assert OptionDef.model_validate(_option([]) | {"sheet": sheet}).sheet == sheet
+    assert FeatureDef.model_validate(_feature([]) | {"sheet": sheet}).sheet == sheet
+
+
+def test_sheet_rejects_other_rows_and_feature_when_is_text():
+    with pytest.raises(ValidationError):
+        OptionDef.model_validate(_option([]) | {"sheet": "skills"})
+    feature = FeatureDef.model_validate(_feature([]) | {"when": "When an enemy drops to 0 HP"})
+    assert feature.when == "When an enemy drops to 0 HP"

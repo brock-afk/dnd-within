@@ -178,6 +178,7 @@ details[open] > .section-summary .section-digest { display: none; }
 .feature-choice { margin-top: 0.35rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; }
 .feature-choice:has(form) { display: block; margin-top: 0.75rem; }
 .feature-choice-summary { flex-basis: 100%; font-size: 0.9rem; }
+.feature-choice-picks { flex-basis: 100%; margin: 0.25rem 0 0; padding-left: 1.1rem; font-size: 0.9rem; }
 .feature-text summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; width: fit-content; }
 .feature-text p { margin: 0.25rem 0 0; font-size: 0.9rem; white-space: pre-line; }
 

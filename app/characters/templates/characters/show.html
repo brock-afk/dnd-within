@@ -50,7 +50,14 @@
         {{ choose_button(cv.choice, "Change") }}
         {% endif %}
         {% if cv.choice.kind in ("option", "subclass") %}
+        {% if cv.picked | length == 1 %}
         <span class="muted feature-choice-summary">{{ cv.picked[0].summary }}</span>
+        {% else %}
+        {#- Several picks (invocations): each with what it does. -#}
+        <ul class="feature-choice-picks">
+          {% for o in cv.picked %}<li><strong>{{ o.name }}</strong> <span class="muted">· {{ o.summary }}</span></li>{% endfor %}
+        </ul>
+        {% endif %}
         {% endif %}
       </div>
       {% endfor %}

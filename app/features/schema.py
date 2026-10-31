@@ -57,6 +57,12 @@ School = Literal[
 SPELL_CRITERIA = {"class", "level", "max_level", "school", "ritual", "acquired_via"}
 
 
+# Where a passive feature or option shows on the Play sheet: a row of Attributes (Devil's
+# Sight with Senses, Eldritch Mind with saves). One with an action or a `when` shows in Actions;
+# anything else only on the Build page.
+Placement = Literal["senses", "saves", "speed", "resistances", "traits"]
+
+
 class DamageReactionDef(BaseModel):
     """Something you can do in reaction to taking damage, offered when damage is entered.
 
@@ -134,6 +140,9 @@ class OptionDef(BaseModel):
     name: Text80
     summary: Text255
     when: Text120 | None = None  # when it's used, e.g. "Reaction, when you take damage"
+    # What using it takes, like a feature's (Pact of the Blade: a Bonus Action).
+    action: Literal["action", "bonus_action", "reaction"] | None = None
+    sheet: Placement | None = None
     damage_reaction: DamageReactionDef | None = None
     grants: GrantsDef | None = None
     requires: RequiresDef | None = None
@@ -342,6 +351,8 @@ class FeatureDef(BaseModel):
     choices: list[ChoiceDef] = []
     # Something you do: what it takes, and the uses it spends. The sheet offers Use for it.
     action: Literal["action", "bonus_action", "reaction"] | None = None
+    when: Text120 | None = None  # a triggered one's timing: "When an enemy drops to 0 Hit Points"
+    sheet: Placement | None = None
     spends: SpendsDef | None = None
 
     @model_validator(mode="after")

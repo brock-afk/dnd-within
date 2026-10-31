@@ -17,13 +17,15 @@
 
 {#- An in-play choice's dropdown (Choice.in_play). Changing it saves; the empty entry clears it. -#}
 {#- What a feature does: its summary, which swaps for the full rules text and back where the
-    pack has it (private packs and homebrew). -#}
+    pack has it (private packs and homebrew). Only the link toggles, so the text stays
+    selectable. -#}
 {% macro summary_text(summary, description) %}
 {% if description %}
+{#- Both texts sit in the <summary>, one shown at a time, so the link always follows the text
+    on screen. -#}
 <details class="text-toggle">
-  <summary><span class="text-summary">{{ summary }}</span>
-    <span class="text-toggle-label"><span class="when-closed">Full text</span><span class="when-open">Summary</span></span></summary>
-  <p class="text-full">{{ description }}</p>
+  <summary><span class="text-summary">{{ summary }}</span><span class="text-full">{{ description }}</span>
+    <span class="text-toggle-label"><span class="when-closed">Show full text</span><span class="when-open">Show summary</span></span></summary>
 </details>
 {% else %}
 <p class="resource-detail">{{ summary }}</p>

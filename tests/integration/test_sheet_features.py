@@ -169,8 +169,10 @@ def test_rows_say_what_they_do(client, db, warlock, stone_giant, level_up):
     toggle = re.search(r'<details class="text-toggle">(.*?)</details>', sheet, re.S)
     assert toggle, "Deep Gift has full text, so its summary toggles"
     assert "Cast Pact Spell A once per Long Rest without a spell slot." in toggle[1]
-    assert '<p class="text-full">The full rules text of Deep Gift.</p>' in toggle[1]
-    assert "Full text" in toggle[1] and "Summary" in toggle[1]
+    # Both texts are in the <summary>, so the link always follows the text on screen.
+    summary = re.search(r"<summary>(.*?)</summary>", toggle[1], re.S)[1]
+    assert '<span class="text-full">The full rules text of Deep Gift.</span>' in summary
+    assert "Show full text" in summary and "Show summary" in summary
 
     # Timing (`when`) only groups rows under Triggered; it isn't shown as a tag any more.
     assert "When you finish a Short Rest" not in sheet

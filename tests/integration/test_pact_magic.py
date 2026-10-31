@@ -7,6 +7,7 @@ from sqlalchemy import select
 from app.classes.models import CharacterClass
 from app.features.kinds import KINDS
 from app.features.models import Choice, Feature
+from app.features.service import remove_inapplicable_picks
 from app.sheet.rests import finish_short_rest
 from app.sheet.service import castable_spells, set_slots_remaining, spell_slots
 from app.spells.models import Spell
@@ -95,3 +96,17 @@ def test_always_prepared_spell_cant_be_picked(client, db, warlock):
 
     assert response.status_code == 400
     assert "Pact Spell B is always prepared (Patron Gift)." in response.text
+
+
+def test_level_down_drops_spells_above_the_slot_level(db, warlock, level_up):
+    level_up(warlock, 3)
+    level_2 = str(_spell_id(db, "pact-spell-c"))
+    assert KINDS["spell"].save(db, _choice(db), warlock.id, [level_2]) is None
+
+    while warlock.level > 2:  # pact slots drop back to level 1
+        warlock.levels.remove(warlock.levels[-1])
+    db.flush()
+    remove_inapplicable_picks(db, warlock)
+    db.expire_all()
+
+    assert KINDS["spell"].picked(db, _choice(db), warlock.id) == []

@@ -427,10 +427,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .text-toggle[open] .when-closed, .text-toggle[open] .text-summary { display: none; }
 .text-toggle[open] .when-open { display: inline; }
 .text-toggle[open] .text-full { display: inline; white-space: pre-line; }
-.resource-spender { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-top: 0.5rem; padding-left: 0.75rem; border-left: 2px solid var(--border); }
-.resource-spender-text { display: grid; gap: 0.1rem; font-size: 0.9rem; }
-.resource-spender-text .resource-detail { margin: 0; }
-.resource-spender .small-button { flex-shrink: 0; }
 .play-choice-select { padding: 0.35rem 0.5rem; border: 1px solid var(--border-strong); border-radius: 6px;
   background: var(--bg); color: inherit; font: inherit; font-size: 0.9rem; }
 

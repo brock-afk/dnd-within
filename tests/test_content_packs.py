@@ -219,3 +219,9 @@ def test_check_lists_what_shows_only_on_the_build_page(tmp_path, monkeypatch):
         "species/folk > untagged",
         "species/folk > legacy > legacy > plain",
     ]
+
+
+def test_count_by_level_is_only_for_option_choices():
+    subclass = {"slug": "sub", "name": "Sub", "kind": "subclass", "count": [1] * 20}
+    with pytest.raises(ValidationError, match="count by level is for option choices"):
+        ChoiceDef.model_validate(subclass)

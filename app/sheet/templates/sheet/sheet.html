@@ -16,6 +16,20 @@
 {% from "partials/section.html" import section %}
 
 {#- An in-play choice's dropdown (Choice.in_play). Changing it saves; the empty entry clears it. -#}
+{#- What a feature does: its summary, which swaps for the full rules text and back where the
+    pack has it (private packs and homebrew). -#}
+{% macro summary_text(summary, description) %}
+{% if description %}
+<details class="text-toggle">
+  <summary><span class="text-summary">{{ summary }}</span>
+    <span class="text-toggle-label"><span class="when-closed">Full text</span><span class="when-open">Summary</span></span></summary>
+  <p class="text-full">{{ description }}</p>
+</details>
+{% else %}
+<p class="resource-detail">{{ summary }}</p>
+{% endif %}
+{% endmacro %}
+
 {#- A feature with uses: pips to set what's left, its recharge, and what a use does (the
     picked option, like Giant Ancestry's boon, or its own summary). -#}
 {% macro tracked_row(row) %}
@@ -33,9 +47,9 @@
   <span class="muted">{{ r.remaining }} of {{ r.maximum }} · {% if r.recharge == "dawn" %}{{ "regains %s at dawn" % r.feature.uses.regain if r.feature.uses.regain else "dawn" }}{% else %}{{ "short rest" if r.recharge == "short_rest" else "long rest" }}{% endif %}</span>
 </div>
 {% for o in r.options %}
-<p class="resource-detail">{{ o.name }}{% if o.when %} <span class="spell-tag">{{ o.when }}</span>{% endif %} · {{ o.summary }}</p>
+<p class="resource-detail">{{ o.name }} · {{ o.summary }}</p>
 {% else %}
-<p class="resource-detail">{% if r.feature.when %}<span class="spell-tag">{{ r.feature.when }}</span> {% endif %}{{ r.feature.summary }}</p>
+{{ summary_text(r.feature.summary, r.feature.description) }}
 {% endfor %}
 </div>
 {% endmacro %}
@@ -54,7 +68,7 @@
           {% if r.remaining < f.spends_amount %}disabled title="Not enough left"{% endif %}>Use</button>
   {% endif %}
 </div>
-<p class="resource-detail">{% if f.when %}<span class="spell-tag">{{ f.when }}</span> {% endif %}{{ f.summary }}</p>
+{{ summary_text(f.summary, f.description) }}
 </div>
 {% endmacro %}
 
@@ -393,8 +407,7 @@
   {% else %}
   <div class="resource">
     <span class="resource-label">{{ row.entry.name }} <span class="resource-option">· {{ row.entry.source }}</span></span>
-    {% if row.entry.when %}<span class="spell-tag">{{ row.entry.when }}</span>{% endif %}
-    <p class="resource-detail">{{ row.entry.summary }}</p>
+    {{ summary_text(row.entry.summary, row.entry.description) }}
   </div>
   {% endif %}
   {% endfor %}

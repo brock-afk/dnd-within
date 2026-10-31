@@ -418,6 +418,14 @@ details[open] > .section-summary .section-digest { display: none; }
 .resource + .resource { margin-top: 0.75rem; }
 .resource-option { font-weight: 400; color: var(--muted); }
 .resource-detail { margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--muted); }
+/* A summary that swaps for the full rules text and back, in place. */
+.text-toggle { margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--muted); }
+.text-toggle > summary { list-style: none; cursor: pointer; }
+.text-toggle > summary::-webkit-details-marker { display: none; }
+.text-toggle-label { margin-left: 0.35rem; font-size: 0.85rem; color: var(--accent); white-space: nowrap; }
+.text-toggle .when-open, .text-toggle[open] .when-closed, .text-toggle[open] .text-summary { display: none; }
+.text-toggle[open] .when-open { display: inline; }
+.text-full { margin: 0; white-space: pre-line; }
 .resource-spender { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-top: 0.5rem; padding-left: 0.75rem; border-left: 2px solid var(--border); }
 .resource-spender-text { display: grid; gap: 0.1rem; font-size: 0.9rem; }
 .resource-spender-text .resource-detail { margin: 0; }

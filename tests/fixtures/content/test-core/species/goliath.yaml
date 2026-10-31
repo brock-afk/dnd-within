@@ -14,7 +14,7 @@ features:
     options:
     - slug: cloud
       name: Cloud's Jaunt (Cloud Giant)
-      when: Bonus Action
+      action: bonus_action
       summary: Test option.
     - slug: stone
       name: Stone's Endurance (Stone Giant)
@@ -24,7 +24,8 @@ features:
       damage_reaction: {kind: reduce, dice: 1d12, ability: CON}
     - slug: storm
       name: Storm's Thunder (Storm Giant)
-      when: Reaction, when a creature within 60 ft damages you
+      action: reaction
+      when: When a creature within 60 ft damages you
       summary: Test option.
       damage_reaction: {kind: retaliate, dice: 1d8, damage_type: thunder}
 - slug: large-form

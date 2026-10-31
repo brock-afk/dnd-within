@@ -191,6 +191,9 @@ class ChoiceDef(BaseModel):
 
     @model_validator(mode="after")
     def check_kind(self):
+        # A pick list that grows with level (invocations); other kinds use a choice per level.
+        if isinstance(self.count, list) and self.kind != "option":
+            raise ValueError(f"{self.slug}: a count by level is for option choices")
         if self.kind == "option" and len(self.options) < self.max_count:
             raise ValueError(f"{self.slug}: needs at least {self.max_count} options")
         slugs = {o.slug for o in self.options}

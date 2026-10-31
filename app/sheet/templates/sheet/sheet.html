@@ -15,7 +15,6 @@
 {% from "partials/spell_list.html" import spell_groups %}
 {% from "partials/section.html" import section %}
 
-{#- An in-play choice's dropdown (Choice.in_play). Changing it saves; the empty entry clears it. -#}
 {#- What a feature does: its summary, which swaps for the full rules text and back where the
     pack has it (private packs and homebrew). Only the link toggles, so the text stays
     selectable. -#}
@@ -74,6 +73,7 @@
 </div>
 {% endmacro %}
 
+{#- An in-play choice's dropdown (Choice.in_play). Changing it saves; the empty entry clears it. -#}
 {% macro play_choice_select(pc, empty_label, form_class="") %}
 {% if read_only %}
 <div {% if form_class %}class="{{ form_class }}"{% endif %}>

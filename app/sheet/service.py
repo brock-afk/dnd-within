@@ -217,8 +217,9 @@ class FeatureRow:
         if self.spender:
             return self.spender.name
         name = self.uses.feature.name
-        if self.source and name.startswith(self.source) and name != self.source:
-            return name.removeprefix(self.source).strip().capitalize()
+        if self.source and name.startswith(self.source + " "):
+            rest = name[len(self.source) + 1 :]
+            return rest[:1].upper() + rest[1:]
         return name
 
     @property
@@ -276,7 +277,7 @@ def _uses_group(uses: FeatureUses) -> str | None:
             return group
     if uses.spenders:  # a pool other abilities spend (an item's charges): each has its own row
         return None
-    units = {fs.spell.details["casting_time"]["unit"] for fs in feature.spells if fs.free_cast}
+    units = {fs.spell.casting_unit for fs in feature.spells if fs.free_cast}
     unit = units.pop() if len(units) == 1 else None
     return unit if unit in ("action", "bonus_action", "reaction") else None
 

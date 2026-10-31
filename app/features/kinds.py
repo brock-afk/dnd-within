@@ -399,6 +399,26 @@ class SpellKind(ChoiceKind):
             query = query.where(Spell.school == criteria["school"])
         return query.order_by(Spell.level, Spell.name)
 
+    def drop_above_slots(self, db: Session, character: Character) -> bool:
+        """Delete picks of `max_level: class_slots` choices above the slot level the class now
+        reaches (a level lost), which can't be cast or saved again. Returns whether any went."""
+        dropped = False
+        for choice_id in self.picked_choice_ids(db, character.id):
+            choice = db.get(Choice, choice_id)
+            if choice.criteria.get("max_level") != "class_slots":
+                continue
+            highest = class_slot_level(character, choice.criteria["class_id"])
+            too_high = select(Spell.id).where(Spell.level > highest)
+            result = db.execute(
+                delete(self.pick).where(
+                    self.pick.character_id == character.id,
+                    self.pick.choice_id == choice.id,
+                    self.pick.spell_id.in_(too_high),
+                )
+            )
+            dropped |= result.rowcount > 0
+        return dropped
+
     def view(self, spell):
         group = "Cantrips" if spell.level == 0 else f"Level {spell.level}"
         return OptionView(

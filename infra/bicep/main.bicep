@@ -111,7 +111,7 @@ module vm 'vm.bicep' = {
     publicIpId: network.outputs.publicIpId
     registryName: acr.outputs.registryName
     sharedResourceGroupName: sharedRg.name
-    deployers: [app, release, contentRelease]
+    deployers: [release, contentRelease]
     vmDeployerRoleId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
       guid(subscription().id, project, 'vm-deployer')

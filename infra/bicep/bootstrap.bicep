@@ -196,6 +196,7 @@ module iaasLock 'modules/rg-lock.bicep' = {
 
 // GitHub Actions variables.
 output AZURE_CLIENT_ID string = identities.outputs.appClientId
+output AZURE_RELEASE_CLIENT_ID string = identities.outputs.releaseClientId
 output AZURE_INFRA_CLIENT_ID string = identities.outputs.infraClientId
 output AZURE_WHATIF_CLIENT_ID string = identities.outputs.whatIfClientId
 // Content repository variables.

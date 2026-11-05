@@ -6,15 +6,16 @@ Two deployments at subscription scope. `bootstrap.bicep` decides what the pipeli
 |---|---|---|
 | `bootstrap.bicep` | you | resource groups, custom roles, CI identities and their access, your blob and secret access, delete locks |
 | `governance.bicep` | bootstrap | policy assignments |
-| `identities.bicep` | bootstrap | the `github` (app), `infra` and `whatif` identities, and the content repo's `content-check` and `content-release` identities, in `rg-dndwithin-shared` |
+| `identities.bicep` | bootstrap | the `github` (app: builds images), `release` (deploys tags, runs Ops; trusted only for the `Production` environment), `infra` and `whatif` identities, and the content repo's `content-check` and `content-release` identities, in `rg-dndwithin-shared` |
 | `modules/rg-access.bicep` | bootstrap | Contributor, plus role assignment limited to named roles, for the infra identity |
 | `modules/vm-deployer-role.bicep` | bootstrap | custom role: read a VM and run commands on it |
 | `modules/user-role.bicep` | bootstrap | Storage Blob Data Contributor and Key Vault Secrets Officer on `rg-dndwithin-shared` for whoever runs bootstrap |
 | `modules/rg-lock.bicep` | bootstrap | CanNotDelete lock on each resource group; remove it before tearing a group down |
 | `main.bicep` | infra.yml | wires the workload modules together |
-| `acr.bicep` | main | container registry; AcrPush for the app identity |
+| `types.bicep` | imported | `identityRef`, the identities `acr.bicep` and `vm.bicep` grant roles to |
+| `acr.bicep` | main | container registry; AcrPush for the app identity (builds) and the release identity (retags) |
 | `network.bicep` | main | VNet, subnet + NSG, public IP |
-| `vm.bicep` | main | VM, NIC, disks, cloud-init; AcrPull for the VM; the VM Deployer role for the app and content-release identities |
+| `vm.bicep` | main | VM, NIC, disks, cloud-init; AcrPull for the VM; the VM Deployer role for the app, release and content-release identities |
 | `keyvault.bicep` | main | Key Vault (RBAC, purge protection) for the app's secrets; read access for the VM |
 | `vm-backup.bicep` | main | Recovery Services vault (GRS, soft delete) and an Enhanced daily policy protecting the VM, 14 days |
 | `monitoring.bicep` | main | Log Analytics, App Insights, email action group; alerts for the site down (uptime test on `/healthz`), VM backup failures, and no database backup in 24 hours |
@@ -26,7 +27,7 @@ Bootstrap:
     az deployment sub what-if -n bootstrap -l centralus -f bootstrap.bicep -p bootstrap.bicepparam
     az deployment sub create -n bootstrap -l centralus -f bootstrap.bicep -p bootstrap.bicepparam
 
-Its outputs are the GitHub repository variables. `main.bicepparam` reads `SSH_SOURCE_ADDRESS`, `SSH_PUBLIC_KEY` and `ALERT_EMAIL` from the environment (repository secrets and variables in CI), so a local what-if needs them exported:
+Its outputs are the GitHub repository variables. The release identity trusts any job in the GitHub `Production` environment, so that environment's deployment policy is part of the trust boundary, and it isn't in Bicep: it admits only branch `main` (Ops) and tags `v*` (Release). Check it with `gh api repos/brock-afk/dnd-within/environments/Production/deployment-branch-policies`. `main.bicepparam` reads `SSH_SOURCE_ADDRESS`, `SSH_PUBLIC_KEY` and `ALERT_EMAIL` from the environment (repository secrets and variables in CI), so a local what-if needs them exported:
 
     export SSH_SOURCE_ADDRESS=$(curl -s https://api.ipify.org)/32 SSH_PUBLIC_KEY="$(cat ~/.ssh/dndwithin-vm.pub)" ALERT_EMAIL=<you@example.com>
     az deployment sub what-if -n main -l centralus -f main.bicep -p main.bicepparam

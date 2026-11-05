@@ -330,15 +330,16 @@ def remove_inapplicable_picks(db: Session, character: Character) -> None:
         # trimming, so a trim never keeps a pick that's about to go anyway.
         changed |= KINDS["option"].drop_unmet(db, character)
         # A growing choice that shrank (a level lost) drops its last picks in list order:
-        # saving replaces a choice's whole set, so which pick is newest isn't known.
-        for source in KINDS.values():
-            ids = source.picked_choice_ids(db, character.id)
-            growing = db.scalars(
-                select(Choice).where(Choice.id.in_(ids), Choice.count_by_level.is_not(None))
-            )
-            for choice in growing:
-                count = choice_count(choice, owner_level(db, character, choice.feature))
-                changed |= source.trim(db, choice, character.id, count)
+        # saving replaces a choice's whole set, so which pick is newest isn't known. Only
+        # option choices can grow (ChoiceDef).
+        options = KINDS["option"]
+        ids = options.picked_choice_ids(db, character.id)
+        growing = db.scalars(
+            select(Choice).where(Choice.id.in_(ids), Choice.count_by_level.is_not(None))
+        )
+        for choice in growing:
+            count = choice_count(choice, owner_level(db, character, choice.feature))
+            changed |= options.trim(db, choice, character.id, count)
         # Spells above the slot level their class now reaches (`max_level: class_slots`).
         changed |= KINDS["spell"].drop_above_slots(db, character)
         if not changed:

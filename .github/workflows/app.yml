@@ -1,13 +1,12 @@
 # Lints and tests every pull request and push to main. On main only, also builds the app image
-# for arm64 and amd64, pushes it to Azure Container Registry, and deploys it.
+# for arm64 and amd64, pushes it to Azure Container Registry, and once its scan passes tags it
+# :<sha> and :latest. Deploying is release.yml's job.
 name: App
 
 on:
+  # Every commit on main gets an image, so any of them can be tagged for a release.
   push:
     branches: [main]
-    paths-ignore:
-      - "infra/**"
-      - "**.md"
   # No paths filter: a required check that never runs would block the merge.
   pull_request:
   workflow_dispatch:
@@ -19,8 +18,6 @@ permissions:
 env:
   REGISTRY: crdndwithincsiqze
   IMAGE: crdndwithincsiqze.azurecr.io/dndwithin
-  SITE: dndwithin.centralus.cloudapp.azure.com
-  BACKUP_ACCOUNT: stdndwithincsiqze
 
 jobs:
   check:
@@ -78,59 +75,23 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:candidate-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # After the push because buildx can't load a multi-arch image locally; a failure still blocks the deploy.
+      # After the push because buildx can't load a multi-arch image locally.
       - name: Scan the image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
           TRIVY_PLATFORM: linux/arm64 # what the VM runs
         with:
-          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          image-ref: ${{ env.IMAGE }}:candidate-${{ github.sha }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true # only fail on what an update can fix
           exit-code: "1"
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    concurrency: deploy # one deploy at a time; run-command can't overlap
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-
-      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy to the VM
+      # Only a scanned image gets :<sha>, which is what release.yml deploys.
+      - name: Tag the scanned image
         run: |
-          # run-command runs the file with /bin/sh and can't pass values containing "=", so
-          # send a small sh wrapper that sets the inputs and runs deploy-vm.sh with bash.
-          {
-            echo "export image='$IMAGE:$GITHUB_SHA'"
-            echo "export backup_account='$BACKUP_ACCOUNT'"
-            echo "export bundle='$(tar -czf - docker-compose.yml docker-compose.prod.yml Caddyfile scripts | base64 -w0)'"
-            echo "cat > /tmp/deploy-vm.sh <<'DEPLOY_VM'"
-            cat scripts/deploy-vm.sh
-            echo "DEPLOY_VM"
-            echo "exec bash /tmp/deploy-vm.sh"
-          } > deploy.sh
-          .github/scripts/vm-run.sh deploy.sh "Deploy succeeded"
-
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
-
-      # Content CI validates packs against the image production runs. Right after the deploy step,
-      # which only succeeds once the VM runs this image, so a failed smoke test can't leave the tag
-      # behind. imagetools retags the manifest without pulling it.
-      - name: Tag the image as deployed
-        run: |
-          az acr login --name "$REGISTRY"
-          docker buildx imagetools create --tag "$IMAGE:deployed" "$IMAGE:$GITHUB_SHA"
-
-      # From outside, so it also catches what the VM can't see: DNS, the NSG, Caddy and the certificate.
-      - name: Smoke test
-        run: curl --fail --silent --show-error --max-time 10 --retry 5 --retry-delay 5 --retry-all-errors "https://$SITE/healthz"
+          docker buildx imagetools create --tag "$IMAGE:$GITHUB_SHA" --tag "$IMAGE:latest" \
+            "$IMAGE:candidate-$GITHUB_SHA"

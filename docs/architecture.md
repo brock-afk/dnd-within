@@ -39,23 +39,26 @@ Both resource groups have a `CanNotDelete` management lock. An Azure Policy assi
 
 ## Identities and permissions
 
-GitHub Actions requests a short-lived OIDC token for each workflow run. Entra ID exchanges the token for an access token only when its issuer, subject and audience match a federated credential on a user-assigned managed identity. No client secrets or certificates are stored in GitHub.
+GitHub Actions requests a short-lived OIDC token for each workflow run. Entra ID exchanges the token for an access token only when its issuer, subject and audience match a federated credential on a user-assigned managed identity. No client secrets or certificates are stored in GitHub. A job that declares an environment gets the subject `environment:<name>` instead of its ref; the `Production` environment's deployment policy admits only branch `main` and tags `v*`, so only those runs can obtain the release identity's token.
 
 ```mermaid
 flowchart TB
     subgraph gh["GitHub Actions"]
         app_wf["app.yml (push to main)"]
+        release_wf["release.yml (v* tag)"]
         ops_wf["ops.yml (manual, scheduled)"]
         infra_dispatch["infra.yml (workflow_dispatch on main)"]
         infra_pr["infra.yml (pull_request)"]
     end
 
     app_wf -- "subject: ref:refs/heads/main" --> id_app["id-dndwithin-github"]
-    ops_wf -- "subject: ref:refs/heads/main" --> id_app
+    release_wf -- "subject: environment:Production" --> id_release["id-dndwithin-release"]
+    ops_wf -- "subject: environment:Production" --> id_release
     infra_dispatch -- "subject: ref:refs/heads/main" --> id_infra["id-dndwithin-infra"]
     infra_pr -- "subject: pull_request" --> id_whatif["id-dndwithin-whatif"]
 
     id_app --> r_app["AcrPush (registry), VM Deployer (VM)"]
+    id_release --> r_release["AcrPush (registry), VM Deployer (VM)"]
     id_infra --> r_infra["Contributor (both groups), conditional RBAC Administrator (both groups), Deployment Runner (subscription)"]
     id_whatif --> r_whatif["Reader, What-If Runner (subscription)"]
 ```
@@ -63,6 +66,7 @@ flowchart TB
 | Principal | Role assignments | Scope |
 |---|---|---|
 | `id-dndwithin-github` | Reader; AcrPush; VM Deployer (custom: `virtualMachines/read`, `runCommand/action`) | `rg-dndwithin-shared`; registry; VM |
+| `id-dndwithin-release` | Reader; AcrPush; VM Deployer | `rg-dndwithin-shared`; registry; VM |
 | `id-dndwithin-infra` | Contributor; Role Based Access Control Administrator with an ABAC condition; Deployment Runner (custom: `Microsoft.Resources/deployments/*`) | both resource groups; both resource groups; subscription |
 | `id-dndwithin-whatif` | Reader; What-If Runner (custom: `deployments/whatIf/action`, `deployments/validate/action`) | subscription |
 | VM system-assigned identity | AcrPull; Storage Blob Data Contributor; Key Vault Secrets User | registry; `db-backups` container; key vault |
@@ -80,19 +84,20 @@ Infrastructure is split into two deployments:
 | Workflow | Trigger | Steps |
 |---|---|---|
 | `app.yml` | pull request | ruff; pytest against MySQL started from the pinned image in `docker-compose.yml` |
-| `app.yml` | push to `main` | checks; multi-arch build (arm64, amd64) tagged with the commit SHA; push to ACR; Trivy scan, failing on fixable HIGH or CRITICAL findings; deploy; smoke test of `/healthz` |
+| `app.yml` | push to `main` | checks; multi-arch build (arm64, amd64) pushed to ACR as `candidate-<sha>`; Trivy scan, failing on fixable HIGH or CRITICAL findings; on a pass, tags `<sha>` and `latest` |
+| `release.yml` | `v*` tag; `workflow_dispatch` from a tag (rollback) | in the `Production` environment as `id-dndwithin-release`: finds the `<sha>` image and pins its digest; deploy; tags `vX.Y.Z` and `deployed`; smoke test of `/healthz` |
 | `infra.yml` | pull request changing `infra/` | Bicep lint and build; what-if as `id-dndwithin-whatif`, written to the job summary |
 | `infra.yml` | `workflow_dispatch` on `main` | what-if and deployment as `id-dndwithin-infra` |
-| `ops.yml` | `workflow_dispatch`; monthly schedule | `backup`, `restore-drill`, or `restore` from a named blob (requires typing `RESTORE`) |
+| `ops.yml` | `workflow_dispatch`; monthly schedule | in the `Production` environment as `id-dndwithin-release`: `backup`, `restore-drill`, or `restore` from a named blob (requires typing `RESTORE`) |
 
-Application deploys run `scripts/deploy-vm.sh` on the VM through `az vm run-command`:
+Releases run `scripts/deploy-vm.sh` on the VM through `az vm run-command`:
 
 1. Extract the compose files, Caddyfile and scripts, and install the backup systemd timer.
 2. Validate the packs in `content-private` with the new image (`python -m app.content check`) and stop if any is invalid. The output goes to `content-check.log` on the VM, not to the public workflow log. If the folder has no packs, this step only warns.
 3. Take a database backup before starting the new image, since migrations run at startup and only go forward.
 4. Start the new image with `docker compose up --wait --wait-timeout 180`, which returns non-zero if a container is not healthy within the timeout.
 5. On failure, start the previous image recorded in `.env` and exit with an error.
-6. On success, record the new image in `.env`. The workflow then tags the image `deployed` in the registry (content CI validates against that tag) and requests `/healthz` over the public endpoint.
+6. On success, record the new image in `.env`. The workflow then tags the image `vX.Y.Z` and `deployed` in the registry (content CI validates against `deployed`) and requests `/healthz` over the public endpoint.
 
 GitHub Actions are pinned to commit SHAs and container images to digests. Dependabot opens weekly update pull requests, grouping minor and patch updates and ignoring MySQL minor and major versions to stay on the 8.4 LTS line. The application container runs as a non-root user, and pip is removed from the image.
 

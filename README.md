@@ -63,17 +63,18 @@ Bicep in `infra/bicep/` (see its README). `bootstrap.bicep` contains policy, cus
 
 ### Delivery
 
-`.github/workflows/app.yml` runs `check` on every pull request, and the whole pipeline on every push to `main` (except `infra/` and Markdown):
+`.github/workflows/app.yml` runs `check` on every pull request, and on every push to `main` also builds the image. Nothing deploys on a merge.
 
 1. **check:** ruff and pytest against MySQL started from the compose files.
-2. **build:** multi-arch image pushed to ACR, tagged with the commit SHA, then scanned with Trivy. A fixable HIGH or CRITICAL vulnerability stops the deploy.
-3. **deploy:** `az vm run-command` ships the compose files, Caddyfile and `scripts/` to `/opt/dnd-within` and runs `scripts/deploy-vm.sh`, which pulls the image and restarts the stack, waiting until every container is healthy. Then a smoke test fetches `https://<site>/healthz`.
+2. **build:** multi-arch image pushed to ACR as `candidate-<sha>` and scanned with Trivy. Only if no fixable HIGH or CRITICAL vulnerability is found is it tagged `<sha>` and `latest`.
 
-`.github/workflows/ops.yml` runs server operations without SSH, through the same run-command access: **Run workflow** with `backup`, `restore-drill`, or `restore` (a blob name in `db-backups`, confirmed by typing `RESTORE`). The restore drill also runs monthly on its own. To restore a dump from your machine, upload it first: `az storage blob upload --auth-mode login --account-name stdndwithincsiqze -c db-backups -f <dump.sql.gz>`.
+`.github/workflows/release.yml` deploys a release: `gh release create vX.Y.Z --target main --title vX.Y.Z --generate-notes`. It runs in the `Production` environment, finds the scanned `<sha>` image for the tagged commit and pins its digest, then `az vm run-command` ships the compose files, Caddyfile and `scripts/` to `/opt/dnd-within` and runs `scripts/deploy-vm.sh`, which pulls the image and restarts the stack, waiting until every container is healthy. It then tags the image `vX.Y.Z` and `deployed`, and a smoke test fetches `https://<site>/healthz`. To roll back, run Release by hand with an older tag selected under **Use workflow from**. Migrations only go forward, so rolling back across one needs the backup taken before the newer release restored first.
+
+`.github/workflows/ops.yml` runs server operations without SSH, through the same run-command access and the same `Production` environment: **Run workflow** with `backup`, `restore-drill`, or `restore` (a blob name in `db-backups`, confirmed by typing `RESTORE`). The restore drill also runs monthly on its own. To restore a dump from your machine, upload it first: `az storage blob upload --auth-mode login --account-name stdndwithincsiqze -c db-backups -f <dump.sql.gz>`.
 
 Actions, base images and Python packages are pinned; Dependabot (`.github/dependabot.yml`) opens weekly update PRs.
 
-The workflow logs in through OIDC with no stored secrets. It needs the repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`.
+The workflows log in through OIDC with no stored secrets. They need the repository variables `AZURE_CLIENT_ID` (App), `AZURE_RELEASE_CLIENT_ID` (Release and Ops), `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`. The release identity trusts any job in the `Production` environment, so that environment's deployment policy (branch `main` for Ops, tags `v*` for Release) is part of the access control.
 
 ### Server setup
 

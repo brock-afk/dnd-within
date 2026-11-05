@@ -263,6 +263,9 @@ class ChoiceDef(BaseModel):
                 raise ValueError(
                     f"{self.slug}: max_level is a spell level from 1 to 9, or 'class_slots'"
                 )
+            # A spellbook only grows, so a limit that falls on a level down doesn't fit it.
+            if max_level == "class_slots" and self.kind == "spellbook":
+                raise ValueError(f"{self.slug}: 'class_slots' is for spell choices only")
             school = self.criteria.get("school")
             if school is not None and school not in get_args(School):
                 raise ValueError(f"{self.slug}: unknown school {school!r}")

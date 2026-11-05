@@ -254,10 +254,10 @@ class OptionKind(ChoiceKind):
         return result
 
     def save(self, db, choice, character_id, keys):
-        character = db.get(Character, character_id)
+        level = owner_level(db, db.get(Character, character_id), choice.feature)
         for option in choice.options:
             if str(option.id) in keys and (
-                problem := self._problem(db, character, choice, option, set(keys))
+                problem := self._problem(db, level, choice, option, set(keys))
             ):
                 return problem
         return super().save(db, choice, character_id, keys)
@@ -270,10 +270,11 @@ class OptionKind(ChoiceKind):
         for choice_id in self.picked_choice_ids(db, character.id):
             choice = db.get(Choice, choice_id)
             keys = {o.key for o in self.picked(db, choice, character.id)}
+            level = owner_level(db, character, choice.feature)
             failing = [
                 o.id
                 for o in choice.options
-                if str(o.id) in keys and self._problem(db, character, choice, o, keys)
+                if str(o.id) in keys and self._problem(db, level, choice, o, keys)
             ]
             if failing:
                 db.execute(
@@ -285,10 +286,11 @@ class OptionKind(ChoiceKind):
                 dropped = True
         return dropped
 
-    def _problem(self, db, character, choice, option, keys: set[str]) -> str | None:
-        """Why `option` can't be picked together with `keys` (form keys), if it can't."""
+    def _problem(self, db, level: int, choice, option, keys: set[str]) -> str | None:
+        """Why `option` can't be picked together with `keys` (form keys) at the choice's owner
+        `level`, if it can't."""
         needs = option.requires or {}
-        if needs.get("level", 0) > owner_level(db, character, choice.feature):
+        if needs.get("level", 0) > level:
             return f"{option.name} needs {owner_level_name(db, choice.feature)} {needs['level']}."
         if "option" in needs:
             required = next(o for o in choice.options if o.slug == needs["option"])

@@ -363,6 +363,9 @@ class FeatureDef(BaseModel):
     def check_spells(self):
         if self.uses is None and any(s.free_cast and s.charges != 1 for s in self.spells):
             raise ValueError(f"{self.slug}: spells cast at will don't spend charges")
+        # A free cast spends this feature's own uses, so on a spender it would be at will.
+        if self.spends and any(s.free_cast for s in self.spells):
+            raise ValueError(f"{self.slug}: a feature with spends can't cast spells free")
         return self
 
 

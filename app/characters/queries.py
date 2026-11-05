@@ -9,8 +9,10 @@ from sqlalchemy.orm import Session
 from app.abilities.service import AbilityView, ability_views
 from app.auth.models import User
 from app.characters.models import Character
+from app.characters.origins import Origin
 from app.classes.models import CharacterClass
 from app.content.queries import available_by_name
+from app.features.kinds import OptionView
 from app.features.service import ChoiceView, FeatureGroup, feature_groups
 from app.leveling.service import HitPoints, hit_points
 from app.sheet.service import spell_warnings
@@ -143,3 +145,29 @@ def refreshed_build_view(db: Session, user: User, character: Character) -> Build
     db.flush()  # expiring drops changes not yet sent to the database
     db.expire_all()
     return build_page_view(db, user, character)
+
+
+@dataclass(frozen=True)
+class OriginFormView:
+    character: Character
+    origin: Origin
+    options: list[OptionView]
+    selected: str
+
+
+def origin_form_view(
+    db: Session, character: Character, origin: Origin, selected: str | None = None
+) -> OriginFormView:
+    """The species or background picker. `selected` keeps what was submitted; by default it's
+    the character's current pick."""
+    if selected is None:
+        selected = str(getattr(character, origin.column) or "")
+    return OriginFormView(
+        character=character,
+        origin=origin,
+        options=[
+            OptionView(str(row.id), row.name, row.summary, detail=origin.detail(row))
+            for row in available_by_name(db, origin.model)
+        ],
+        selected=selected,
+    )

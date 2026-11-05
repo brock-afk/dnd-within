@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from app.auth.dependencies import CurrentUser
 from app.auth.models import User
 from app.core.db import DbSession
+from app.core.forms import parse_id
 from app.core.templates import hx_redirect
 from app.homebrew import page
 from app.homebrew.dependencies import OwnedHomebrewItem, get_owned_item
@@ -47,7 +48,8 @@ def preview(
 ):
     """Redraw the editor with a spell or ability row added or removed, keeping what's typed."""
     # The item comes from the form, not the URL, so the dependency is called by hand.
-    item = get_owned_item(int(form.item_id), db, user) if form.item_id.isdigit() else None
+    item_id = parse_id(form.item_id)
+    item = get_owned_item(item_id, db, user) if item_id is not None else None
     form.edit_rows()
     return page.editor_form(request, editor_view(db, user, form, item))
 

@@ -11,7 +11,12 @@ from fastapi.responses import HTMLResponse
 
 from app.characters.form import CharacterForm
 from app.characters.models import Character
-from app.characters.queries import BuildPageView, CharacterListView, NewCharacterView
+from app.characters.queries import (
+    BuildPageView,
+    CharacterListView,
+    NewCharacterView,
+    OriginFormView,
+)
 from app.core.templates import morph_in_place, templates, view_context
 
 # The element in characters/show.html that a refresh replaces.
@@ -72,4 +77,13 @@ def delete_form(request: Request, character: Character, value: str, error: str) 
         "characters/partials/delete_form.html",
         {"character": character, "value": value, "error": error},
         status_code=400,
+    )
+
+
+def origin_form(request: Request, view: OriginFormView, error: str | None = None) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "characters/partials/origin_form.html",
+        view_context(view, error=error),
+        status_code=400 if error else 200,
     )

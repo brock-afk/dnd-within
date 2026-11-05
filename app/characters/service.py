@@ -3,8 +3,10 @@ from sqlalchemy.orm import Session
 from app.auth.models import User
 from app.characters.form import CharacterForm
 from app.characters.models import Character
+from app.characters.origins import Origin
 from app.classes.models import CharacterClass, CharacterClassLevel
 from app.content.queries import available_row
+from app.core.forms import parse_id
 from app.features.service import fill_fixed_choices, remove_inapplicable_picks
 from app.leveling.models import CharacterLevel
 from app.sheet.service import tracking_max_hp
@@ -62,13 +64,21 @@ def delete_character(db: Session, character: Character, confirm: str) -> str | N
     return None
 
 
-def change_origin(db: Session, character: Character, column: str, row_id: int) -> None:
-    """Switch the character's species or background (`column` is "species_id" or
-    "background_id"). Picks for the old one's features go with it, choices the new one fills
-    by itself are made, and current HP follows any max HP change (a Constitution increase)."""
+def choose_origin(db: Session, character: Character, origin: Origin, key: str) -> str | None:
+    """Switch the character's species or background to the row `key` names. Picks for the old
+    one's features go with it, choices the new one fills by itself are made, and current HP
+    follows any max HP change (a Constitution increase)."""
+    row_id = parse_id(key)
+    # Before the availability check: re-saving a pick whose row was since retired is fine.
+    if row_id is not None and row_id == getattr(character, origin.column):
+        return None
+    row = available_row(db, origin.model, row_id)
+    if row is None:
+        return f"Choose a {origin.title.lower()}."
     with tracking_max_hp(db, character, heal=True):
-        setattr(character, column, row_id)
+        setattr(character, origin.column, row.id)
         db.flush()
         db.refresh(character)  # reload the relationship the rules below read
         remove_inapplicable_picks(db, character)
         fill_fixed_choices(db, character)
+    return None

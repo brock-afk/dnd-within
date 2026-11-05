@@ -1,0 +1,14 @@
+slug: test-wanderer
+name: Test Wanderer
+summary: Test background with only its ability score increase.
+feat: test-origin-feat
+features:
+- slug: ability-scores
+  name: Ability Scores
+  summary: +2 to one of STR, DEX and CON and +1 to another, or +1 to all three.
+  sheet: none
+  choices:
+  - slug: ability-scores
+    name: Ability Scores
+    kind: ability_scores
+    criteria: {from: [STR, DEX, CON]}

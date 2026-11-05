@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.content.models import Source
 from app.content.schema import DICE, ItemDef
+from app.core.forms import parse_id
 from app.inventory.rules import TOOLS
 from app.spells.models import Spell
 
@@ -220,7 +221,8 @@ def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[st
     for spell_key, spell_charges, prepared, note in form.spell_rows():
         if not spell_key:
             continue
-        spell = db.get(Spell, int(spell_key)) if spell_key.isdigit() else None
+        spell_id = parse_id(spell_key)
+        spell = db.get(Spell, spell_id) if spell_id is not None else None
         if spell is None:
             errors["spells"] = "Choose a spell from the list for each row."
             continue

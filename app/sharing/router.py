@@ -6,7 +6,8 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 
 from app.auth.dependencies import CurrentUser, OptionalUser
 from app.characters.dependencies import OwnedCharacter
-from app.characters.page import render_character_page
+from app.characters.page import build_page
+from app.characters.queries import build_page_view
 from app.core.db import DbSession, SessionLocal
 from app.sharing.live import subscribe, unsubscribe
 from app.sharing.service import make_link, shared_character, stop_sharing
@@ -33,9 +34,8 @@ def shared_sheet(request: Request, db: DbSession, user: OptionalUser, token: str
 def shared_build(request: Request, db: DbSession, user: OptionalUser, token: str):
     """The Build page, read-only, for anyone with the link."""
     character = _shared(db, token)
-    return render_character_page(
-        request, db, user, character, read_only=True, base_url=f"/shared/{token}"
-    )
+    view = build_page_view(db, user, character, read_only=True, base_url=f"/shared/{token}")
+    return build_page(request, view)
 
 
 HEARTBEAT_SECONDS = 20  # keeps proxies from closing a quiet stream

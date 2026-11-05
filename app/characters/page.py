@@ -1,103 +1,75 @@
-"""Rendering the character page, in full or as an in-place refresh.
+"""Rendering the character pages from their view models (app/characters/queries.py), in full
+or as an in-place refresh. Nothing here touches the database.
 
-Routes that change a character (choices, ability scores, levels) return
-`refresh_character_page`, so htmx morphs the updated page into place: the scroll position
-and focus stay where they were, instead of jumping to the top like a full page load.
+Routes that change a character (choices, ability scores, levels) return `refresh_build`, so
+htmx morphs the updated page into place: the scroll position and focus stay where they were,
+instead of jumping to the top like a full page load.
 """
 
 from fastapi import Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy.orm import Session
 
-from app.abilities.service import ability_views
-from app.auth.models import User
+from app.characters.form import CharacterForm
 from app.characters.models import Character
-from app.core.templates import morph_in_place, templates
-from app.features.service import ChoiceView, FeatureGroup, feature_groups
-from app.leveling.service import hit_points
-from app.sheet.service import spell_warnings
-from app.skills.queries import character_skills, expertise_skill_ids
-from app.spells.queries import spellbook
+from app.characters.queries import BuildPageView, CharacterListView, NewCharacterView
+from app.core.templates import morph_in_place, templates, view_context
 
 # The element in characters/show.html that a refresh replaces.
 PAGE_SELECTOR = "#character-page"
 
 
-def pending_choices(groups: list[FeatureGroup]) -> list[ChoiceView]:
-    """Choices still to make on the Build page. In-play choices are optional and made on the
-    Play sheet, so they're never pending."""
-    return [
-        cv
-        for g in groups
-        for fv in g.features
-        for cv in fv.choices
-        if not cv.done and not cv.choice.in_play
-    ]
+def character_list(request: Request, view: CharacterListView) -> HTMLResponse:
+    return templates.TemplateResponse(request, "characters/list.html", view_context(view))
 
 
-def needs_building(db: Session, character: Character) -> bool:
-    """Whether the Build page has anything left to do: ability scores, a background, or a
-    pending choice. Characters that don't open on the Play sheet."""
-    if character.ability_method is None or character.background_id is None:
-        return True
-    return bool(pending_choices(feature_groups(db, character)))
+def new_character(request: Request, view: NewCharacterView) -> HTMLResponse:
+    return templates.TemplateResponse(request, "characters/new.html", view_context(view))
 
 
-def render_character_page(
-    request: Request,
-    db: Session,
-    user: User | None,
-    character: Character,
-    read_only: bool = False,
-    base_url: str | None = None,
+def new_character_form(
+    request: Request, view: NewCharacterView, form: CharacterForm, errors: dict[str, str]
 ) -> HTMLResponse:
-    """The Build page. `read_only` is the shared view: the same page with every control left
-    out, its tabs linking within `base_url` (/shared/<token>)."""
-    groups = feature_groups(db, character)
-    pending = pending_choices(groups)
-    warnings = spell_warnings(db, character)
-    # Copied spells are listed under the first feature with spellbook choices (Spellcasting).
-    copied_under = next(
-        (
-            fv.feature.id
-            for g in groups
-            for fv in g.features
-            if any(cv.choice.kind == "spellbook" for cv in fv.choices)
-        ),
-        None,
-    )
+    """The whole form again, so every problem shows next to its field, with the entries
+    kept."""
     return templates.TemplateResponse(
         request,
-        "characters/show.html",
-        {
-            "user": user,
-            "character": character,
-            "read_only": read_only,
-            "base_url": base_url,
-            "abilities": ability_views(db, character),
-            "hit_points": hit_points(db, character),
-            "feature_groups": groups,
-            "pending": pending,
-            "skills": character_skills(db, character.id),
-            "expertise": expertise_skill_ids(db, character.id),
-            "copied_under": copied_under,
-            # Spells copied into the book (not from a level up), with their rule markers.
-            "copied": [
-                (entry, warnings.get(entry.spell_id, []))
-                for entry in spellbook(db, character.id)
-                if entry.acquired_via == "copied"
-            ],
-        },
+        "characters/partials/form.html",
+        view_context(view, errors=errors, values=form),
+        status_code=400,
     )
 
 
-def refresh_character_page(
-    request: Request, db: Session, user: User, character: Character
-) -> HTMLResponse:
+def build_page(request: Request, view: BuildPageView) -> HTMLResponse:
+    return templates.TemplateResponse(request, "characters/show.html", view_context(view))
+
+
+def refresh_build(request: Request, view: BuildPageView) -> HTMLResponse:
     """The full page, with headers telling htmx to morph just the page body into place,
     whatever element sent the request."""
-    # Relationships loaded before the change (e.g. a class row's subclass) would render stale,
-    # so reload everything. Flush first: expiring drops changes not yet sent to the database.
-    db.flush()
-    db.expire_all()
-    return morph_in_place(render_character_page(request, db, user, character), PAGE_SELECTOR)
+    return morph_in_place(build_page(request, view), PAGE_SELECTOR)
+
+
+def name_heading(request: Request, character: Character) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "characters/partials/name_heading.html", {"character": character}
+    )
+
+
+def name_form(
+    request: Request, character: Character, value: str, error: str | None = None
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "characters/partials/name_form.html",
+        {"character": character, "value": value, "error": error},
+        status_code=400 if error else 200,
+    )
+
+
+def delete_form(request: Request, character: Character, value: str, error: str) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "characters/partials/delete_form.html",
+        {"character": character, "value": value, "error": error},
+        status_code=400,
+    )

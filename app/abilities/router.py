@@ -26,7 +26,8 @@ from app.abilities.service import ability_views
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
-from app.characters.page import refresh_character_page
+from app.characters.page import refresh_build
+from app.characters.queries import refreshed_build_view
 from app.core.db import DbSession
 from app.core.templates import templates
 from app.features.kinds import KINDS, source_name
@@ -189,7 +190,7 @@ def save_abilities(
         setattr(character, column, score)
     # A Constitution change moves max HP: an increase raises current HP too, a decrease caps it.
     track_max_change(db, character, old_max, heal=True)
-    return refresh_character_page(request, db, user, character)
+    return refresh_build(request, refreshed_build_view(db, user, character))
 
 
 # --- Ability score increases (a background's +2/+1 or +1/+1/+1) ---------------------------
@@ -315,4 +316,4 @@ def save_increases(
     remove_inapplicable_picks(db, character)
     # A Constitution increase raises max HP, and current HP with it.
     track_max_change(db, character, old_max, heal=True)
-    return refresh_character_page(request, db, user, character)
+    return refresh_build(request, refreshed_build_view(db, user, character))

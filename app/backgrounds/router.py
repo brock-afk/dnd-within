@@ -9,7 +9,8 @@ from app.auth.dependencies import CurrentUser
 from app.backgrounds.models import Background
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
-from app.characters.page import refresh_character_page
+from app.characters.page import refresh_build
+from app.characters.queries import refreshed_build_view
 from app.characters.service import change_origin
 from app.content.queries import available
 from app.core.db import DbSession
@@ -69,4 +70,4 @@ def save_background(
         )
     if background.id != character.background_id:
         change_origin(db, character, "background_id", background.id)
-    return refresh_character_page(request, db, user, character)
+    return refresh_build(request, refreshed_build_view(db, user, character))

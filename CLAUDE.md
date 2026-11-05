@@ -93,7 +93,7 @@ Adding a new content capability usually means changing these together: the YAML 
 Stored vs. derived: max HP, AC, and slot maximums are calculated. Current HP is stored, with `NULL` meaning "at full". Max-HP changes must go through `sheet.rules.apply_max_change` / `track_max_change` so current HP follows the PHB rules in its docstring.
 
 ### htmx response patterns (`app/core/templates.py`)
-- Routes that change a character re-render the full page and wrap it with `morph_in_place(response, selector)`. htmx then morphs only that element, keeping scroll and focus. See `refresh_character_page` in `characters/page.py`.
+- Routes that change a character re-render the full page and wrap it with `morph_in_place(response, selector)`. htmx then morphs only that element, keeping scroll and focus. On the Build page, routes build the view with `characters/queries.py:refreshed_build_view` (it reloads what the change touched) and render it with `characters/page.py:refresh_build`.
 - `hx_redirect(path)` triggers a full navigation. `form_error(...)` renders an inline error partial.
 - Reference static assets in templates with `static_url("file.js")`, which adds a content hash for cache busting.
 

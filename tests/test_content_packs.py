@@ -172,6 +172,14 @@ def test_spell_choice_class_and_ritual_criteria(criteria, ok):
             ChoiceDef.model_validate(choice)
 
 
+def test_class_slots_max_level_is_for_spell_choices_only():
+    criteria = {"class": "warlock", "max_level": "class_slots"}
+    choice = {"slug": "s", "name": "S", "kind": "spell", "criteria": criteria}
+    ChoiceDef.model_validate(choice)
+    with pytest.raises(ValidationError, match="for spell choices only"):
+        ChoiceDef.model_validate(choice | {"kind": "spellbook"})
+
+
 @pytest.mark.parametrize("action", ["action", "bonus_action", "reaction"])
 def test_option_action_takes_feature_action_types(action):
     assert OptionDef.model_validate(_option([]) | {"action": action}).action == action

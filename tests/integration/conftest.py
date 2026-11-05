@@ -71,6 +71,20 @@ def character(db) -> Character:
 
 
 @pytest.fixture
+def owner(db, character) -> User:
+    return db.get(User, character.user_id)
+
+
+@pytest.fixture
+def other_user(db) -> User:
+    """A user who doesn't own the test character."""
+    user = User(username="someone-else", password_hash="x")
+    db.add(user)
+    db.flush()
+    return user
+
+
+@pytest.fixture
 def stone_giant(db, character) -> Character:
     """The character, with Stone Giant ancestry picked: no grants, a damage reaction."""
     stone = db.scalar(select(ChoiceOption).where(ChoiceOption.slug == "stone"))

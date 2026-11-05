@@ -4,7 +4,7 @@ the editor's errors. Nothing here touches the database."""
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
-from app.core.templates import templates
+from app.core.templates import templates, view_context
 from app.homebrew.form import (
     ABILITIES,
     ACTIONS,
@@ -34,21 +34,11 @@ EDITOR_OPTIONS = {
 
 
 def library(request: Request, view: LibraryView) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request, "homebrew/list.html", {"user": view.user, "items": view.items}
-    )
+    return templates.TemplateResponse(request, "homebrew/list.html", view_context(view))
 
 
 def _editor_context(view: EditorView, errors: dict[str, str] | None) -> dict:
-    return {
-        "user": view.user,
-        "form": view.form,
-        "item": view.item,
-        "character": view.character,
-        "spells": view.spells,
-        "errors": errors or {},
-        **EDITOR_OPTIONS,
-    }
+    return view_context(view, errors=errors or {}, **EDITOR_OPTIONS)
 
 
 def editor_page(request: Request, view: EditorView) -> HTMLResponse:
@@ -57,11 +47,7 @@ def editor_page(request: Request, view: EditorView) -> HTMLResponse:
 
 
 def editor_form(
-    request: Request,
-    view: EditorView,
-    *,
-    errors: dict[str, str] | None = None,
-    status_code: int = 200,
+    request: Request, view: EditorView, errors: dict[str, str] | None = None
 ) -> HTMLResponse:
     """Just the editor's form, swapped in place: after adding or removing a row, or to show
     `errors` ({field: problem}) next to their fields."""
@@ -69,7 +55,7 @@ def editor_form(
         request,
         "homebrew/partials/item_form.html",
         _editor_context(view, errors),
-        status_code=status_code,
+        status_code=400 if errors else 200,
     )
 
 

@@ -6,7 +6,8 @@ from fastapi.responses import HTMLResponse
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
-from app.characters.page import refresh_character_page
+from app.characters.page import refresh_build
+from app.characters.queries import refreshed_build_view
 from app.core.db import DbSession
 from app.core.templates import templates
 from app.features.service import remove_inapplicable_picks
@@ -83,7 +84,7 @@ def level_up(
         )
     )
     track_max_change(db, character, old_max, heal=True)  # current HP rises with the max
-    return refresh_character_page(request, db, user, character)
+    return refresh_build(request, refreshed_build_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/level-down")
@@ -96,4 +97,4 @@ def level_down(request: Request, db: DbSession, user: CurrentUser, character: Ow
     track_max_change(db, character, old_max, heal=False)  # current HP is capped at the new max
     # Features from the removed level are gone, so their picks go too.
     remove_inapplicable_picks(db, character)
-    return refresh_character_page(request, db, user, character)
+    return refresh_build(request, refreshed_build_view(db, user, character))

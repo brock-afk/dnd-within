@@ -1,7 +1,5 @@
-import pytest
 from sqlalchemy import select
 
-from app.auth.models import User
 from app.homebrew.form import ItemForm
 from app.homebrew.queries import library_view, new_item_view
 from app.homebrew.service import save_from_form
@@ -12,19 +10,6 @@ def _ring(**fields) -> ItemForm:
     return ItemForm(
         **{"name": "Test Ring", "rarity": "common", "summary": "A ring for tests."} | fields
     )
-
-
-@pytest.fixture
-def owner(db, character) -> User:
-    return db.get(User, character.user_id)
-
-
-@pytest.fixture
-def other_user(db) -> User:
-    user = User(username="someone-else", password_hash="x")
-    db.add(user)
-    db.flush()
-    return user
 
 
 def test_saving_adds_the_item_to_the_character_it_was_opened_from(db, owner, character):

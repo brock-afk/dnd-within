@@ -56,7 +56,7 @@ def _save(request: Request, db: DbSession, user: User, form: ItemForm, item: Ite
     character = opened_from(db, user, form.character)
     if errors := save_from_form(db, user, form, item, character):
         view = editor_view(db, user, form, item)
-        return page.editor_form(request, view, errors=errors, status_code=400)
+        return page.editor_form(request, view, errors)
     return hx_redirect(f"/characters/{character.id}/sheet" if character else "/homebrew")
 
 

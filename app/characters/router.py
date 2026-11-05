@@ -2,18 +2,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 
 from app.auth.dependencies import CurrentUser
+from app.characters import page
 from app.characters.dependencies import OwnedCharacter
-from app.characters.models import Character
-from app.characters.page import needs_building, render_character_page
-from app.classes.models import CharacterClass, CharacterClassLevel
-from app.content.queries import available
+from app.characters.form import CharacterForm
+from app.characters.queries import build_page_view, character_list_view, new_character_view
+from app.characters.service import create_character, delete_character, rename
 from app.core.db import DbSession
-from app.core.templates import hx_redirect, templates
-from app.leveling.models import CharacterLevel
-from app.species.models import Species
+from app.core.templates import hx_redirect
 
 router = APIRouter(tags=["characters"])
 
@@ -25,144 +22,52 @@ def index():
 
 @router.get("/characters", response_class=HTMLResponse)
 def list_characters(request: Request, db: DbSession, user: CurrentUser):
-    characters = db.scalars(
-        select(Character).where(Character.user_id == user.id).order_by(Character.created_at.desc())
-    ).all()
-    # Open each on the Play sheet once it's built, on the Build page while it has choices left.
-    links = {
-        c.id: f"/characters/{c.id}" if needs_building(db, c) else f"/characters/{c.id}/sheet"
-        for c in characters
-    }
-    return templates.TemplateResponse(
-        request, "characters/list.html", {"user": user, "characters": characters, "links": links}
-    )
-
-
-def _form_options(db: DbSession) -> dict:
-    return {
-        "classes": db.scalars(
-            select(CharacterClass).where(available(CharacterClass)).order_by(CharacterClass.name)
-        ).all(),
-        "species": db.scalars(
-            select(Species).where(available(Species)).order_by(Species.name)
-        ).all(),
-    }
+    return page.character_list(request, character_list_view(db, user))
 
 
 @router.get("/characters/new", response_class=HTMLResponse)
 def new_character(request: Request, db: DbSession, user: CurrentUser):
-    return templates.TemplateResponse(
-        request, "characters/new.html", {"user": user, **_form_options(db)}
-    )
-
-
-def _name_error(name: str) -> str | None:
-    """Validation shared by creating and renaming. Expects an already-stripped name."""
-    if not name:
-        return "Give your character a name."
-    if len(name) > 60:
-        return "Names can be at most 60 characters."
-    return None
+    return page.new_character(request, new_character_view(db, user))
 
 
 @router.post("/characters")
-def create_character(
-    request: Request,
-    db: DbSession,
-    user: CurrentUser,
-    name: Annotated[str, Form()] = "",
-    class_id: Annotated[int | None, Form()] = None,
-    species_id: Annotated[int | None, Form()] = None,
+def create(
+    request: Request, db: DbSession, user: CurrentUser, form: Annotated[CharacterForm, Form()]
 ):
-    name = name.strip()
-    errors = {}
-    if error := _name_error(name):
-        errors["name"] = error
-    character_class = db.get(CharacterClass, class_id) if class_id is not None else None
-    if character_class is None or character_class.retired_at is not None:
-        errors["class_id"] = "Choose a class."
-    species = db.get(Species, species_id) if species_id is not None else None
-    if species is None or species.retired_at is not None:
-        errors["species_id"] = "Choose a species."
-
+    character, errors = create_character(db, user, form)
     if errors:
-        # Re-render the whole form so every problem shows next to its field,
-        # with the user's entries kept.
-        return templates.TemplateResponse(
-            request,
-            "characters/partials/form.html",
-            {
-                "errors": errors,
-                "values": {"name": name, "class_id": class_id, "species_id": species_id},
-                **_form_options(db),
-            },
-            status_code=400,
-        )
-
-    character = Character(
-        user_id=user.id,
-        name=name,
-        species_id=species_id,
-        classes=[CharacterClassLevel(class_id=class_id, position=0)],
-        levels=[CharacterLevel(character_level=1, class_id=class_id, hp_method="max")],
-    )
-    db.add(character)
-    db.flush()
+        return page.new_character_form(request, new_character_view(db, user), form, errors)
     return hx_redirect(f"/characters/{character.id}")
 
 
 @router.get("/characters/{character_id}", response_class=HTMLResponse)
 def show_character(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
-    return render_character_page(request, db, user, character)
-
-
-def _name_heading(request: Request, character: Character) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request, "characters/partials/name_heading.html", {"character": character}
-    )
+    return page.build_page(request, build_page_view(db, user, character))
 
 
 @router.get("/characters/{character_id}/name", response_class=HTMLResponse)
 def name_heading(request: Request, character: OwnedCharacter):
-    return _name_heading(request, character)
+    return page.name_heading(request, character)
 
 
 @router.get("/characters/{character_id}/name/edit", response_class=HTMLResponse)
 def edit_name(request: Request, character: OwnedCharacter):
-    return templates.TemplateResponse(
-        request,
-        "characters/partials/name_form.html",
-        {"character": character, "value": character.name},
-    )
+    return page.name_form(request, character, character.name)
 
 
 @router.post("/characters/{character_id}/name", response_class=HTMLResponse)
 def rename_character(
-    request: Request, db: DbSession, character: OwnedCharacter, name: Annotated[str, Form()] = ""
+    request: Request, character: OwnedCharacter, name: Annotated[str, Form()] = ""
 ):
-    name = name.strip()
-    if error := _name_error(name):
-        return templates.TemplateResponse(
-            request,
-            "characters/partials/name_form.html",
-            {"character": character, "value": name, "error": error},
-            status_code=400,
-        )
-    character.name = name
-    return _name_heading(request, character)
+    if error := rename(character, name):
+        return page.name_form(request, character, name, error)
+    return page.name_heading(request, character)
 
 
 @router.post("/characters/{character_id}/delete")
-def delete_character(
+def delete(
     request: Request, db: DbSession, character: OwnedCharacter, confirm: Annotated[str, Form()] = ""
 ):
-    if confirm.strip().lower() != "delete":
-        return templates.TemplateResponse(
-            request,
-            "characters/partials/delete_form.html",
-            {"character": character, "value": confirm, "error": "Type delete to confirm."},
-            status_code=400,
-        )
-    # Classes, skills, spells and choice picks are removed by ON DELETE CASCADE.
-    db.delete(character)
+    if error := delete_character(db, character, confirm):
+        return page.delete_form(request, character, confirm, error)
     return hx_redirect("/characters")

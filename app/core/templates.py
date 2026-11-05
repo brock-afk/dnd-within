@@ -1,4 +1,5 @@
 import hashlib
+from dataclasses import fields
 from pathlib import Path
 
 from fastapi import Request
@@ -29,6 +30,12 @@ def static_url(path: str) -> str:
 
 
 templates.env.globals["static_url"] = static_url
+
+
+def view_context(view, **extra) -> dict:
+    """A view model's fields as a template context. Shallow, unlike dataclasses.asdict, which
+    would deep-copy the ORM rows a view holds."""
+    return {f.name: getattr(view, f.name) for f in fields(view)} | extra
 
 
 def form_error(request: Request, message: str, status_code: int = 400) -> HTMLResponse:

@@ -8,7 +8,8 @@ from app.abilities.router import increase_form_for
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
-from app.characters.page import refresh_character_page
+from app.characters.page import refresh_build
+from app.characters.queries import refreshed_build_view
 from app.core.db import DbSession
 from app.core.templates import templates
 from app.features.kinds import KINDS, choice_count, owner_level
@@ -109,4 +110,4 @@ def save_choice(
     remove_inapplicable_picks(db, character)
     # A pick can change max HP, e.g. a background's Constitution increase.
     track_max_change(db, character, old_max, heal=True)
-    return refresh_character_page(request, db, user, character)
+    return refresh_build(request, refreshed_build_view(db, user, character))

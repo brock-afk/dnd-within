@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
@@ -99,6 +101,15 @@ def track_max_change(db: Session, character: Character, old_max: int | None, hea
     if old_max is None or new_max is None or old_max == new_max:
         return
     apply_max_change(play_state(db, character), old_max, new_max, heal)
+
+
+@contextmanager
+def tracking_max_hp(db: Session, character: Character, heal: bool) -> Iterator[None]:
+    """Make a change that may move max HP inside this block; current HP then follows it
+    (track_max_change), without the caller having to read the old max first."""
+    old_max = max_hp(db, character)
+    yield
+    track_max_change(db, character, old_max, heal)
 
 
 # --- Abilities, saving throws and Armor Class ---------------------------------------------

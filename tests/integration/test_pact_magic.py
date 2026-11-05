@@ -8,9 +8,10 @@ from app.classes.models import CharacterClass
 from app.features.kinds import KINDS
 from app.features.models import Choice, Feature
 from app.features.service import remove_inapplicable_picks
+from app.sheet.models import CharacterPreparedSpell
 from app.sheet.rests import finish_short_rest
 from app.sheet.service import castable_spells, set_slots_remaining, spell_slots
-from app.spells.models import Spell
+from app.spells.models import Spell, SpellbookEntry
 
 
 def _class_id(db, slug: str) -> int:
@@ -82,6 +83,17 @@ def test_picked_spells_are_cast_with_pact_slots(client, db, warlock):
     assert client.post(f"{sheet}/short-rest/finish").status_code == 200
     db.expire_all()
     assert spell_slots(db, warlock)[1].remaining == 1
+
+
+def test_spell_both_picked_and_prepared_from_a_book_is_listed_once(db, warlock):
+    spell = _spell_id(db, "pact-spell-a")
+    assert KINDS["spell"].save(db, _choice(db), warlock.id, [str(spell)]) is None
+    db.add(SpellbookEntry(character_id=warlock.id, spell_id=spell, acquired_via="copied"))
+    db.flush()
+    db.add(CharacterPreparedSpell(character_id=warlock.id, spell_id=spell))
+    db.flush()
+
+    assert [r.spell.id for r in castable_spells(db, warlock)].count(spell) == 1
 
 
 def test_no_spellbook_tools_without_a_spellbook(client, warlock):

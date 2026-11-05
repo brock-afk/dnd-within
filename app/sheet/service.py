@@ -712,7 +712,9 @@ def castable_spells(
     granted = granted_spells(db, character, groups)
 
     rows = []
+    picked = set()
     for cs in character_spells(db, character.id):
+        picked.add(cs.spell_id)
         if cs.spell.level == 0:
             rows.append(CastableSpell(cs.spell))
         elif not (cs.spell_id in granted and granted[cs.spell_id][0].always_prepared):
@@ -723,6 +725,8 @@ def castable_spells(
     for entry in spellbook(db, character.id):
         if entry.spell_id in granted and granted[entry.spell_id][0].always_prepared:
             continue  # listed below as always prepared
+        if entry.spell_id in picked:
+            continue  # already listed as picked (Magic Initiate's pick also in the book)
         is_prepared = entry.spell_id in prepared
         if is_prepared:
             rows.append(CastableSpell(entry.spell, prepared=True))

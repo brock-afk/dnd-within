@@ -57,7 +57,7 @@ flowchart TB
     infra_dispatch -- "subject: ref:refs/heads/main" --> id_infra["id-dndwithin-infra"]
     infra_pr -- "subject: pull_request" --> id_whatif["id-dndwithin-whatif"]
 
-    id_app --> r_app["AcrPush (registry), VM Deployer (VM)"]
+    id_app --> r_app["AcrPush (registry)"]
     id_release --> r_release["AcrPush (registry), VM Deployer (VM)"]
     id_infra --> r_infra["Contributor (both groups), conditional RBAC Administrator (both groups), Deployment Runner (subscription)"]
     id_whatif --> r_whatif["Reader, What-If Runner (subscription)"]
@@ -65,8 +65,8 @@ flowchart TB
 
 | Principal | Role assignments | Scope |
 |---|---|---|
-| `id-dndwithin-github` | Reader; AcrPush; VM Deployer (custom: `virtualMachines/read`, `runCommand/action`) | `rg-dndwithin-shared`; registry; VM |
-| `id-dndwithin-release` | Reader; AcrPush; VM Deployer | `rg-dndwithin-shared`; registry; VM |
+| `id-dndwithin-github` | Reader; AcrPush | `rg-dndwithin-shared`; registry |
+| `id-dndwithin-release` | Reader; AcrPush; VM Deployer (custom: `virtualMachines/read`, `runCommand/action`) | `rg-dndwithin-shared`; registry; VM |
 | `id-dndwithin-infra` | Contributor; Role Based Access Control Administrator with an ABAC condition; Deployment Runner (custom: `Microsoft.Resources/deployments/*`) | both resource groups; both resource groups; subscription |
 | `id-dndwithin-whatif` | Reader; What-If Runner (custom: `deployments/whatIf/action`, `deployments/validate/action`) | subscription |
 | VM system-assigned identity | AcrPull; Storage Blob Data Contributor; Key Vault Secrets User | registry; `db-backups` container; key vault |

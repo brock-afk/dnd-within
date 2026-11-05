@@ -10,6 +10,7 @@ from app.auth.models import User
 from app.characters.models import Character
 from app.content.models import Source
 from app.content.queries import available, visible
+from app.core.forms import parse_id
 from app.homebrew.form import ItemForm
 from app.inventory.models import Item
 from app.inventory.service import item_detail
@@ -30,7 +31,8 @@ def user_items(db: Session, user: User) -> list[Item]:
 
 def opened_from(db: Session, user: User, key: str) -> Character | None:
     """The character whose Add item opened the editor, if it's the user's."""
-    character = db.get(Character, int(key)) if key.isdigit() else None
+    character_id = parse_id(key)
+    character = db.get(Character, character_id) if character_id is not None else None
     return character if character is not None and character.user_id == user.id else None
 
 

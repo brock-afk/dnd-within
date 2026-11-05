@@ -85,6 +85,19 @@ def other_user(db) -> User:
 
 
 @pytest.fixture
+def theirs(db, character, other_user) -> Character:
+    """A character of other_user's, committed so a request's 404 can't roll it back: committing
+    the shared test session only releases a savepoint, and the test still rolls back at the end."""
+    theirs = Character(user_id=other_user.id, name="Theirs", species_id=character.species_id)
+    class_id = character.classes[0].class_id
+    theirs.classes.append(CharacterClassLevel(class_id=class_id, position=0))
+    theirs.levels.append(CharacterLevel(character_level=1, class_id=class_id, hp_method="max"))
+    db.add(theirs)
+    db.commit()
+    return theirs
+
+
+@pytest.fixture
 def stone_giant(db, character) -> Character:
     """The character, with Stone Giant ancestry picked: no grants, a damage reaction."""
     stone = db.scalar(select(ChoiceOption).where(ChoiceOption.slug == "stone"))

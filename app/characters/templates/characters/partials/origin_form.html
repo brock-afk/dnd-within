@@ -1,16 +1,16 @@
 {% from "partials/refresh.html" import refresh_button %}
 {% from "partials/choices.html" import choice_grid %}
-{# Picking the character's species or background: `title`, `url`, `field` (the form field),
-   `options` (OptionViews) and the `selected` key. #}
-<form hx-post="{{ url }}" hx-swap="outerHTML" novalidate
+{# Picking the character's species or background from `options` (OptionViews); `selected` is
+   the key shown as picked. #}
+<form hx-post="/characters/{{ character.id }}/{{ origin.name }}" hx-swap="outerHTML" novalidate
       class="choice-form{% if error %} has-error{% endif %}">
   <div class="choice-form-header">
-    <h3 class="section-title">{{ title }}</h3>
-    {% if selected %}<span class="muted">Changing it removes the picks made for the old one</span>{% endif %}
+    <h3 class="section-title">{{ origin.title }}</h3>
+    {% if character[origin.column] %}<span class="muted">Changing it removes the picks made for the old one</span>{% endif %}
   </div>
   {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}
 
-  {{ choice_grid(field, options, selected=[selected], value_key="key") }}
+  {{ choice_grid(origin.column, options, selected=[selected], value_key="key") }}
 
   <div class="form-actions">
     <button type="submit">Save</button>

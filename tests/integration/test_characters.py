@@ -69,12 +69,7 @@ def test_the_refreshed_view_shows_changes_made_since_loading(db, owner, characte
     assert refreshed_build_view(db, owner, character).character.name == "Renamed"
 
 
-def test_someone_elses_character_is_not_found(client, db, other_user, form):
-    theirs, _ = create_character(db, other_user, form.model_copy(update={"name": "Theirs"}))
-    # A 404 rolls back the request's changes; on the shared test session that would take the
-    # setup with it. Committing only releases a savepoint: the test still rolls back at the end.
-    db.commit()
-
+def test_someone_elses_character_is_not_found(client, db, theirs):
     assert client.get(f"/characters/{theirs.id}").status_code == 404
     assert client.post(f"/characters/{theirs.id}/name", data={"name": "Mine"}).status_code == 404
     assert (

@@ -46,6 +46,35 @@ resource appReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// Deploys releases (tags) and runs Ops on the VM. Trusted only for jobs in the Production
+// environment, whose deployment policy admits tags v* and branch main: Entra matches subjects
+// exactly, so a credential per tag (ref:refs/tags/v1.2.3) couldn't work.
+resource release 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-${project}-release'
+  location: location
+  tags: tags
+}
+
+resource releaseProduction 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
+  parent: release
+  name: 'github-production'
+  properties: {
+    issuer: issuer
+    subject: 'repo:${githubRepo}:environment:Production'
+    audiences: audiences
+  }
+}
+
+// `az acr login` looks the registry up through ARM.
+resource releaseReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, release.id, readerRole)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', readerRole)
+    principalId: release.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 resource infra 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: 'id-${project}-infra'
   location: location
@@ -135,6 +164,7 @@ resource contentReleaseReader 'Microsoft.Authorization/roleAssignments@2022-04-0
 
 output appPrincipalId string = app.properties.principalId
 output appClientId string = app.properties.clientId
+output releaseClientId string = release.properties.clientId
 output infraPrincipalId string = infra.properties.principalId
 output infraClientId string = infra.properties.clientId
 output whatIfPrincipalId string = whatIf.properties.principalId

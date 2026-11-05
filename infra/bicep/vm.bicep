@@ -1,6 +1,8 @@
 // Module of main.bicep: Ubuntu arm64 VM running the app with Docker Compose, in rg-dndwithin-iaas.
 targetScope = 'resourceGroup'
 
+import { identityRef } from 'types.bicep'
+
 param location string = resourceGroup().location
 param project string = 'dndwithin'
 
@@ -17,13 +19,8 @@ param publicIpId string
 param registryName string
 param sharedResourceGroupName string
 
-@description('The app pipeline\'s identity, which gets the deploy role on this VM.')
-param ciIdentityId string
-param ciPrincipalId string
-
-@description('The content repo\'s release identity, which gets the deploy role on this VM.')
-param contentIdentityId string
-param contentPrincipalId string
+@description('Identities that deploy to this VM.')
+param deployers identityRef[]
 
 @description('The VM Deployer custom role, from bootstrap.bicep.')
 param vmDeployerRoleId string
@@ -146,25 +143,17 @@ module acrPull 'modules/acr-pull.bicep' = {
 
 // GitHub Actions deploys by running a script on the VM (az vm run-command); the custom role
 // allows only that.
-resource ciDeployer 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(vm.id, ciIdentityId, 'vm-deployer')
-  scope: vm
-  properties: {
-    roleDefinitionId: vmDeployerRoleId
-    principalId: ciPrincipalId
-    principalType: 'ServicePrincipal'
+resource deployer 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for d in deployers: {
+    name: guid(vm.id, d.id, 'vm-deployer')
+    scope: vm
+    properties: {
+      roleDefinitionId: vmDeployerRoleId
+      principalId: d.principalId
+      principalType: 'ServicePrincipal'
+    }
   }
-}
-
-resource contentDeployer 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(vm.id, contentIdentityId, 'vm-deployer')
-  scope: vm
-  properties: {
-    roleDefinitionId: vmDeployerRoleId
-    principalId: contentPrincipalId
-    principalType: 'ServicePrincipal'
-  }
-}
+]
 
 output vmId string = vm.id
 output vmName string = vm.name

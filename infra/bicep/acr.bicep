@@ -1,12 +1,13 @@
 // Module of main.bicep: container registry for the app image, in rg-dndwithin-shared.
 targetScope = 'resourceGroup'
 
+import { identityRef } from 'types.bicep'
+
 param location string = resourceGroup().location
 param project string = 'dndwithin'
 
-@description('The app pipeline\'s identity (id-dndwithin-github), which pushes images.')
-param appIdentityId string
-param appPrincipalId string
+@description('Identities that push images: the app pipeline builds them, the release pipeline retags them.')
+param pushers identityRef[]
 
 param tags object = {
   project: project
@@ -30,15 +31,17 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
 
 var acrPushRole = '8311e382-0749-4cb8-b61a-304f252e45ec'
 
-resource acrPush 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registry.id, appIdentityId, acrPushRole)
-  scope: registry
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPushRole)
-    principalId: appPrincipalId
-    principalType: 'ServicePrincipal'
+resource acrPush 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for pusher in pushers: {
+    name: guid(registry.id, pusher.id, acrPushRole)
+    scope: registry
+    properties: {
+      roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPushRole)
+      principalId: pusher.principalId
+      principalType: 'ServicePrincipal'
+    }
   }
-}
+]
 
 output registryName string = registry.name
 output loginServer string = registry.properties.loginServer

@@ -37,6 +37,11 @@ resource appIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-3
   scope: sharedRg
 }
 
+resource releaseIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
+  name: 'id-${project}-release'
+  scope: sharedRg
+}
+
 resource contentCheckIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
   name: 'id-${project}-content-check'
   scope: sharedRg
@@ -47,14 +52,20 @@ resource contentReleaseIdentity 'Microsoft.ManagedIdentity/userAssignedIdentitie
   scope: sharedRg
 }
 
+var app = { id: appIdentity.id, principalId: appIdentity.properties.principalId }
+var release = { id: releaseIdentity.id, principalId: releaseIdentity.properties.principalId }
+var contentRelease = {
+  id: contentReleaseIdentity.id
+  principalId: contentReleaseIdentity.properties.principalId
+}
+
 module acr 'acr.bicep' = {
   name: 'acr'
   scope: sharedRg
   params: {
     location: location
     project: project
-    appIdentityId: appIdentity.id
-    appPrincipalId: appIdentity.properties.principalId
+    pushers: [app, release]
     tags: tags
   }
 }
@@ -100,10 +111,7 @@ module vm 'vm.bicep' = {
     publicIpId: network.outputs.publicIpId
     registryName: acr.outputs.registryName
     sharedResourceGroupName: sharedRg.name
-    ciIdentityId: appIdentity.id
-    ciPrincipalId: appIdentity.properties.principalId
-    contentIdentityId: contentReleaseIdentity.id
-    contentPrincipalId: contentReleaseIdentity.properties.principalId
+    deployers: [app, release, contentRelease]
     vmDeployerRoleId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
       guid(subscription().id, project, 'vm-deployer')

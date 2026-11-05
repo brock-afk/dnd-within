@@ -150,6 +150,8 @@ def test_free_cast_without_uses_is_at_will():
         FeatureDef.model_validate(_feature([at_will | {"charges": 2}]))
     with pytest.raises(ValidationError, match="must be cast free"):
         FeatureDef.model_validate(_feature([{"spell": "x", "always_prepared": False}]))
+    with pytest.raises(ValidationError, match="can't cast spells free"):
+        FeatureDef.model_validate(_feature([at_will]) | {"spends": {"feature": "charges"}})
 
 
 @pytest.mark.parametrize(

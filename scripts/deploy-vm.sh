@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Runs on the VM as root with bash, through az vm run-command; .github/workflows/app.yml
+# Runs on the VM as root with bash, through az vm run-command; .github/workflows/release.yml
 # sends it with these exported:
-#   image           the image to run, e.g. crdndwithincsiqze.azurecr.io/dndwithin:<sha>
+#   image           the image to run, e.g. crdndwithincsiqze.azurecr.io/dndwithin@sha256:<digest>
 #   bundle          base64 tar.gz of the compose files, Caddyfile and scripts/
 #   backup_account  the storage account backups go to
 set -euo pipefail

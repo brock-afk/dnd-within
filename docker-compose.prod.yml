@@ -1,5 +1,5 @@
 # Production overrides: the image from the registry, Caddy in front for HTTPS, MySQL on the
-# VM's data disk. Runs in /opt/dnd-within on the VM; the App workflow deploys it and sets
+# VM's data disk. Runs in /opt/dnd-within on the VM; the Release workflow deploys it and sets
 # APP_IMAGE in .env.
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 services:

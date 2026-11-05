@@ -41,9 +41,9 @@ uv run ruff check --fix . && uv run ruff format .
 
 `tests/integration/` runs on a real MySQL database, `dnd_within_test` (never the dev data). It is migrated to head and loaded with the committed packs once per run, and every test is rolled back. A fresh dev volume creates it from `scripts/test-db.sql`. No mocks: anything needing the database is an integration test.
 
-CI's `check` job (ruff, pytest on MySQL started from the compose files) gates build and deploy. A project hook in `.claude/settings.json` runs ruff on every `.py` file Claude edits.
+CI's `check` job (ruff, pytest on MySQL started from the compose files) gates the image build. A project hook in `.claude/settings.json` runs ruff on every `.py` file Claude edits.
 
-Deploying: to Azure, being set up step by step (infrastructure as code in `infra/`, delivery through GitHub Actions). Database helpers (the server ones run through the Ops workflow, `.github/workflows/ops.yml`, not SSH):
+Deploying: to Azure, being set up step by step (infrastructure as code in `infra/`, delivery through GitHub Actions). A merge to main builds and scans the image and tags it `:<sha>` and `:latest`; nothing deploys. `gh release create vX.Y.Z --target main --title vX.Y.Z --generate-notes` releases it (`release.yml`: deploys that image, moves `:deployed`). To roll back, Run workflow on Release with an older tag; across a migration, restore the backup taken before the newer release first. Database helpers (the server ones run through the Ops workflow, `.github/workflows/ops.yml`, not SSH):
 
 ```bash
 scripts/dump-dev-db.sh                # local: dump the dev database

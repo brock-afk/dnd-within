@@ -1,0 +1,80 @@
+# Releases a version tag (gh release create vX.Y.Z --target main) to production: deploys the image
+# app.yml built and scanned for the tagged commit, without rebuilding, then moves :deployed.
+# To roll back, Run workflow with the older tag picked under "Use workflow from"; re-running an old
+# run only works for 30 days. Migrations only go forward, so rolling back across one fails on the
+# VM and keeps the current image: first restore the backup taken before that release (Ops).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Azure login through OIDC
+  contents: read
+
+env:
+  REGISTRY: crdndwithincsiqze
+  IMAGE: crdndwithincsiqze.azurecr.io/dndwithin
+  SITE: dndwithin.centralus.cloudapp.azure.com
+  BACKUP_ACCOUNT: stdndwithincsiqze
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: Production # the release identity trusts only this environment
+    concurrency: deploy # one deploy at a time; run-command can't overlap
+    steps:
+      # Production also admits main, for Ops, so a dispatch from main would otherwise deploy
+      # main's latest commit. Failing (not skipping) keeps a mistaken rollback from looking done.
+      - name: Check a tag was picked
+        run: |
+          [ "$GITHUB_REF_TYPE" = tag ] || {
+            echo "::error::Pick a release tag under \"Use workflow from\", not a branch."
+            exit 1
+          }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
+        with:
+          client-id: ${{ vars.AZURE_RELEASE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # :<sha> is only tagged by app.yml's build, which Azure trusts on main alone, once the scan
+      # passed. Pinned to the digest: tags can move.
+      - name: Find the scanned image
+        run: |
+          az acr login --name "$REGISTRY"
+          digest=$(docker buildx imagetools inspect "$IMAGE:$GITHUB_SHA" --format '{{.Manifest.Digest}}') || {
+            echo "::error::No scanned image for $GITHUB_SHA. Tag a commit on main, after App has passed for it."
+            exit 1
+          }
+          echo "PINNED=$IMAGE@$digest" >> "$GITHUB_ENV"
+
+      - name: Deploy to the VM
+        run: |
+          # run-command runs the file with /bin/sh and can't pass values containing "=", so
+          # send a small sh wrapper that sets the inputs and runs deploy-vm.sh with bash.
+          {
+            echo "export image='$PINNED'"
+            echo "export backup_account='$BACKUP_ACCOUNT'"
+            echo "export bundle='$(tar -czf - docker-compose.yml docker-compose.prod.yml Caddyfile scripts | base64 -w0)'"
+            echo "cat > /tmp/deploy-vm.sh <<'DEPLOY_VM'"
+            cat scripts/deploy-vm.sh
+            echo "DEPLOY_VM"
+            echo "exec bash /tmp/deploy-vm.sh"
+          } > deploy.sh
+          .github/scripts/vm-run.sh deploy.sh "Deploy succeeded"
+
+      # Content CI validates packs against :deployed. After the deploy step, which only succeeds
+      # once the VM runs this image, so a failed deploy moves neither tag. imagetools retags the
+      # manifest without pulling it.
+      - name: Tag the image as released
+        run: docker buildx imagetools create --tag "$IMAGE:$GITHUB_REF_NAME" --tag "$IMAGE:deployed" "$PINNED"
+
+      # From outside, so it also catches what the VM can't see: DNS, the NSG, Caddy and the certificate.
+      - name: Smoke test
+        run: curl --fail --silent --show-error --max-time 10 --retry 5 --retry-delay 5 --retry-all-errors "https://$SITE/healthz"

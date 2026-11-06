@@ -517,7 +517,7 @@ class AbilityScoresKind(ChoiceKind):
     character_ability_bonuses row per ability. Scores still can't go above 20; AbilityView
     applies the cap.
 
-    It has its own form (app/abilities/router.py) rather than the option grid. For the
+    It has its own editor (app/abilities/) rather than the option grid. For the
     generic code, each way of splitting the increases is one option, keyed like "INT2.CON1"."""
 
     pick = CharacterAbilityBonus

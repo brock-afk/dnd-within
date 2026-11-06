@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import case, delete, select
 from sqlalchemy.orm import Session
 
+from app.abilities.queries import AbilityView, ability_views
 from app.abilities.rules import ABILITIES, modifier
-from app.abilities.service import AbilityView, ability_views
 from app.characters.models import Character
 from app.content.queries import available
 from app.features.kinds import source_name

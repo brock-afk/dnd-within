@@ -4,8 +4,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.abilities.rules import modifier
-from app.abilities.service import ability_views
+from app.abilities.queries import constitution_modifier
 from app.characters.models import Character
 from app.classes.models import CharacterClass
 from app.leveling.rules import MAX_LEVEL, die_result, fixed_hp, level_hp
@@ -40,15 +39,6 @@ class HitPoints:
             f"{'+' if lv.con_mod >= 0 else '−'}{abs(lv.con_mod)} CON = {lv.hp}"
             for lv in self.levels
         )
-
-
-def constitution_modifier(db: Session, character: Character) -> int | None:
-    """Uses the final score (base + bonuses), or None if scores aren't set yet."""
-    abilities = ability_views(db, character)
-    if abilities is None:
-        return None
-    con = next(a for a in abilities if a.abbr == "CON")
-    return modifier(con.total)
 
 
 def hit_points(db: Session, character: Character) -> HitPoints | None:

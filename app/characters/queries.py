@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.abilities.service import AbilityView, ability_views
+from app.abilities.queries import AbilityView, ability_views
 from app.auth.models import User
 from app.characters.models import Character
 from app.characters.origins import Origin

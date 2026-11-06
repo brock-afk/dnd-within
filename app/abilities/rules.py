@@ -36,22 +36,6 @@ def modifier(score: int) -> int:
     return (score - 10) // 2
 
 
-def _to_int(value: str | None) -> int | None:
-    value = (value or "").strip()
-    return int(value) if value.lstrip("-").isdigit() else None
-
-
-def parse_scores(raw: dict[str, str]) -> dict[str, int | None]:
-    """Form strings to ints, keyed by column. Blank or non-numeric becomes None."""
-    return {a.column: _to_int(raw.get(a.column)) for a in ABILITIES}
-
-
-def parse_rolls(raw: list[str]) -> list[int | None]:
-    """The six rolled numbers for manual entry, padded to six."""
-    rolls = [_to_int(r) for r in raw[:6]]
-    return rolls + [None] * (6 - len(rolls))
-
-
 def point_buy_cost(score: int | None) -> int:
     return POINT_BUY_COSTS.get(score, 0)
 

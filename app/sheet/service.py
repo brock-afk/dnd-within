@@ -12,7 +12,7 @@ from app.characters.models import Character
 from app.content.queries import available
 from app.features.kinds import source_name
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature, FeatureSpell
-from app.features.service import FeatureGroup, PlayChoice, applicable_choice, feature_groups
+from app.features.queries import FeatureGroup, PlayChoice, applicable_choice, feature_groups
 from app.inventory.models import Item
 from app.leveling.queries import hit_points
 from app.sheet.models import (

@@ -16,8 +16,9 @@ from app.core.db import DbSession
 from app.core.forms import parse_amount
 from app.core.templates import morph_in_place, templates
 from app.features.kinds import KINDS
-from app.features.service import (
+from app.features.queries import (
     always_prepared_error,
+    always_prepared_reasons,
     always_prepared_spells,
     applicable_choice,
     feature_groups,
@@ -418,11 +419,7 @@ def _render_prepared_editor(
             "character": character,
             "options": options,
             "selected": selected,
-            # A spell a feature keeps prepared anyway can't be picked: it would waste a pick.
-            "known": {
-                str(spell_id): f"Always prepared ({feature})"
-                for spell_id, feature in always_prepared_spells(db, character).items()
-            },
+            "known": always_prepared_reasons(db, character),
             "limit": prepared_limit(character),
             "filter_schools": sorted({o.school for o in options}),
             "error": error,

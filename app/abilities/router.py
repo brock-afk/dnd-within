@@ -9,7 +9,12 @@ from fastapi.responses import HTMLResponse
 from app.abilities import page, service
 from app.abilities.dependencies import IncreaseChoice
 from app.abilities.form import AbilityForm, IncreaseForm
-from app.abilities.queries import ability_editor_view, increase_view, saved_editor_view
+from app.abilities.queries import (
+    ability_editor_view,
+    increase_view,
+    saved_editor_view,
+    saved_increase_view,
+)
 from app.auth.dependencies import CurrentUser
 from app.characters import page as characters_page
 from app.characters.dependencies import OwnedCharacter
@@ -50,6 +55,13 @@ def save_abilities(
         )
         return page.ability_editor(request, view)
     return characters_page.refresh_build(request, refreshed_build_view(db, user, character))
+
+
+@router.get("/characters/{character_id}/ability-increases/{choice_id}", response_class=HTMLResponse)
+def increase_editor(
+    request: Request, db: DbSession, character: OwnedCharacter, choice: IncreaseChoice
+):
+    return page.increase_editor(request, saved_increase_view(db, character, choice))
 
 
 @router.post(

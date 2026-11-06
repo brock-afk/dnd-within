@@ -6,7 +6,8 @@ from sqlalchemy import delete, select
 
 from app.features.kinds import KINDS
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption
-from app.features.service import feature_groups, remove_inapplicable_picks
+from app.features.queries import feature_groups
+from app.features.service import remove_inapplicable_picks
 from app.leveling.service import level_down
 from app.sheet.models import CharacterAcEffect
 from app.sheet.service import ac_spells, castable_spells, spell_slots

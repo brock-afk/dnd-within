@@ -14,7 +14,7 @@ from app.characters.models import Character
 from app.classes.models import CharacterClass
 from app.features.kinds import owner_level
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
-from app.features.service import FeatureGroup, feature_groups
+from app.features.queries import FeatureGroup, feature_groups
 from app.sheet.models import (
     CharacterAcEffect,
     CharacterFeatureUse,

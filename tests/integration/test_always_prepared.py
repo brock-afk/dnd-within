@@ -4,10 +4,9 @@ prepared again: that would waste a pick."""
 import pytest
 from sqlalchemy import select
 
-from app.classes.models import CharacterClass
 from app.content.models import Source
 from app.features.kinds import KINDS
-from app.features.models import Choice, Feature, FeatureSpell
+from app.features.models import Feature, FeatureSpell
 from app.inventory.models import CharacterItem, Item
 from app.sheet.models import CharacterPreparedSpell
 from app.spells.models import Spell, SpellbookEntry
@@ -39,18 +38,8 @@ def find_familiar(db, character) -> Spell:
     return spell
 
 
-def _spellbook_choice(db) -> Choice:
-    """The Wizard's level 1 spellbook choice."""
-    return db.scalar(
-        select(Choice)
-        .join(Feature, Feature.id == Choice.feature_id)
-        .join(CharacterClass, CharacterClass.id == Feature.class_id)
-        .where(CharacterClass.slug == "wizard", Choice.slug == "spellbook")
-    )
-
-
-def test_level_up_spellbook_choice_blocks_it(db, client, character, find_familiar):
-    choice = _spellbook_choice(db)
+def test_level_up_spellbook_choice_blocks_it(db, client, character, find_familiar, wizard_choice):
+    choice = wizard_choice("spellbook")
     url = f"/characters/{character.id}/choices/{choice.id}"
     assert KNOWN in client.get(url).text
 

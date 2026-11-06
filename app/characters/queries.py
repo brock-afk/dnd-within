@@ -13,7 +13,7 @@ from app.characters.origins import Origin
 from app.classes.models import CharacterClass
 from app.content.queries import available_by_name
 from app.features.kinds import OptionView
-from app.features.service import ChoiceView, FeatureGroup, feature_groups
+from app.features.queries import ChoiceView, FeatureGroup, feature_groups
 from app.leveling.queries import HitPoints, hit_points
 from app.sheet.service import spell_warnings
 from app.skills.models import CharacterSkill

@@ -7,6 +7,7 @@ from sqlalchemy import delete, select
 from app.features.kinds import KINDS
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption
 from app.features.service import feature_groups, remove_inapplicable_picks
+from app.leveling.service import level_down
 from app.sheet.models import CharacterAcEffect
 from app.sheet.service import ac_spells, castable_spells, spell_slots
 from app.spells.models import Spell
@@ -45,9 +46,7 @@ def _save(db, character, *slugs: str, choice: str = "invocations") -> str | None
 
 def _lose_levels_to(db, character, level: int) -> None:
     while character.level > level:
-        character.levels.remove(character.levels[-1])
-    db.flush()
-    remove_inapplicable_picks(db, character)
+        assert level_down(db, character, str(character.level)) is None
     db.expire_all()
 
 

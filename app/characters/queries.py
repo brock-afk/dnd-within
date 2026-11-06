@@ -14,7 +14,7 @@ from app.classes.models import CharacterClass
 from app.content.queries import available_by_name
 from app.features.kinds import OptionView
 from app.features.service import ChoiceView, FeatureGroup, feature_groups
-from app.leveling.service import HitPoints, hit_points
+from app.leveling.queries import HitPoints, hit_points
 from app.sheet.service import spell_warnings
 from app.skills.models import CharacterSkill
 from app.skills.queries import character_skills, expertise_skill_ids

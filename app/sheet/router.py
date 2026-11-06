@@ -1,4 +1,3 @@
-import re
 from dataclasses import dataclass, replace
 from typing import Annotated
 
@@ -13,6 +12,7 @@ from app.characters.dependencies import OwnedCharacter
 from app.characters.models import Character
 from app.content.queries import available
 from app.core.db import DbSession
+from app.core.forms import parse_amount
 from app.core.templates import morph_in_place, templates
 from app.features.kinds import KINDS
 from app.features.service import (
@@ -33,7 +33,7 @@ from app.inventory.service import (
     item_features,
 )
 from app.inventory.service import digest as inventory_digest
-from app.leveling.service import constitution_modifier
+from app.leveling.queries import constitution_modifier
 from app.sharing.service import public_share
 from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
 from app.sheet.rests import (
@@ -196,15 +196,6 @@ def refresh_sheet(
     return morph_in_place(response, SHEET_SELECTOR)
 
 
-def _amount(raw: str, low: int, high: int) -> int | None:
-    """A whole number in [low, high]. Accepts a leading "+", and "−" (the minus sign shown in
-    placeholders) as well as "-"."""
-    raw = raw.strip().replace("−", "-")
-    if re.fullmatch(r"[+-]?\d{1,4}", raw) and low <= int(raw) <= high:
-        return int(raw)
-    return None
-
-
 @router.get("/characters/{character_id}/sheet", response_class=HTMLResponse)
 def show_sheet(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
     return render_sheet(request, db, user, character)
@@ -224,7 +215,7 @@ def change_hp(
     skip_reactions: Annotated[str, Form()] = "",
 ):
     maximum = max_hp(db, character)
-    value = _amount(amount, 0, 999)
+    value = parse_amount(amount, 0, 999)
     if maximum is None or action not in ("damage", "heal") or value is None:
         errors = {"hp": "Enter a whole number from 0 to 999."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
@@ -249,7 +240,7 @@ def react_to_damage(
 ):
     """Use a damage reaction (Stone's Endurance, Storm's Thunder...), then take the damage."""
     maximum = max_hp(db, character)
-    value = _amount(amount, 1, 999)
+    value = parse_amount(amount, 1, 999)
     reactions = damage_reactions(feature_uses(db, character))
     reaction = next((r for r in reactions if str(r.option.id) == option_id), None)
     if maximum is None or value is None or reaction is None:
@@ -258,7 +249,7 @@ def react_to_damage(
 
     if reaction.kind == "reduce":
         low, high = reaction.die_count, reaction.die_count * reaction.die_sides
-        rolled = _amount(roll, low, high)
+        rolled = parse_amount(roll, low, high)
         if rolled is None:
             errors = {"reaction": f"Enter your {reaction.dice} roll, from {low} to {high}."}
             return refresh_sheet(
@@ -282,7 +273,7 @@ def change_temp_hp(
     amount: Annotated[str, Form()] = "",
     source: Annotated[str, Form()] = "",
 ):
-    value = _amount(amount, 0, 999)
+    value = parse_amount(amount, 0, 999)
     if value is None:
         errors = {"temp_hp": "Enter a whole number from 0 to 999."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
@@ -299,7 +290,7 @@ def add_hp_effect(
     label: Annotated[str, Form()] = "",
     delta: Annotated[str, Form()] = "",
 ):
-    value = _amount(delta, -999, 999)
+    value = parse_amount(delta, -999, 999)
     label = label.strip()[:80]
     if not label or not value:
         errors = {"effect": "Give the effect a name and a non-zero amount (e.g. Aid, +5)."}
@@ -371,14 +362,14 @@ def add_ac_effect(
     """By hand: Mage Armor base 13 (+ DEX), Shield of Faith bonus +2, Barkskin minimum 17."""
     label = label.strip()[:80]
     if kind == "base":
-        amount = _amount(value, 10, 30)
+        amount = parse_amount(value, 10, 30)
         problem = "a base AC from 10 to 30 (e.g. Mage Armor, 13)"
     elif kind == "minimum":
-        amount = _amount(value, 10, 30)
+        amount = parse_amount(value, 10, 30)
         problem = "a minimum AC from 10 to 30 (e.g. Barkskin, 17)"
     else:
         kind = "bonus"
-        amount = _amount(value, -20, 20)
+        amount = parse_amount(value, -20, 20)
         problem = "a non-zero bonus (e.g. Shield of Faith, +2)"
     if not label or not amount:
         errors = {"ac_effect": f"Give the effect a name and {problem}."}
@@ -527,7 +518,7 @@ def set_slots(
     remaining: Annotated[str, Form()] = "",
 ):
     slot = spell_slots(db, character).get(level)
-    value = _amount(remaining, 0, slot.maximum) if slot else None
+    value = parse_amount(remaining, 0, slot.maximum) if slot else None
     if value is None:
         errors = {"slots": "That isn't a valid number of slots."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
@@ -592,7 +583,7 @@ def _spend_slot(db, character, spell_key: str, slot_level: str) -> tuple[Spell |
         None,
     )
     slots = spell_slots(db, character)
-    level = _amount(slot_level, 1, 9)
+    level = parse_amount(slot_level, 1, 9)
     if row is None:
         return None, "Only prepared spells of level 1 or higher are cast with a slot."
     if level is None or level < row.spell.level:
@@ -645,7 +636,7 @@ def set_uses(
     uses = next((u for u in feature_uses(db, character) if u.feature.id == feature_id), None)
     if uses is None or uses.rest_only:
         raise HTTPException(status_code=404)
-    value = _amount(remaining, 0, uses.maximum)
+    value = parse_amount(remaining, 0, uses.maximum)
     if value is None:
         errors = {"uses": "That isn't a valid number of uses."}
         return refresh_sheet(request, db, user, character, errors, status_code=400)
@@ -700,7 +691,7 @@ def short_rest_hit_die(
         error = "Set ability scores first: hit dice heal using Constitution."
     elif dice.available == 0:
         error = "You have no hit dice left. They come back on a long rest."
-    elif _amount(roll, 1, dice.die) is None:
+    elif parse_amount(roll, 1, dice.die) is None:
         error = f"Enter your d{dice.die} roll, from 1 to {dice.die}."
     if error:
         return refresh_sheet(
@@ -748,7 +739,7 @@ def short_rest_recover(
     counts, error = {}, None
     for level, slot in slots.items():
         raw = getattr(form, f"level_{level}").strip() or "0"
-        count = _amount(raw, 0, 99)
+        count = parse_amount(raw, 0, 99)
         if count is None:
             error = "Enter how many slots of each level to recover."
             break

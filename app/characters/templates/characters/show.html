@@ -229,7 +229,8 @@
       Undo the last level up. Its hit points and any choices made for features from that
       level are removed.
     </p>
-    <button type="button" class="danger-button" hx-post="/characters/{{ character.id }}/level-down">
+    <button type="button" class="danger-button" hx-post="/characters/{{ character.id }}/level-down"
+            hx-vals='{"level": "{{ character.level }}"}'>
       Remove level {{ character.level }}
     </button>
   </div>

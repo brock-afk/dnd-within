@@ -54,6 +54,16 @@ features:
     kind: expertise
     criteria:
       from: [arcana, history, investigation, medicine, nature, religion]
+- slug: test-increase
+  name: Test Increase
+  level: 2
+  summary: Test feature. A Constitution pick that a level-down removes, moving max HP.
+  sheet: none
+  choices:
+  - slug: test-increase
+    name: Test Increase
+    kind: ability_scores
+    criteria: {from: [STR, DEX, CON]}
 - slug: arcane-recovery
   name: Arcane Recovery
   uses: {max: 1, recharge: long_rest}

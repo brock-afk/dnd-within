@@ -4,49 +4,19 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
 
 from app.auth.dependencies import CurrentUser
+from app.characters import page as characters_page
 from app.characters.dependencies import OwnedCharacter
-from app.characters.models import Character
-from app.characters.page import refresh_build
 from app.characters.queries import refreshed_build_view
 from app.core.db import DbSession
-from app.core.templates import templates
-from app.features.service import remove_inapplicable_picks
-from app.leveling.models import CharacterLevel
-from app.leveling.rules import MAX_LEVEL, fixed_hp, level_hp
-from app.leveling.service import constitution_modifier
-from app.sheet.service import max_hp, track_max_change
+from app.leveling import page, service
+from app.leveling.queries import level_up_view
 
 router = APIRouter(tags=["leveling"])
 
 
-def _render_panel(request, db, character: Character, roll: str = "", error=None, status_code=200):
-    # Single class until multiclassing: every level goes to the starting class.
-    starting = character.classes[0]
-    die = starting.character_class.hit_die
-    con_mod = constitution_modifier(db, character)
-    fixed = fixed_hp(die)
-    return templates.TemplateResponse(
-        request,
-        "leveling/partials/level_up.html",
-        {
-            "character": character,
-            "class_name": starting.character_class.name,
-            "next_level": character.level + 1,
-            "at_max": character.level >= MAX_LEVEL,
-            "hit_die": die,
-            "con_mod": con_mod,
-            "fixed": fixed,
-            "fixed_gain": level_hp(fixed, con_mod) if con_mod is not None else None,
-            "roll": roll,
-            "error": error,
-        },
-        status_code=status_code,
-    )
-
-
 @router.get("/characters/{character_id}/level-up", response_class=HTMLResponse)
 def level_up_panel(request: Request, db: DbSession, character: OwnedCharacter):
-    return _render_panel(request, db, character)
+    return page.level_up_panel(request, level_up_view(db, character))
 
 
 @router.post("/characters/{character_id}/level-up")
@@ -55,46 +25,25 @@ def level_up(
     db: DbSession,
     user: CurrentUser,
     character: OwnedCharacter,
+    level: Annotated[str, Form()] = "",  # the level the page showed
     hp_method: Annotated[str, Form()] = "",
     hp_roll: Annotated[str, Form()] = "",
 ):
-    starting = character.classes[0]
-    die = starting.character_class.hit_die
-    roll = hp_roll.strip()
-
-    error = None
-    if character.level >= MAX_LEVEL:
-        error = f"Level {MAX_LEVEL} is the maximum."
-    elif constitution_modifier(db, character) is None:
-        error = "Set ability scores first: hit points depend on Constitution."
-    elif hp_method not in ("fixed", "rolled"):
-        error = "Choose the fixed value or enter a roll."
-    elif hp_method == "rolled" and not (roll.isdigit() and 1 <= int(roll) <= die):
-        error = f"Enter your d{die} roll, from 1 to {die}."
-    if error:
-        return _render_panel(request, db, character, roll, error, status_code=400)
-
-    old_max = max_hp(db, character)
-    character.levels.append(
-        CharacterLevel(
-            character_level=character.level + 1,
-            class_id=starting.class_id,
-            hp_method=hp_method,
-            hp_roll=int(roll) if hp_method == "rolled" else None,
-        )
-    )
-    track_max_change(db, character, old_max, heal=True)  # current HP rises with the max
-    return refresh_build(request, refreshed_build_view(db, user, character))
+    if error := service.level_up(db, character, level, hp_method, hp_roll):
+        view = level_up_view(db, character, hp_roll.strip())
+        return page.level_up_panel(request, view, error)
+    return characters_page.refresh_build(request, refreshed_build_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/level-down")
-def level_down(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
-    if character.level <= 1:
-        return HTMLResponse("Level 1 can't be removed.", status_code=400)
-    old_max = max_hp(db, character)
-    character.levels.remove(character.levels[-1])
-    db.flush()
-    track_max_change(db, character, old_max, heal=False)  # current HP is capped at the new max
-    # Features from the removed level are gone, so their picks go too.
-    remove_inapplicable_picks(db, character)
-    return refresh_build(request, refreshed_build_view(db, user, character))
+def level_down(
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    level: Annotated[str, Form()] = "",  # the level the page showed
+):
+    # Every error means the page was stale (the button only shows above level 1), and the
+    # refreshed page shows the real level.
+    service.level_down(db, character, level)
+    return characters_page.refresh_build(request, refreshed_build_view(db, user, character))

@@ -10,7 +10,7 @@ from app.content import loader
 from app.content.importer import import_pack
 from app.features.kinds import source_name
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
-from app.features.service import feature_groups
+from app.features.queries import feature_groups
 from app.leveling.models import CharacterLevel
 from app.sheet.rests import feature_uses
 from app.sheet.service import attributes, castable_spells

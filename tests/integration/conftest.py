@@ -107,6 +107,21 @@ def wanderer(db) -> Background:
 
 
 @pytest.fixture
+def wizard_choice(db):
+    """wizard_choice(slug): one of the fixture pack's Wizard choices, e.g. "skills"."""
+
+    def wizard_choice(slug: str) -> Choice:
+        return db.scalar(
+            select(Choice)
+            .join(Feature, Feature.id == Choice.feature_id)
+            .join(CharacterClass, CharacterClass.id == Feature.class_id)
+            .where(CharacterClass.slug == "wizard", Choice.slug == slug)
+        )
+
+    return wizard_choice
+
+
+@pytest.fixture
 def increase(db, character, wanderer) -> Choice:
     """The test character as a Test Wanderer: its ability score increase choice."""
     choose_origin(db, character, BACKGROUND, str(wanderer.id))

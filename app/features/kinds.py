@@ -16,6 +16,7 @@ from app.backgrounds.models import Background
 from app.characters.models import Character
 from app.classes.models import CharacterClass, CharacterClassLevel, Subclass
 from app.content.queries import available
+from app.core.forms import parse_id
 from app.feats.models import Feat
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.inventory.models import Item
@@ -61,6 +62,16 @@ def choice_count(choice: Choice, level: int) -> int:
     return choice.count_by_level[level - 1] if choice.count_by_level else choice.count
 
 
+def current_count(db: Session, character: Character, choice: Choice) -> int:
+    """How many to pick now; a growing choice (invocations) counts by the owner's level."""
+    return choice_count(choice, owner_level(db, character, choice.feature))
+
+
+def _ids(keys: list[str]) -> list[int]:
+    """The row ids among submitted keys; a key that isn't one matches no option."""
+    return [i for i in map(parse_id, keys) if i is not None]
+
+
 def source_name(db: Session, feature: Feature) -> str:
     """What a feature belongs to, as the player knows it: "Wizard", "Goliath", "Familiar
     Trainer", "Transmuter" or "Familiar Friend". A picked option's feature belongs to whatever
@@ -103,6 +114,9 @@ class ChoiceKind:
     known_label = "Already known"
     known_from: str | None = "Known from"
     noun = ("option", "options")  # for counts like "31 spells"
+    editor = "choices"  # the path segment of the form that makes the choice
+    # A spell a feature keeps always prepared can't be picked: it would waste the pick.
+    blocks_always_prepared = False
 
     def pick_values(self, choice: Choice) -> dict:
         """Extra columns to set on each new pick row."""
@@ -128,8 +142,10 @@ class ChoiceKind:
         return [self.view(obj) for obj in db.scalars(query)]
 
     def save(self, db: Session, choice: Choice, character_id: int, keys: list[str]) -> str | None:
-        """Replace this choice's picks. Returns an error message instead if they aren't valid."""
-        ids = [int(k) for k in keys if k.isdigit()]
+        """Replace this choice's picks. Returns an error message instead if they aren't valid.
+        Overrides finish every check before their first write: save_choice and save_increase
+        rely on an error meaning nothing changed."""
+        ids = _ids(keys)
         query = self.options_query(choice, db.get(Character, character_id))
         targets = db.scalars(query.where(self.target.id.in_(ids))).all()
         if len(targets) != len(keys):
@@ -339,7 +355,7 @@ class ExpertiseKind(SkillKind):
 
     def save(self, db, choice, character_id, keys):
         proficient = self._proficient(db, character_id)
-        ids = [int(k) for k in keys if k.isdigit()]
+        ids = _ids(keys)
         lacking = db.scalars(
             select(Skill.name).where(Skill.id.in_(ids), Skill.id.not_in(proficient))
         ).all()
@@ -382,6 +398,7 @@ class SpellKind(ChoiceKind):
 
     target, pick, target_fk = Spell, CharacterSpell, "spell_id"
     noun = ("spell", "spells")
+    blocks_always_prepared = True
 
     def options_query(self, choice, character):
         criteria = choice.criteria
@@ -478,7 +495,7 @@ class SubclassKind(ChoiceKind):
         return [self.view(db.get(Subclass, row.subclass_id))]
 
     def save(self, db, choice, character_id, keys):
-        ids = [int(k) for k in keys if k.isdigit()]
+        ids = _ids(keys)
         query = self.options_query(choice, db.get(Character, character_id))
         subclass = db.scalar(query.where(Subclass.id.in_(ids)))
         row = self._class_row(db, choice.feature.class_id, character_id)
@@ -522,6 +539,7 @@ class AbilityScoresKind(ChoiceKind):
 
     pick = CharacterAbilityBonus
     noun = ("split", "splits")
+    editor = "ability-increases"
 
     def split(self, choice: Choice, plus2: str, plus1: str, even: bool) -> dict[str, int] | None:
         """{ability: amount} for +2/+1 (or +1 to each with `even`), or None if that isn't a

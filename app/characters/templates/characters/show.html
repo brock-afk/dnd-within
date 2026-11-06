@@ -5,11 +5,11 @@
 {% from "partials/page_tabs.html" import page_tabs %}
 {% from "partials/section.html" import section %}
 
-{% macro choose_button(choice, label) %}
+{% macro choose_button(cv, label) %}
 {% if not read_only %}
 <button type="button" class="{{ 'link-button' if label == 'Change' }}"
-        hx-get="/characters/{{ character.id }}/choices/{{ choice.id }}"
-        hx-target="#choice-{{ choice.id }}">{{ label }}</button>
+        hx-get="{{ cv.url }}"
+        hx-target="#choice-{{ cv.choice.id }}">{{ label }}</button>
 {% endif %}
 {% endmacro %}
 
@@ -47,7 +47,7 @@
         {% if cv.choice.in_play %}
         <span class="muted">· changed on the Play sheet</span>
         {% else %}
-        {{ choose_button(cv.choice, "Change") }}
+        {{ choose_button(cv, "Change") }}
         {% endif %}
         {% if cv.choice.kind in ("option", "subclass") %}
         {% if cv.picked | length == 1 %}
@@ -73,7 +73,7 @@
           <div class="feature-choice" id="choice-{{ cv.choice.id }}">
             <span>{{ cv.choice.name }}:
               {% for o in cv.picked %}<strong title="{{ o.detail }}">{{ o.name }}</strong>{{ ", " if not loop.last }}{% endfor %}</span>
-            {{ choose_button(cv.choice, "Change") }}
+            {{ choose_button(cv, "Change") }}
           </div>
           {% endfor %}
         </div>
@@ -150,7 +150,7 @@
         <span class="character-name">{{ cv.choice.name }}</span>
         <span class="muted">{% if cv.level_label %}· {{ cv.level_label }} {% endif %}· choose {{ cv.count }}</span>
       </div>
-      {{ choose_button(cv.choice, "Choose") }}
+      {{ choose_button(cv, "Choose") }}
     </li>
     {% endfor %}
   </ul>

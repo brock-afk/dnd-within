@@ -122,10 +122,11 @@ def test_editing_scores_through_the_app(client, db, character):
 
 
 def test_an_increase_through_the_app(client, db, character, increase):
-    response = client.get(f"/characters/{character.id}/choices/{increase.id}")
+    url = f"/characters/{character.id}/ability-increases/{increase.id}"
+    assert f'hx-get="{url}"' in client.get(f"/characters/{character.id}").text  # its Choose button
+    response = client.get(url)
     assert response.status_code == 200 and f"increase-editor-{increase.id}" in response.text
 
-    url = f"/characters/{character.id}/ability-increases/{increase.id}"
     clash = {"plus2": "CON", "plus1": "CON", "changed": "plus1"}
     assert client.post(f"{url}/preview", data=clash).status_code == 200
 

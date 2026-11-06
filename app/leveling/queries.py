@@ -1,0 +1,105 @@
+"""Hit points by level and the level-up panel's view model, loaded from the database."""
+
+from dataclasses import dataclass
+
+from sqlalchemy.orm import Session
+
+from app.abilities.rules import modifier
+from app.abilities.service import ability_views
+from app.characters.models import Character
+from app.classes.models import CharacterClass
+from app.leveling.rules import MAX_LEVEL, die_result, fixed_hp, level_hp
+
+
+@dataclass(frozen=True)
+class LevelHp:
+    character_level: int
+    class_name: str
+    hp_method: str
+    die: int
+    con_mod: int
+
+    @property
+    def hp(self) -> int:
+        return level_hp(self.die, self.con_mod)
+
+
+@dataclass(frozen=True)
+class HitPoints:
+    levels: list[LevelHp]
+
+    @property
+    def maximum(self) -> int:
+        return sum(level.hp for level in self.levels)
+
+    @property
+    def breakdown(self) -> str:
+        """e.g. "L1 Wizard: 6 (max) +2 CON = 8 · L2 Wizard: 4 (fixed) +2 CON = 6"."""
+        return " · ".join(
+            f"L{lv.character_level} {lv.class_name}: {lv.die} ({lv.hp_method}) "
+            f"{'+' if lv.con_mod >= 0 else '−'}{abs(lv.con_mod)} CON = {lv.hp}"
+            for lv in self.levels
+        )
+
+
+def constitution_modifier(db: Session, character: Character) -> int | None:
+    """Uses the final score (base + bonuses), or None if scores aren't set yet."""
+    abilities = ability_views(db, character)
+    if abilities is None:
+        return None
+    con = next(a for a in abilities if a.abbr == "CON")
+    return modifier(con.total)
+
+
+def hit_points(db: Session, character: Character) -> HitPoints | None:
+    """Max HP, or None until ability scores (and so Constitution) are set."""
+    con_mod = constitution_modifier(db, character)
+    if con_mod is None:
+        return None
+    return HitPoints(
+        [
+            LevelHp(
+                lv.character_level,
+                lv.character_class.name,
+                lv.hp_method,
+                die_result(lv.hp_method, lv.character_class.hit_die, lv.hp_roll),
+                con_mod,
+            )
+            for lv in character.levels
+        ]
+    )
+
+
+@dataclass(frozen=True)
+class LevelUpView:
+    character: Character
+    class_name: str
+    next_level: int
+    at_max: bool
+    hit_die: int
+    con_mod: int | None  # None until ability scores are set
+    fixed: int
+    fixed_gain: int | None
+    roll: str  # the roll entered, kept when it's sent back with an error
+
+
+def starting_class(character: Character) -> CharacterClass:
+    """The class a new level goes to: always the starting class, until multiclassing."""
+    return character.classes[0].character_class
+
+
+def level_up_view(db: Session, character: Character, roll: str = "") -> LevelUpView:
+    starting = starting_class(character)
+    con_mod = constitution_modifier(db, character)
+    fixed = fixed_hp(starting.hit_die)
+    return LevelUpView(
+        character=character,
+        class_name=starting.name,
+        next_level=character.level + 1,
+        at_max=character.level >= MAX_LEVEL,
+        hit_die=starting.hit_die,
+        con_mod=con_mod,
+        fixed=fixed,
+        fixed_gain=level_hp(fixed, con_mod) if con_mod is not None else None,
+        roll=roll,
+    )

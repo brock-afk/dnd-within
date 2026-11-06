@@ -512,9 +512,10 @@ class SubclassKind(ChoiceKind):
 
 
 class AbilityScoresKind(ChoiceKind):
-    """A background's ability score increases: +2 to one of criteria["from"] and +1 to
-    another, or +1 to all three. A pick is one character_ability_bonuses row per ability.
-    Scores still can't go above 20; AbilityView applies the cap.
+    """Ability score increases, as a background gives them (on any feature's choice): +2 to
+    one of criteria["from"] and +1 to another, or +1 to all three. A pick is one
+    character_ability_bonuses row per ability. Scores still can't go above 20; AbilityView
+    applies the cap.
 
     It has its own form (app/abilities/router.py) rather than the option grid. For the
     generic code, each way of splitting the increases is one option, keyed like "INT2.CON1"."""

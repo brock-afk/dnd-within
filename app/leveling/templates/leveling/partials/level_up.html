@@ -11,6 +11,7 @@
   {% else %}
   <form hx-post="/characters/{{ character.id }}/level-up" hx-target="#level-up-panel" hx-swap="outerHTML"
         novalidate class="level-up-form">
+    <input type="hidden" name="level" value="{{ character.level }}">
     <h3 class="section-title">Level {{ next_level }} {{ class_name }}</h3>
     <p class="muted">Hit points: d{{ hit_die }} {{ signed(con_mod) }} CON. Take the fixed value or roll.</p>
 

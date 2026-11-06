@@ -14,7 +14,7 @@ from app.features.kinds import source_name
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.service import FeatureGroup, PlayChoice, applicable_choice, feature_groups
 from app.inventory.models import Item
-from app.leveling.service import hit_points
+from app.leveling.queries import hit_points
 from app.sheet.models import (
     CharacterAcEffect,
     CharacterHpEffect,

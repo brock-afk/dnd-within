@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.forms import parse_id
+from app.core.forms import parse_amount, parse_id
 
 
 @pytest.mark.parametrize("raw, expected", [("1", 1), ("0042", 42), ("9" * 18, int("9" * 18))])
@@ -11,3 +11,13 @@ def test_parse_id_reads_ascii_digits(raw, expected):
 @pytest.mark.parametrize("raw", ["", "abc", "-1", "1.5", " 1", "²", "٣", "1" * 19])
 def test_parse_id_rejects_anything_else(raw):
     assert parse_id(raw) is None
+
+
+@pytest.mark.parametrize("raw, expected", [("3", 3), (" 3 ", 3), ("+3", 3), ("-3", -3), ("−3", -3)])
+def test_parse_amount_reads_signed_numbers(raw, expected):
+    assert parse_amount(raw, -5, 5) == expected
+
+
+@pytest.mark.parametrize("raw", ["", "abc", "²", "٣", "３", "1.5", "12345", "6", "-6"])
+def test_parse_amount_rejects_anything_else(raw):
+    assert parse_amount(raw, -5, 5) is None

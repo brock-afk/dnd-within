@@ -12,7 +12,9 @@ from app.features.queries import applicable_choice
 def get_applicable_choice(choice_id: int, db: DbSession, character: OwnedCharacter) -> Choice:
     """A choice the character has: its feature applies at their level."""
     choice = applicable_choice(db, character, choice_id)
-    if choice is None:
+    # Not in applicable_choice: remove_inapplicable_picks uses it, and picks made before a
+    # choice was retired are kept. Retired ones just can't be opened or changed.
+    if choice is None or choice.retired_at or choice.feature.retired_at:
         raise HTTPException(status_code=404)
     return choice
 

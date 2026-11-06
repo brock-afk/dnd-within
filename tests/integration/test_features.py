@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 from sqlalchemy import select
 
@@ -74,3 +76,27 @@ def test_choosing_through_the_app(client, db, character, skills):
     response = client.post(url, data={"picks": [_key(db, "arcana"), _key(db, "history")]})
     assert response.headers["HX-Retarget"] == "#character-page"
     assert _picked(db, skills, character) == ["Arcana", "History"]
+
+
+@pytest.mark.parametrize("retired", ["choice", "feature"])
+def test_a_retired_choice_cant_be_opened_or_changed(client, db, character, skills, retired):
+    keys = [_key(db, "arcana"), _key(db, "history")]
+    service.save_choice(db, character, skills, keys)
+    (skills if retired == "choice" else skills.feature).retired_at = datetime.now()
+    db.commit()  # a 404 rolls the request back; committing keeps the setup (see `theirs`)
+    url = f"/characters/{character.id}/choices/{skills.id}"
+
+    assert client.get(url).status_code == 404
+    assert client.post(url, data={"picks": keys}).status_code == 404
+
+    service.remove_inapplicable_picks(db, character)
+    assert _picked(db, skills, character) == ["Arcana", "History"]  # picks made before stay
+
+
+def test_a_retired_increase_cant_be_opened_or_changed(client, db, character, increase):
+    increase.retired_at = datetime.now()
+    db.commit()  # a 404 rolls the request back; committing keeps the setup (see `theirs`)
+    url = f"/characters/{character.id}/ability-increases/{increase.id}"
+
+    assert client.get(url).status_code == 404
+    assert client.post(url, data={"plus2": "CON", "plus1": "STR"}).status_code == 404

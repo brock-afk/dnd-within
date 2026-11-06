@@ -35,6 +35,7 @@ def save_increase(
     if split is None:
         return "Choose where the +2 and the +1 go."
     with tracking_max_hp(db, character, heal=True):
-        kind.save(db, choice, character.id, [kind.key(split)])
+        if error := kind.save(db, choice, character.id, [kind.key(split)]):
+            return error
         remove_inapplicable_picks(db, character)
     return None

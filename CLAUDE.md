@@ -61,6 +61,7 @@ scripts/restore-drill.sh              # server: restore the newest blob into a s
 - UI, template or htmx changes: check them in the running app (`/run`).
 - Before committing: `/simplify`, then `/code-review` on the diff (`high` for rules, importer, migrations).
 - Changes to `auth/`, `sharing/`, `homebrew/` or anything public-facing: `/security-review`.
+- Comments and docstrings say only why: the PHB rule followed, a constraint, a trade-off, or a gotcha the code can't show. Never describe what the code does or which callers rely on it; that goes stale as soon as the behaviour changes. If there's no why, write no comment.
 
 ## Architecture
 
@@ -69,7 +70,7 @@ scripts/restore-drill.sh              # server: restore the newest blob into a s
 - `models.py`: SQLAlchemy tables
 - `router.py`: routes, registered in `app/main.py`
 - `service.py` / `queries.py`: DB-backed logic and view dataclasses
-- `rules.py`: pure 2024 PHB rule math with no DB access, documented in docstrings
+- `rules.py`: pure 2024 PHB rule math with no DB access; docstrings cite the PHB rule each function follows
 - `templates/<domain>/`: Jinja templates, referenced as `"<domain>/x.html"`
 
 `app/core/` (config, db, templates) must never import from domains. `app/models.py` imports every domain's models so `Base.metadata` is complete. Alembic and the app both rely on it, so **any new models module must be added there**.

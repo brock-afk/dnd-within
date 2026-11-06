@@ -11,11 +11,14 @@ from starlette.testclient import TestClient
 
 from app.auth.models import User
 from app.auth.security import hash_password
+from app.backgrounds.models import Background
 from app.characters.models import Character
+from app.characters.origins import BACKGROUND
+from app.characters.service import choose_origin
 from app.classes.models import CharacterClass, CharacterClassLevel
 from app.content.importer import import_packs
 from app.core.db import SessionLocal, engine, get_db
-from app.features.models import CharacterChoicePick, ChoiceOption
+from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.leveling.models import CharacterLevel
 from app.main import app
 from app.species.models import Species
@@ -95,6 +98,19 @@ def theirs(db, character, other_user) -> Character:
     db.add(theirs)
     db.commit()
     return theirs
+
+
+@pytest.fixture
+def wanderer(db) -> Background:
+    """The fixture pack's background with only an ability score increase (STR, DEX, CON)."""
+    return db.scalar(select(Background).where(Background.slug == "test-wanderer"))
+
+
+@pytest.fixture
+def increase(db, character, wanderer) -> Choice:
+    """The test character as a Test Wanderer: its ability score increase choice."""
+    choose_origin(db, character, BACKGROUND, str(wanderer.id))
+    return db.scalar(select(Choice).join(Feature).where(Feature.background_id == wanderer.id))
 
 
 @pytest.fixture

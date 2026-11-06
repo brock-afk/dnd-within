@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy import delete, select
 
+from app.abilities.queries import constitution_modifier
 from app.auth.dependencies import CurrentUser
 from app.auth.models import User
 from app.characters.dependencies import OwnedCharacter
@@ -33,7 +34,6 @@ from app.inventory.service import (
     item_features,
 )
 from app.inventory.service import digest as inventory_digest
-from app.leveling.queries import constitution_modifier
 from app.sharing.service import public_share
 from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
 from app.sheet.rests import (

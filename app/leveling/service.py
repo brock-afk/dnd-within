@@ -3,11 +3,12 @@ or None once it's done. They flush, never commit."""
 
 from sqlalchemy.orm import Session
 
+from app.abilities.queries import constitution_modifier
 from app.characters.models import Character
 from app.core.forms import parse_amount, parse_id
 from app.features.service import remove_inapplicable_picks
 from app.leveling.models import CharacterLevel
-from app.leveling.queries import constitution_modifier, starting_class
+from app.leveling.queries import starting_class
 from app.leveling.rules import MAX_LEVEL
 from app.sheet.service import tracking_max_hp
 

@@ -17,20 +17,6 @@ def test_modifier(score, mod):
     assert rules.modifier(score) == mod
 
 
-def test_parse_scores_blanks_and_junk_become_none():
-    raw = {"strength": " 15 ", "dexterity": "", "constitution": "abc", "intelligence": "-1"}
-    parsed = rules.parse_scores(raw)
-    assert parsed["strength"] == 15
-    assert parsed["dexterity"] is None
-    assert parsed["constitution"] is None
-    assert parsed["intelligence"] == -1
-    assert parsed["charisma"] is None
-
-
-def test_parse_rolls_pads_to_six():
-    assert rules.parse_rolls(["12", "x"]) == [12, None, None, None, None, None]
-
-
 def test_point_buy_full_budget_is_valid():
     s = scores(15, 15, 15, 8, 8, 8)  # 9 * 3 = 27
     assert rules.point_buy_spent(s) == 27

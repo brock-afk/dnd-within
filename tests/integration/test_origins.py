@@ -8,13 +8,8 @@ from app.characters.origins import BACKGROUND, SPECIES
 from app.characters.queries import origin_form_view
 from app.characters.service import choose_origin
 from app.features.kinds import KINDS
-from app.features.models import CharacterChoicePick, Choice, Feature
+from app.features.models import CharacterChoicePick
 from app.species.models import Species
-
-
-@pytest.fixture
-def wanderer(db) -> Background:
-    return db.scalar(select(Background).where(Background.slug == "test-wanderer"))
 
 
 def _picks(db, character) -> list[CharacterChoicePick]:
@@ -22,10 +17,8 @@ def _picks(db, character) -> list[CharacterChoicePick]:
     return list(db.scalars(query))
 
 
-def test_switching_backgrounds_drops_the_old_ones_picks(db, character, wanderer):
+def test_switching_backgrounds_drops_the_old_ones_picks(db, character, increase):
     scholar = db.scalar(select(Background).where(Background.slug == "test-scholar"))
-    choose_origin(db, character, BACKGROUND, str(wanderer.id))
-    increase = db.scalar(select(Choice).join(Feature).where(Feature.background_id == wanderer.id))
     kind = KINDS["ability_scores"]
     assert kind.save(db, increase, character.id, ["STR2.DEX1"]) is None
 

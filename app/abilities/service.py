@@ -1,57 +1,40 @@
-from collections import defaultdict
-from dataclasses import dataclass
+"""Saving ability scores and ability score increases. Each operation returns its errors with
+nothing changed, or none once it's done. They flush, never commit."""
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.abilities.models import CharacterAbilityBonus
-from app.abilities.rules import ABILITIES, MAX_SCORE, modifier
+from app.abilities.form import AbilityForm, IncreaseForm
+from app.abilities.rules import validate
 from app.characters.models import Character
+from app.features.kinds import KINDS
+from app.features.models import Choice
+from app.features.service import remove_inapplicable_picks
+from app.sheet.service import tracking_max_hp
 
 
-@dataclass(frozen=True)
-class AbilityView:
-    abbr: str
-    name: str
-    base: int
-    bonus: int
-
-    @property
-    def total(self) -> int:
-        return min(self.base + self.bonus, MAX_SCORE)
-
-    @property
-    def mod(self) -> int:
-        return modifier(self.total)
-
-    @property
-    def modifier(self) -> str:
-        return f"+{self.mod}" if self.mod >= 0 else f"−{-self.mod}"
+def save_scores(db: Session, character: Character, form: AbilityForm) -> dict[str, str]:
+    """{field: problem}, keyed like rules.validate, or {} once saved. A Constitution change
+    moves max HP: an increase raises current HP too, a decrease caps it."""
+    scores = form.scores()
+    if errors := validate(form.method, scores, form.roll_values()):
+        return errors
+    with tracking_max_hp(db, character, heal=True):
+        character.ability_method = form.method
+        for column, score in scores.items():
+            setattr(character, column, score)
+    return {}
 
 
-def bonus_totals(
-    db: Session, character: Character, except_choice_id: int | None = None
-) -> dict[str, int]:
-    """{ability: total bonus} from every choice, or every choice but one (to show scores
-    before that choice's increases)."""
-    query = select(CharacterAbilityBonus).where(CharacterAbilityBonus.character_id == character.id)
-    if except_choice_id is not None:
-        query = query.where(CharacterAbilityBonus.choice_id != except_choice_id)
-    bonuses: dict[str, int] = defaultdict(int)
-    for row in db.scalars(query):
-        bonuses[row.ability] += row.amount
-    return bonuses
-
-
-def ability_views(
-    db: Session, character: Character, except_choice_id: int | None = None
-) -> list[AbilityView] | None:
-    """Final scores for display, or None if the character hasn't set them yet. With
-    `except_choice_id`, leaves out that choice's bonuses."""
-    if character.ability_method is None:
-        return None
-    bonuses = bonus_totals(db, character, except_choice_id)
-    return [
-        AbilityView(a.abbr, a.name, getattr(character, a.column), bonuses[a.abbr])
-        for a in ABILITIES
-    ]
+def save_increase(
+    db: Session, character: Character, choice: Choice, form: IncreaseForm
+) -> str | None:
+    """Save the +2/+1 (or +1 each) split. A Constitution increase raises max HP, and current
+    HP with it."""
+    kind = KINDS["ability_scores"]
+    split = kind.split(choice, form.plus2, form.plus1, form.split == "even")
+    if split is None:
+        return "Choose where the +2 and the +1 go."
+    with tracking_max_hp(db, character, heal=True):
+        kind.save(db, choice, character.id, [kind.key(split)])
+        remove_inapplicable_picks(db, character)
+    return None

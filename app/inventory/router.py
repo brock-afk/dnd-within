@@ -14,14 +14,11 @@ from app.core.db import DbSession
 from app.core.templates import templates
 from app.features.service import remove_inapplicable_picks
 from app.inventory.models import CharacterItem, Item
-from app.inventory.rules import gain, spend
-from app.inventory.service import (
+from app.inventory.queries import (
     COINS,
     MAX_COINS,
     SEARCH_MIN_LENGTH,
     ac_scrolls,
-    add_item,
-    change_quantity,
     character_item,
     coin_summary,
     coin_values,
@@ -30,13 +27,13 @@ from app.inventory.service import (
     pack_contents,
     scroll_spells,
     search_items,
-    set_attuned,
-    set_coins,
-    use_one,
 )
-from app.sheet.router import refresh_sheet
+from app.inventory.rules import gain, spend
+from app.inventory.service import add_item, change_quantity, set_attuned, set_coins, use_one
+from app.sheet import page as sheet_page
+from app.sheet.queries import active_ac_spell_ids, max_hp, refreshed_sheet_view
 from app.sheet.rules import current_hp, heal, roll_detail, set_temp_hp
-from app.sheet.service import active_ac_spell_ids, apply_ac_spell, max_hp, play_state
+from app.sheet.service import apply_ac_spell, play_state
 from app.spells.models import Spell
 
 router = APIRouter(tags=["inventory"])
@@ -146,7 +143,7 @@ def add(
         return _render_confirm(
             request, db, character, item, q, quantity, spell_id, error, status_code=400
         )
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 def _row(db: Session, character: Character, row_id: int) -> CharacterItem:
@@ -168,7 +165,7 @@ def quantity(
     if delta not in ("1", "-1"):
         raise HTTPException(status_code=400)
     change_quantity(db, _row(db, character, row_id), int(delta))
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post(BASE + "/{row_id}/use", response_class=HTMLResponse)
@@ -176,11 +173,13 @@ def use(request: Request, db: DbSession, user: CurrentUser, character: OwnedChar
     """Spend one of a consumable (drink the potion, read the scroll)."""
     row = _row(db, character, row_id)
     if not row.item.consumable:
-        return refresh_sheet(
-            request, db, user, character, {"inventory": f"{row.name} isn't used up."}, 400
+        return sheet_page.refresh_sheet(
+            request,
+            refreshed_sheet_view(db, user, character),
+            {"inventory": f"{row.name} isn't used up."},
         )
     use_one(db, row)
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post(BASE + "/{row_id}/heal", response_class=HTMLResponse)
@@ -211,7 +210,9 @@ def heal_with(
             f", {amount - gained} over your max." if gained < amount else "."
         )
     use_one(db, row)
-    return refresh_sheet(request, db, user, character, notices={"hp": notice})
+    return sheet_page.refresh_sheet(
+        request, refreshed_sheet_view(db, user, character), notices={"hp": notice}
+    )
 
 
 @router.post(BASE + "/{row_id}/cast-ac", response_class=HTMLResponse)
@@ -225,7 +226,7 @@ def cast_ac_scroll(
         raise HTTPException(status_code=400)  # not an AC scroll, or its effect is already on
     apply_ac_spell(db, character, row.spell)
     use_one(db, row)
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post(BASE + "/{row_id}/attune", response_class=HTMLResponse)
@@ -239,10 +240,12 @@ def attune(
 ):
     error = set_attuned(db, character, _row(db, character, row_id), attuned == "1")
     if error:
-        return refresh_sheet(request, db, user, character, {"inventory": error}, 400)
+        return sheet_page.refresh_sheet(
+            request, refreshed_sheet_view(db, user, character), {"inventory": error}
+        )
     # Ending attunement ends the item's benefits, and picks made for them (its tool).
     remove_inapplicable_picks(db, character)
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post(BASE + "/{row_id}/notes", response_class=HTMLResponse)
@@ -255,7 +258,7 @@ def notes(
     notes: Annotated[str, Form()] = "",
 ):
     _row(db, character, row_id).notes = notes.strip()[:255] or None
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.get(BASE + "/{row_id}/remove", response_class=HTMLResponse)
@@ -272,7 +275,7 @@ def remove(
     db.delete(_row(db, character, row_id))
     db.flush()
     remove_inapplicable_picks(db, character)
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 class CoinForm(BaseModel):
@@ -327,7 +330,7 @@ def change_coins(
             error = f"You don't have {raw} {labels[coin].lower()}, even breaking larger coins."
             return _coins_block(request, db, character, amount, coin, error, status_code=400)
     set_coins(db, character, new)
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 def _coins_form(request, character, coins: dict, error: str | None = None, status_code=200):
@@ -357,4 +360,4 @@ def coins(
             return _coins_form(request, character, typed, error, status_code=400)
         values[column] = int(raw)
     set_coins(db, character, values)
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))

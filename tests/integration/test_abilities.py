@@ -5,7 +5,8 @@ from app.abilities import service
 from app.abilities.form import AbilityForm, IncreaseForm
 from app.features.kinds import KINDS
 from app.features.models import Choice, Feature
-from app.sheet.service import hp_view, play_state
+from app.sheet.queries import hp_view
+from app.sheet.service import play_state
 
 STANDARD = dict(
     strength="8", dexterity="14", constitution="15", intelligence="10", wisdom="12", charisma="13"

@@ -13,7 +13,7 @@ from app.content.queries import available, visible
 from app.core.forms import parse_id
 from app.homebrew.form import ItemForm
 from app.inventory.models import Item
-from app.inventory.service import item_detail
+from app.inventory.queries import item_detail
 from app.spells.models import Spell
 
 

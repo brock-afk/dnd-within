@@ -12,10 +12,11 @@ from app.characters.models import Character
 from app.characters.origins import Origin
 from app.classes.models import CharacterClass
 from app.content.queries import available_by_name
+from app.core.db import reload_all
 from app.features.kinds import OptionView
 from app.features.queries import ChoiceView, FeatureGroup, feature_groups
 from app.leveling.queries import HitPoints, hit_points
-from app.sheet.service import spell_warnings
+from app.sheet.queries import spell_warnings
 from app.skills.models import CharacterSkill
 from app.skills.queries import character_skills, expertise_skill_ids
 from app.species.models import Species
@@ -140,10 +141,7 @@ def build_page_view(
 
 
 def refreshed_build_view(db: Session, user: User, character: Character) -> BuildPageView:
-    """The Build page after a change. Relationships loaded before it (a class row's subclass)
-    would show stale, so everything is reloaded."""
-    db.flush()  # expiring drops changes not yet sent to the database
-    db.expire_all()
+    reload_all(db)
     return build_page_view(db, user, character)
 
 

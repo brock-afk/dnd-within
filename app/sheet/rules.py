@@ -73,6 +73,11 @@ def proficiency_bonus(character_level: int) -> int:
     return 2 + (character_level - 1) // 4
 
 
+def uses_maximum(maximum: int | str, character_level: int) -> int:
+    """A feature's uses: a fixed number, or the proficiency bonus (a Goliath's Giant Ancestry)."""
+    return proficiency_bonus(character_level) if maximum == "proficiency_bonus" else maximum
+
+
 def skill_bonus(ability_mod: int, pb: int, proficient: bool, expertise: bool) -> int:
     """Ability modifier, plus the proficiency bonus if proficient, or twice it with Expertise.
     Expertise only counts in a skill you're proficient in."""

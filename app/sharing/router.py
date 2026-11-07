@@ -11,7 +11,8 @@ from app.characters.queries import build_page_view
 from app.core.db import DbSession, SessionLocal
 from app.sharing.live import subscribe, unsubscribe
 from app.sharing.service import make_link, shared_character, stop_sharing
-from app.sheet.router import refresh_sheet, render_sheet
+from app.sheet import page as sheet_page
+from app.sheet.queries import refreshed_sheet_view, sheet_view
 
 router = APIRouter(tags=["sharing"])
 
@@ -27,7 +28,9 @@ def _shared(db: DbSession, token: str):
 def shared_sheet(request: Request, db: DbSession, user: OptionalUser, token: str):
     """The Play sheet, read-only, for anyone with the link. No login needed."""
     character = _shared(db, token)
-    return render_sheet(request, db, user, character, read_only=True, base_url=f"/shared/{token}")
+    return sheet_page.sheet(
+        request, sheet_view(db, user, character, read_only=True, base_url=f"/shared/{token}")
+    )
 
 
 @router.get("/shared/{token}/build", response_class=HTMLResponse)
@@ -74,10 +77,10 @@ async def shared_events(request: Request, token: str):
 def share(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
     """Share publicly with a new link, replacing any old one."""
     make_link(db, character)
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/share/stop", response_class=HTMLResponse)
 def stop(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
     stop_sharing(db, character)
-    return refresh_sheet(request, db, user, character)
+    return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))

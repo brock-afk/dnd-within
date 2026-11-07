@@ -11,8 +11,7 @@ from app.features.kinds import KINDS
 from app.features.models import Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.queries import feature_groups, play_choices
 from app.inventory.models import CharacterItem, Item
-from app.sheet.rests import feature_uses
-from app.sheet.service import sheet_features
+from app.sheet.queries import feature_uses, sheet_features
 from app.spells.models import Spell
 
 

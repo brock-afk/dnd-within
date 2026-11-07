@@ -19,16 +19,14 @@ from app.features.queries import (
     always_prepared_reasons,
     applicable_choice,
 )
-from app.sheet import page
-from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
+from app.sheet import page, service
+from app.sheet.dependencies import OwnedAcEffect, OwnedHpEffect
+from app.sheet.form import AcEffectForm
+from app.sheet.models import CharacterPreparedSpell
 from app.sheet.queries import (
     CopyPanel,
-    ability_modifier,
-    ac_spells,
-    castable_spells,
     copy_confirmation,
     copy_search,
-    damage_reactions,
     feature_uses,
     granted_spells,
     hit_dice,
@@ -42,9 +40,8 @@ from app.sheet.queries import (
     spell_warnings,
     spellbook_notes,
 )
-from app.sheet.rests import finish_short_rest, long_rest, set_uses_remaining, spend_hit_die
-from app.sheet.rules import heal, hit_die_healing, set_temp_hp, take_damage
-from app.sheet.service import apply_ac_spell, play_state, set_slots_remaining, track_max_change
+from app.sheet.rests import finish_short_rest, long_rest, spend_hit_die
+from app.sheet.rules import heal, hit_die_healing
 from app.spells.models import Spell, SpellbookEntry
 from app.spells.queries import spellbook
 
@@ -69,20 +66,9 @@ def change_hp(
     amount: Annotated[str, Form()] = "",
     skip_reactions: Annotated[str, Form()] = "",
 ):
-    maximum = max_hp(db, character)
-    value = parse_amount(amount, 0, 999)
-    if maximum is None or action not in ("damage", "heal") or value is None:
-        errors = {"hp": "Enter a whole number from 0 to 999."}
-        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
-    offer_reactions = action == "damage" and value and not skip_reactions
-    if offer_reactions and damage_reactions(feature_uses(db, character)):
-        # Offer reactions like Stone's Endurance before the damage lands.
-        return page.refresh_sheet(
-            request, refreshed_sheet_view(db, user, character, pending_damage=value)
-        )
-    state = play_state(db, character)
-    (take_damage if action == "damage" else heal)(state, value, maximum)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    outcome = service.change_hp(db, character, action, amount, skip_reactions)
+    view = refreshed_sheet_view(db, user, character, pending_damage=outcome.pending_damage)
+    return page.refresh_sheet(request, view, outcome.errors)
 
 
 @router.post("/characters/{character_id}/sheet/hp/react", response_class=HTMLResponse)
@@ -95,30 +81,9 @@ def react_to_damage(
     option_id: Annotated[str, Form()] = "",
     roll: Annotated[str, Form()] = "",
 ):
-    """Use a damage reaction (Stone's Endurance, Storm's Thunder...), then take the damage."""
-    maximum = max_hp(db, character)
-    value = parse_amount(amount, 1, 999)
-    reactions = damage_reactions(feature_uses(db, character))
-    reaction = next((r for r in reactions if str(r.option.id) == option_id), None)
-    if maximum is None or value is None or reaction is None:
-        errors = {"hp": "That reaction isn't available right now."}
-        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
-
-    if reaction.kind == "reduce":
-        low, high = reaction.die_count, reaction.die_count * reaction.die_sides
-        rolled = parse_amount(roll, low, high)
-        if rolled is None:
-            errors = {"reaction": f"Enter your {reaction.dice} roll, from {low} to {high}."}
-            return page.refresh_sheet(
-                request, refreshed_sheet_view(db, user, character, pending_damage=value), errors
-            )
-        ability = reaction.option.damage_reaction.get("ability")
-        reduction = rolled + (ability_modifier(db, character, ability) if ability else 0)
-        value = max(0, value - reduction)
-
-    set_uses_remaining(db, character, reaction.uses, reaction.uses.remaining - 1)
-    take_damage(play_state(db, character), value, maximum)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    outcome = service.react_to_damage(db, character, amount, option_id, roll)
+    view = refreshed_sheet_view(db, user, character, pending_damage=outcome.pending_damage)
+    return page.refresh_sheet(request, view, outcome.errors)
 
 
 @router.post("/characters/{character_id}/sheet/temp-hp", response_class=HTMLResponse)
@@ -130,12 +95,9 @@ def change_temp_hp(
     amount: Annotated[str, Form()] = "",
     source: Annotated[str, Form()] = "",
 ):
-    value = parse_amount(amount, 0, 999)
-    if value is None:
-        errors = {"temp_hp": "Enter a whole number from 0 to 999."}
-        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
-    set_temp_hp(play_state(db, character), value, source.strip()[:80])
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    error = service.change_temp_hp(db, character, amount, source)
+    view = refreshed_sheet_view(db, user, character)
+    return page.refresh_sheet(request, view, {"temp_hp": error} if error else None)
 
 
 @router.post("/characters/{character_id}/sheet/hp-effects", response_class=HTMLResponse)
@@ -147,32 +109,22 @@ def add_hp_effect(
     label: Annotated[str, Form()] = "",
     delta: Annotated[str, Form()] = "",
 ):
-    value = parse_amount(delta, -999, 999)
-    label = label.strip()[:80]
-    if not label or not value:
-        errors = {"effect": "Give the effect a name and a non-zero amount (e.g. Aid, +5)."}
-        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
-    old_max = max_hp(db, character)
-    db.add(CharacterHpEffect(character_id=character.id, label=label, max_hp_delta=value))
-    # Starting an effect like Aid heals by the increase; a drain only caps current HP.
-    track_max_change(db, character, old_max, heal=value > 0)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    error = service.add_hp_effect(db, character, label, delta)
+    view = refreshed_sheet_view(db, user, character)
+    return page.refresh_sheet(request, view, {"effect": error} if error else None)
 
 
 @router.post(
     "/characters/{character_id}/sheet/hp-effects/{effect_id}/end", response_class=HTMLResponse
 )
 def end_hp_effect(
-    request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, effect_id: int
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    effect: OwnedHpEffect,
 ):
-    effect = db.get(CharacterHpEffect, effect_id)
-    if effect is None or effect.character_id != character.id:
-        raise HTTPException(status_code=404)
-    old_max = max_hp(db, character)
-    db.delete(effect)
-    # Ending an effect never heals: Aid ending only caps current HP, and a drain wearing off
-    # raises max HP without restoring any.
-    track_max_change(db, character, old_max, heal=False)
+    service.end_hp_effect(db, character, effect)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
@@ -188,24 +140,9 @@ def cast_ac_spell(
     spell: Annotated[str, Form()] = "",
     slot_level: Annotated[str, Form()] = "",
 ):
-    """Cast an AC spell on yourself (Mage Armor, Barkskin): spend the slot, or with
-    `slot_level` "at_will" cast it free through a feature like Armor of Shadows, and apply its
-    effect. Casting from the spell list doesn't, since the target may be someone else."""
-    offered = {str(a.spell.id): a for a in ac_spells(db, character)}
-    ac = offered.get(spell)
-    if ac is None:
-        found, error = None, "Only spells that change your AC can be cast here."
-    elif slot_level == "at_will":
-        found = ac.spell if ac.at_will_from else None
-        error = None if found else f"{ac.spell.name} isn't cast at will."
-    else:
-        found, error = _spend_slot(db, character, spell, slot_level)
-    if error:
-        return page.refresh_sheet(
-            request, refreshed_sheet_view(db, user, character), {"ac_effect": error}
-        )
-    apply_ac_spell(db, character, found)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    error = service.cast_ac_spell(db, character, spell, slot_level)
+    view = refreshed_sheet_view(db, user, character)
+    return page.refresh_sheet(request, view, {"ac_effect": error} if error else None)
 
 
 @router.post("/characters/{character_id}/sheet/ac-effects", response_class=HTMLResponse)
@@ -214,39 +151,24 @@ def add_ac_effect(
     db: DbSession,
     user: CurrentUser,
     character: OwnedCharacter,
-    label: Annotated[str, Form()] = "",
-    kind: Annotated[str, Form()] = "",
-    value: Annotated[str, Form()] = "",
+    form: Annotated[AcEffectForm, Form()],
 ):
-    """By hand: Mage Armor base 13 (+ DEX), Shield of Faith bonus +2, Barkskin minimum 17."""
-    label = label.strip()[:80]
-    if kind == "base":
-        amount = parse_amount(value, 10, 30)
-        problem = "a base AC from 10 to 30 (e.g. Mage Armor, 13)"
-    elif kind == "minimum":
-        amount = parse_amount(value, 10, 30)
-        problem = "a minimum AC from 10 to 30 (e.g. Barkskin, 17)"
-    else:
-        kind = "bonus"
-        amount = parse_amount(value, -20, 20)
-        problem = "a non-zero bonus (e.g. Shield of Faith, +2)"
-    if not label or not amount:
-        errors = {"ac_effect": f"Give the effect a name and {problem}."}
-        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
-    db.add(CharacterAcEffect(character_id=character.id, label=label, kind=kind, value=amount))
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    error = service.add_ac_effect(db, character, form)
+    view = refreshed_sheet_view(db, user, character)
+    return page.refresh_sheet(request, view, {"ac_effect": error} if error else None)
 
 
 @router.post(
     "/characters/{character_id}/sheet/ac-effects/{effect_id}/end", response_class=HTMLResponse
 )
 def end_ac_effect(
-    request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, effect_id: int
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    effect: OwnedAcEffect,
 ):
-    effect = db.get(CharacterAcEffect, effect_id)
-    if effect is None or effect.character_id != character.id:
-        raise HTTPException(status_code=404)
-    db.delete(effect)
+    service.end_ac_effect(db, effect)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
@@ -376,7 +298,7 @@ def set_slots(
     if value is None:
         errors = {"slots": "That isn't a valid number of slots."}
         return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
-    set_slots_remaining(db, character, level, value)
+    service.set_slots_remaining(db, character, level, value)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
@@ -390,7 +312,7 @@ def cast_spell(
     slot_level: Annotated[str, Form()] = "",
 ):
     """Spend a slot to cast a prepared spell, at its level or higher."""
-    found, error = _spend_slot(db, character, spell, slot_level)
+    error = service.spend_slot(db, character, spell, slot_level)
     if error:
         return page.refresh_sheet(
             request, refreshed_sheet_view(db, user, character), {"cast": error}
@@ -424,32 +346,8 @@ def cast_free(
         return page.refresh_sheet(
             request, refreshed_sheet_view(db, user, character), {"cast": error}
         )
-    set_uses_remaining(db, character, uses, uses.remaining - granted[0].charge_cost)
+    service.set_uses_remaining(db, character, uses, uses.remaining - granted[0].charge_cost)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
-
-
-def _spend_slot(db, character, spell_key: str, slot_level: str) -> tuple[Spell | None, str | None]:
-    """Spend the slot for casting a prepared spell at `slot_level` (its level or higher).
-    Returns (the spell, None), or (None, what's wrong) without spending anything."""
-    # A prepared ritual is listed twice (as a ritual and at its level); casting uses the slot row.
-    row = next(
-        (
-            r
-            for r in castable_spells(db, character)
-            if str(r.spell.id) == spell_key and r.uses_slots
-        ),
-        None,
-    )
-    slots = spell_slots(db, character)
-    level = parse_amount(slot_level, 1, 9)
-    if row is None:
-        return None, "Only prepared spells of level 1 or higher are cast with a slot."
-    if level is None or level < row.spell.level:
-        return None, f"{row.spell.name} needs a slot of level {row.spell.level} or higher."
-    if level not in slots or slots[level].remaining == 0:
-        return None, f"You have no level {level} slots left."
-    set_slots_remaining(db, character, level, slots[level].remaining - 1)
-    return row.spell, None
 
 
 # --- Choices made in play -----------------------------------------------------------------
@@ -498,7 +396,7 @@ def set_uses(
     if value is None:
         errors = {"uses": "That isn't a valid number of uses."}
         return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
-    set_uses_remaining(db, character, uses, value)
+    service.set_uses_remaining(db, character, uses, value)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
@@ -521,7 +419,7 @@ def use_feature(
         return page.refresh_sheet(
             request, refreshed_sheet_view(db, user, character), {"uses": error}
         )
-    set_uses_remaining(db, character, uses, uses.remaining - feature.spends_amount)
+    service.set_uses_remaining(db, character, uses, uses.remaining - feature.spends_amount)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
@@ -559,7 +457,7 @@ def short_rest_hit_die(
         )
 
     spend_hit_die(db, character, dice.character_class.id)
-    heal(play_state(db, character), hit_die_healing(int(roll), con_mod), maximum)
+    heal(service.play_state(db, character), hit_die_healing(int(roll), con_mod), maximum)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character, resting=True))
 
 
@@ -622,8 +520,8 @@ def short_rest_recover(
         )
 
     for level, n in counts.items():
-        set_slots_remaining(db, character, level, slots[level].remaining + n)
-    set_uses_remaining(db, character, uses, uses.remaining - 1)
+        service.set_slots_remaining(db, character, level, slots[level].remaining + n)
+    service.set_uses_remaining(db, character, uses, uses.remaining - 1)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character, resting=True))
 
 

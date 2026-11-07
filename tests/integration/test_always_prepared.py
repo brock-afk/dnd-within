@@ -8,8 +8,7 @@ from app.content.models import Source
 from app.features.kinds import KINDS
 from app.features.models import Feature, FeatureSpell
 from app.inventory.models import CharacterItem, Item
-from app.sheet.models import CharacterPreparedSpell
-from app.spells.models import Spell, SpellbookEntry
+from app.spells.models import Spell
 
 KNOWN = '<span class="choice-known">Always prepared (Familiar Gift)</span>'
 REFUSED = "Find Familiar is always prepared (Familiar Gift)."
@@ -63,14 +62,9 @@ def test_copy_panel_blocks_it(client, character, find_familiar):
 
 
 @pytest.fixture
-def prepared_from_book(db, character, find_familiar):
+def prepared_from_book(character, find_familiar, prepare_from_book):
     """Find Familiar also in the spellbook and prepared from it, as picked before the block."""
-    db.add(
-        SpellbookEntry(character_id=character.id, spell_id=find_familiar.id, acquired_via="copied")
-    )
-    db.flush()
-    db.add(CharacterPreparedSpell(character_id=character.id, spell_id=find_familiar.id))
-    db.flush()
+    prepare_from_book(character, find_familiar.id)
 
 
 def test_prepare_editor_blocks_it(client, character, find_familiar, prepared_from_book):

@@ -91,7 +91,7 @@ Adding a new content capability usually means changing these together: the YAML 
 - **Build** (`/characters/{id}`, `characters/page.py`): leveling, ability scores, and feature choices.
 - **Play** (`/characters/{id}/sheet`, `app/sheet/`): HP, temp HP, HP/AC effects, spell slots, prepared spells, feature uses, and short/long rests (`rests.py`).
 
-Stored vs. derived: max HP, AC, and slot maximums are calculated. Current HP is stored, with `NULL` meaning "at full". Max-HP changes must go through `sheet.rules.apply_max_change` / `track_max_change` so current HP follows the PHB rules in its docstring.
+Stored vs. derived: max HP, AC, and slot maximums are calculated. Current HP is stored, with `NULL` meaning "at full". Max-HP changes must happen inside `sheet.service.tracking_max_hp` so current HP follows the PHB rules in `sheet.rules.apply_max_change`.
 
 ### htmx response patterns (`app/core/templates.py`)
 - Routes that change a character re-render the full page and wrap it with `morph_in_place(response, selector)`. htmx then morphs only that element, keeping scroll and focus. On the Build page, routes build the view with `characters/queries.py:refreshed_build_view` (it reloads what the change touched) and render it with `characters/page.py:refresh_build`.

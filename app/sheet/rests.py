@@ -13,19 +13,9 @@ from app.sheet.models import (
     CharacterHpEffect,
     CharacterSpellSlot,
 )
-from app.sheet.queries import FeatureUses, feature_uses
+from app.sheet.queries import feature_uses
 from app.sheet.rules import roll, uses_maximum
 from app.sheet.service import play_state
-
-
-def set_uses_remaining(
-    db: Session, character: Character, uses: FeatureUses, remaining: int
-) -> None:
-    row = db.get(CharacterFeatureUse, (character.id, uses.feature.id))
-    if row is None:
-        row = CharacterFeatureUse(character_id=character.id, feature_id=uses.feature.id, expended=0)
-        db.add(row)
-    row.expended = uses.maximum - remaining
 
 
 def spend_hit_die(db: Session, character: Character, class_id: int) -> None:

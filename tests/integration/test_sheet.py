@@ -20,10 +20,10 @@ def test_the_copy_panel_shows_its_search_or_its_confirm_step(db, owner, characte
     spell = db.scalar(select(Spell).where(Spell.level == 1).limit(1))
 
     search = sheet_view(db, owner, character, copying=CopyPanel(query=" fire "))
-    assert search.copy["query"] == "fire"
+    assert search.copy.query == "fire"
 
     confirm = copy_confirmation(db, character, spell, "fire")
-    assert (confirm["spell"], confirm["cost"]) == (spell, "2 hours and 50 GP")
+    assert (confirm.spell, confirm.cost) == (spell, "2 hours and 50 GP")
 
 
 def test_the_shared_view_links_within_the_share_and_hides_it(db, owner, character):

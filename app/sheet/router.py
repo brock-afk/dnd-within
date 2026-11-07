@@ -1,49 +1,34 @@
-from dataclasses import replace
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from sqlalchemy import delete, select
 
 from app.abilities.queries import constitution_modifier
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
-from app.content.queries import available
-from app.core.db import DbSession, reload_all
+from app.core.db import DbSession
 from app.core.forms import parse_amount
-from app.core.templates import templates
-from app.features.kinds import KINDS
-from app.features.queries import (
-    always_prepared_error,
-    always_prepared_reasons,
-    applicable_choice,
-)
+from app.features.dependencies import InPlayChoice
 from app.sheet import page, service
-from app.sheet.dependencies import OwnedAcEffect, OwnedHpEffect
+from app.sheet.dependencies import CopyableSpell, OwnedAcEffect, OwnedHpEffect
 from app.sheet.form import AcEffectForm
-from app.sheet.models import CharacterPreparedSpell
 from app.sheet.queries import (
     CopyPanel,
     copy_confirmation,
     copy_search,
     feature_uses,
-    granted_spells,
     hit_dice,
     max_hp,
-    prepared_limit,
-    prepared_spell_ids,
+    prepared_editor_view,
     recovery_budget,
+    refreshed_prepared_editor_view,
     refreshed_sheet_view,
     sheet_view,
     spell_slots,
-    spell_warnings,
-    spellbook_notes,
 )
 from app.sheet.rests import finish_short_rest, long_rest, spend_hit_die
 from app.sheet.rules import heal, hit_die_healing
-from app.spells.models import Spell, SpellbookEntry
-from app.spells.queries import spellbook
 
 router = APIRouter(tags=["sheet"])
 
@@ -175,45 +160,9 @@ def end_ac_effect(
 # --- Prepared spells ----------------------------------------------------------------------
 
 
-def _render_prepared_editor(
-    request, db, character, selected, error=None, status_code=200, asking=""
-):
-    """The prepared editor. `asking` is the copied spell whose "Remove from your spellbook?"
-    question is showing."""
-    warnings = spell_warnings(db, character)
-    notes = spellbook_notes(db, character)
-    options = [
-        replace(
-            KINDS["spell"].view(entry.spell),
-            warnings=tuple(warnings.get(entry.spell_id, [])),
-            note=notes.get(entry.spell_id, ""),
-            # Only copied spells: level-up and feature spells change through their choice.
-            removable=entry.acquired_via == "copied",
-        )
-        for entry in spellbook(db, character.id)
-    ]
-    return templates.TemplateResponse(
-        request,
-        "sheet/partials/prepared_editor.html",
-        {
-            "character": character,
-            "options": options,
-            "selected": selected,
-            "known": always_prepared_reasons(db, character),
-            "limit": prepared_limit(character),
-            "filter_schools": sorted({o.school for o in options}),
-            "error": error,
-            "asking": asking,
-        },
-        status_code=status_code,
-    )
-
-
 @router.get("/characters/{character_id}/sheet/prepared/edit", response_class=HTMLResponse)
 def edit_prepared(request: Request, db: DbSession, character: OwnedCharacter):
-    prepared = prepared_spell_ids(db, character)
-    selected = [str(e.spell_id) for e in spellbook(db, character.id) if e.spell_id in prepared]
-    return _render_prepared_editor(request, db, character, selected)
+    return page.prepared_editor(request, prepared_editor_view(db, character))
 
 
 @router.post("/characters/{character_id}/sheet/prepared", response_class=HTMLResponse)
@@ -224,28 +173,8 @@ def save_prepared(
     character: OwnedCharacter,
     picks: Annotated[list[str], Form()] = [],
 ):
-    picks = list(dict.fromkeys(picks))
-    book = {str(entry.spell_id): entry.spell_id for entry in spellbook(db, character.id)}
-    limit = prepared_limit(character)
-
-    error = None
-    if limit is None:
-        error = "This character doesn't prepare spells."
-    elif any(key not in book for key in picks):
-        error = "You can only prepare spells in your spellbook."
-    elif refused := always_prepared_error(db, character, picks):
-        error = refused
-    elif len(picks) > limit:
-        error = f"You can prepare at most {limit}. You picked {len(picks)}."
-    if error:
-        return _render_prepared_editor(request, db, character, picks, error, status_code=400)
-
-    db.execute(
-        delete(CharacterPreparedSpell).where(CharacterPreparedSpell.character_id == character.id)
-    )
-    db.add_all(
-        CharacterPreparedSpell(character_id=character.id, spell_id=book[key]) for key in picks
-    )
+    if error := service.save_prepared(db, character, picks):
+        return page.prepared_editor(request, prepared_editor_view(db, character, picks), error)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
@@ -259,7 +188,7 @@ def ask_remove(
 ):
     """Show (or with no `asking`, hide) "Remove X from your spellbook?" in the editor, keeping
     the unsaved picks."""
-    return _render_prepared_editor(request, db, character, picks, asking=asking)
+    return page.prepared_editor(request, prepared_editor_view(db, character, picks, asking))
 
 
 @router.post("/characters/{character_id}/sheet/spellbook/remove", response_class=HTMLResponse)
@@ -270,15 +199,9 @@ def remove_copied_spell(
     picks: Annotated[list[str], Form()] = [],
     remove: Annotated[str, Form()] = "",
 ):
-    """Remove a copied spell from the spellbook (added by mistake). Preparing it is undone by
-    the database (character_prepared_spells cascades from spellbook_entries)."""
-    entry = next((e for e in spellbook(db, character.id) if str(e.spell_id) == remove), None)
-    if entry is None or entry.acquired_via != "copied":
-        error = "Only copied spells can be removed here. Change level-up spells on the Build page."
-        return _render_prepared_editor(request, db, character, picks, error, status_code=400)
-    db.delete(entry)
-    reload_all(db)
-    return _render_prepared_editor(request, db, character, [p for p in picks if p != remove])
+    if error := service.remove_copied_spell(db, character, remove):
+        return page.prepared_editor(request, prepared_editor_view(db, character, picks), error)
+    return page.prepared_editor(request, refreshed_prepared_editor_view(db, character, picks))
 
 
 # --- Spell slots ----------------------------------------------------------------------------
@@ -293,13 +216,9 @@ def set_slots(
     level: int,
     remaining: Annotated[str, Form()] = "",
 ):
-    slot = spell_slots(db, character).get(level)
-    value = parse_amount(remaining, 0, slot.maximum) if slot else None
-    if value is None:
-        errors = {"slots": "That isn't a valid number of slots."}
-        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
-    service.set_slots_remaining(db, character, level, value)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    error = service.change_slots(db, character, level, remaining)
+    view = refreshed_sheet_view(db, user, character)
+    return page.refresh_sheet(request, view, {"slots": error} if error else None)
 
 
 @router.post("/characters/{character_id}/sheet/cast", response_class=HTMLResponse)
@@ -313,11 +232,8 @@ def cast_spell(
 ):
     """Spend a slot to cast a prepared spell, at its level or higher."""
     error = service.spend_slot(db, character, spell, slot_level)
-    if error:
-        return page.refresh_sheet(
-            request, refreshed_sheet_view(db, user, character), {"cast": error}
-        )
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    view = refreshed_sheet_view(db, user, character)
+    return page.refresh_sheet(request, view, {"cast": error} if error else None)
 
 
 @router.post("/characters/{character_id}/sheet/cast-free", response_class=HTMLResponse)
@@ -329,25 +245,9 @@ def cast_free(
     spell: Annotated[str, Form()] = "",
     feature: Annotated[str, Form()] = "",
 ):
-    """Cast a spell a feature grants without a slot (Wondrous Alteration's Alter Self),
-    spending one use of that feature."""
-    granted = granted_spells(db, character).get(int(spell)) if spell.isdigit() else None
-    uses = next((u for u in feature_uses(db, character) if str(u.feature.id) == feature), None)
-    error = None
-    if granted is None or not granted[0].free_cast or uses is None or uses.feature != granted[1]:
-        error = "That spell can't be cast for free."
-    elif uses.remaining < granted[0].charge_cost:
-        error = (
-            f"{uses.feature.name}: {uses.remaining} left, and this takes {granted[0].charge_cost}."
-            if uses.remaining
-            else f"{uses.feature.name}'s free cast is used. It comes back on a long rest."
-        )
-    if error:
-        return page.refresh_sheet(
-            request, refreshed_sheet_view(db, user, character), {"cast": error}
-        )
-    service.set_uses_remaining(db, character, uses, uses.remaining - granted[0].charge_cost)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    error = service.cast_free(db, character, spell, feature)
+    view = refreshed_sheet_view(db, user, character)
+    return page.refresh_sheet(request, view, {"cast": error} if error else None)
 
 
 # --- Choices made in play -----------------------------------------------------------------
@@ -359,22 +259,13 @@ def set_play_choice(
     db: DbSession,
     user: CurrentUser,
     character: OwnedCharacter,
-    choice_id: int,
+    choice: InPlayChoice,
     pick: Annotated[str, Form()] = "",
 ):
     """Pick (or with no `pick`, clear) an in-play choice, like the Transmuter's Stone benefit."""
-    choice = applicable_choice(db, character, choice_id)
-    if choice is None or not choice.in_play:
-        raise HTTPException(status_code=404)
-    kind = KINDS[choice.kind]
-    if pick:
-        error = kind.save(db, choice, character.id, [pick])
-        if error:
-            errors = {"play_choice": error}
-            return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
-    else:
-        kind.clear(db, [choice.id], character.id)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    error = service.set_play_choice(db, character, choice, pick)
+    view = refreshed_sheet_view(db, user, character)
+    return page.refresh_sheet(request, view, {"play_choice": error} if error else None)
 
 
 # --- Limited-use features -----------------------------------------------------------------
@@ -542,13 +433,6 @@ def take_long_rest(request: Request, db: DbSession, user: CurrentUser, character
 # --- Copying spells into the spellbook ----------------------------------------------------
 
 
-def _copyable(db, key: str) -> Spell | None:
-    if not key.isdigit():
-        return None
-    found = db.scalar(select(Spell).where(Spell.id == int(key), available(Spell)))
-    return found if found is not None and found.level >= 1 else None
-
-
 @router.get("/characters/{character_id}/sheet/spellbook/copy", response_class=HTMLResponse)
 def open_copy_panel(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, q: str = ""
@@ -561,12 +445,7 @@ def open_copy_panel(
 
 @router.get("/characters/{character_id}/sheet/spellbook/copy/search", response_class=HTMLResponse)
 def search_copy(request: Request, db: DbSession, character: OwnedCharacter, q: str = ""):
-    """Spells matching the typed name, swapped into the panel's result list."""
-    return templates.TemplateResponse(
-        request,
-        "sheet/partials/copy_results.html",
-        {"character": character, "copy": copy_search(db, character, q)},
-    )
+    return page.copy_results(request, character, copy_search(db, character, q))
 
 
 @router.get("/characters/{character_id}/sheet/spellbook/copy/confirm", response_class=HTMLResponse)
@@ -574,22 +453,10 @@ def confirm_copy(
     request: Request,
     db: DbSession,
     character: OwnedCharacter,
-    spell: str = "",
+    spell: CopyableSpell,
     q: str = "",
 ):
-    """The confirm step for one spell: its cost, rule markers and an optional note."""
-    found = _copyable(db, spell)
-    if found is None:
-        raise HTTPException(status_code=404)
-    return templates.TemplateResponse(
-        request,
-        "sheet/partials/copy_confirm.html",
-        {
-            "character": character,
-            "errors": {},
-            "copy_confirm": copy_confirmation(db, character, found, q),
-        },
-    )
+    return page.copy_confirm(request, character, copy_confirmation(db, character, spell, q))
 
 
 @router.post("/characters/{character_id}/sheet/spellbook/copy", response_class=HTMLResponse)
@@ -602,28 +469,7 @@ def copy_spell(
     note: Annotated[str, Form()] = "",
     q: Annotated[str, Form()] = "",
 ):
-    """Copy a spell into the spellbook from a scroll or another book. Any spell is allowed
-    (rule-breaking ones get a marker); the gold and time are the player's to track."""
-    found = _copyable(db, spell)
-    in_book = {entry.spell_id for entry in spellbook(db, character.id)}
-    error = None
-    if found is None:
-        error = "Choose a spell of level 1 or higher to copy."
-    elif found.id in in_book:
-        error = f"{found.name} is already in your spellbook."
-    else:
-        error = always_prepared_error(db, character, [str(found.id)])
-    if error:
-        panel = CopyPanel(query=q)
-        return page.refresh_sheet(
-            request, refreshed_sheet_view(db, user, character, copying=panel), {"copy_spell": error}
-        )
-    db.add(
-        SpellbookEntry(
-            character_id=character.id,
-            spell_id=found.id,
-            acquired_via="copied",
-            source_note=note.strip()[:120] or None,
-        )
-    )
+    if error := service.copy_spell(db, character, spell, note):
+        view = refreshed_sheet_view(db, user, character, copying=CopyPanel(query=q))
+        return page.refresh_sheet(request, view, {"copy_spell": error})
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))

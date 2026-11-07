@@ -9,13 +9,15 @@ from app.abilities.rules import ABILITIES, modifier
 from app.auth.models import User
 from app.characters.models import Character
 from app.classes.models import CharacterClass
-from app.content.queries import available
+from app.content.queries import available, available_row
 from app.core.db import reload_all
-from app.features.kinds import owner_level, source_name
+from app.core.forms import parse_id
+from app.features.kinds import KINDS, OptionView, owner_level, source_name
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.queries import (
     FeatureGroup,
     PlayChoice,
+    always_prepared_reasons,
     always_prepared_spells,
     applicable_choice,
     feature_groups,
@@ -1021,30 +1023,103 @@ def _copy_cost(spell: Spell) -> str:
     return f"{2 * spell.level} hours and {50 * spell.level} GP"
 
 
-def copy_search(db: Session, character: Character, query: str) -> dict:
+@dataclass(frozen=True)
+class CopySearchView:
+    query: str
+    min_length: int
+    results: list[tuple[Spell, str, list[str]]]  # spell, why it can't be copied, rule markers
+
+
+def copy_search(db: Session, character: Character, query: str) -> CopySearchView:
     spells = search_copyable(db, query)
-    known = {
-        spell_id: f"Always prepared ({feature})"
-        for spell_id, feature in always_prepared_spells(db, character).items()
+    known = always_prepared_reasons(db, character) | {
+        str(entry.spell_id): "In your spellbook" for entry in spellbook(db, character.id)
     }
-    known.update((entry.spell_id, "In your spellbook") for entry in spellbook(db, character.id))
-    return {
-        "query": query.strip(),
-        "min_length": COPY_SEARCH_MIN,
-        "results": [
-            (spell, known.get(spell.id, ""), found)
+    return CopySearchView(
+        query=query.strip(),
+        min_length=COPY_SEARCH_MIN,
+        results=[
+            (spell, known.get(str(spell.id), ""), found)
             for spell, found in copy_warnings(db, character, spells).items()
         ],
-    }
+    )
 
 
-def copy_confirmation(db: Session, character: Character, spell: Spell, query: str) -> dict:
-    return {
-        "spell": spell,
-        "query": query,
-        "cost": _copy_cost(spell),
-        "warnings": copy_warnings(db, character, [spell])[spell],
-    }
+@dataclass(frozen=True)
+class CopyConfirmView:
+    spell: Spell
+    query: str
+    cost: str
+    warnings: list[str]
+
+
+def copy_confirmation(
+    db: Session, character: Character, spell: Spell, query: str
+) -> CopyConfirmView:
+    return CopyConfirmView(
+        spell=spell,
+        query=query,
+        cost=_copy_cost(spell),
+        warnings=copy_warnings(db, character, [spell])[spell],
+    )
+
+
+def copyable(db: Session, key: str) -> Spell | None:
+    found = available_row(db, Spell, parse_id(key))
+    # Cantrips aren't written in spellbooks.
+    return found if found is not None and found.level >= 1 else None
+
+
+# --- The prepared editor ------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PreparedEditorView:
+    character: Character
+    options: list[OptionView]
+    selected: list[str]
+    known: dict[str, str]
+    limit: int | None
+    filter_schools: list[str]
+    asking: str
+
+
+def prepared_editor_view(
+    db: Session, character: Character, selected: list[str] | None = None, asking: str = ""
+) -> PreparedEditorView:
+    book = spellbook(db, character.id)
+    in_book = {str(e.spell_id) for e in book}
+    if selected is None:
+        prepared = prepared_spell_ids(db, character)
+        selected = [str(e.spell_id) for e in book if e.spell_id in prepared]
+    warnings = spell_warnings(db, character)
+    notes = spellbook_notes(db, character)
+    options = [
+        replace(
+            KINDS["spell"].view(entry.spell),
+            warnings=tuple(warnings.get(entry.spell_id, [])),
+            note=notes.get(entry.spell_id, ""),
+            # Only copied spells: level-up and feature spells change through their choice.
+            removable=entry.acquired_via == "copied",
+        )
+        for entry in book
+    ]
+    return PreparedEditorView(
+        character=character,
+        options=options,
+        selected=[key for key in selected if key in in_book],
+        known=always_prepared_reasons(db, character),
+        limit=prepared_limit(character),
+        filter_schools=sorted({o.school for o in options}),
+        asking=asking,
+    )
+
+
+def refreshed_prepared_editor_view(
+    db: Session, character: Character, selected: list[str]
+) -> PreparedEditorView:
+    reload_all(db)
+    return prepared_editor_view(db, character, selected)
 
 
 # --- The Play sheet -----------------------------------------------------------------------
@@ -1085,7 +1160,7 @@ class SheetView:
     spell_warnings: dict[int, list[str]]
     spell_notes: dict[int, str]
     copying: CopyPanel | None
-    copy: dict | None
+    copy: CopySearchView | None
     reactions: list[tuple[DamageReaction, int]]  # with the ability modifier each roll adds
     hit_dice: list[HitDice]
     recoveries: list[tuple[FeatureUses, int]]

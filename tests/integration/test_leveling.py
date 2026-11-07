@@ -5,7 +5,8 @@ from app.features.kinds import KINDS
 from app.features.models import Choice
 from app.leveling import service
 from app.leveling.queries import level_up_view
-from app.sheet.service import hp_view, play_state
+from app.sheet.queries import hp_view
+from app.sheet.service import play_state
 
 
 def _up(db, character, method: str, roll: str = "") -> str | None:

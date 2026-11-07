@@ -42,3 +42,9 @@ def get_db() -> Iterator[Session]:
 # Function scope commits before the response is sent: a failed commit is an error response,
 # never a page showing changes that weren't saved.
 DbSession = Annotated[Session, Depends(get_db, scope="function")]
+
+
+def reload_all(db: Session) -> None:
+    """Rows and relationships loaded before a change would render stale."""
+    db.flush()  # expiring drops changes not yet sent to the database
+    db.expire_all()

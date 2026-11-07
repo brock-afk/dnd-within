@@ -12,8 +12,7 @@ from app.features.kinds import source_name
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.features.queries import feature_groups
 from app.leveling.models import CharacterLevel
-from app.sheet.rests import feature_uses
-from app.sheet.service import attributes, castable_spells
+from app.sheet.queries import attributes, castable_spells, feature_uses
 from app.species.models import Species
 
 

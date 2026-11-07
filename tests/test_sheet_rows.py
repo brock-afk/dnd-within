@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.sheet.service import FeatureRow
+from app.sheet.queries import FeatureRow
 
 
 def _row(name: str, source: str) -> FeatureRow:

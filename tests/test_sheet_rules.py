@@ -132,3 +132,11 @@ def test_roll_refuses_oversized_dice(dice):
 def test_roll_largest_allowed_dice():
     total, _ = rules.roll_detail("999d999+999", random.Random(0))
     assert 999 + 999 <= total <= 999 * 999 + 999
+
+
+@pytest.mark.parametrize(
+    ("maximum", "level", "expected"),
+    [(3, 1, 3), ("proficiency_bonus", 1, 2), ("proficiency_bonus", 5, 3)],
+)
+def test_uses_maximum(maximum, level, expected):
+    assert rules.uses_maximum(maximum, level) == expected

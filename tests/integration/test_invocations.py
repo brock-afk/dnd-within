@@ -10,7 +10,7 @@ from app.features.queries import feature_groups
 from app.features.service import remove_inapplicable_picks
 from app.leveling.service import level_down
 from app.sheet.models import CharacterAcEffect
-from app.sheet.service import ac_spells, castable_spells, spell_slots
+from app.sheet.queries import ac_spells, castable_spells, spell_slots
 from app.spells.models import Spell
 
 

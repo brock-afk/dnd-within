@@ -5,8 +5,9 @@ from app.content.models import Source
 from app.features.models import Feature
 from app.inventory.models import CharacterItem, Item
 from app.sheet.models import CharacterFeatureUse, CharacterHpEffect
+from app.sheet.queries import hp_view
 from app.sheet.rests import long_rest
-from app.sheet.service import hp_view, play_state
+from app.sheet.service import play_state
 
 
 def test_long_rest_ends_max_hp_effects_and_restores_hp(db, character):

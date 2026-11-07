@@ -9,8 +9,9 @@ from app.features.kinds import KINDS
 from app.features.models import Choice, Feature
 from app.leveling.service import level_down
 from app.sheet.models import CharacterPreparedSpell
+from app.sheet.queries import castable_spells, spell_slots
 from app.sheet.rests import finish_short_rest
-from app.sheet.service import castable_spells, set_slots_remaining, spell_slots
+from app.sheet.service import set_slots_remaining
 from app.spells.models import Spell, SpellbookEntry
 
 

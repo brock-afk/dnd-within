@@ -1,4 +1,4 @@
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -8,198 +8,52 @@ from sqlalchemy import delete, select
 
 from app.abilities.queries import constitution_modifier
 from app.auth.dependencies import CurrentUser
-from app.auth.models import User
 from app.characters.dependencies import OwnedCharacter
-from app.characters.models import Character
 from app.content.queries import available
-from app.core.db import DbSession
+from app.core.db import DbSession, reload_all
 from app.core.forms import parse_amount
-from app.core.templates import morph_in_place, templates
+from app.core.templates import templates
 from app.features.kinds import KINDS
 from app.features.queries import (
     always_prepared_error,
     always_prepared_reasons,
-    always_prepared_spells,
     applicable_choice,
-    feature_groups,
-    play_choices,
 )
-from app.inventory.service import (
-    COINS,
-    MAX_ATTUNED,
-    ac_scrolls,
-    coin_summary,
-    coin_values,
-    healing_uses,
-    inventory,
-    item_features,
-)
-from app.inventory.service import digest as inventory_digest
-from app.sharing.service import public_share
+from app.sheet import page
 from app.sheet.models import CharacterAcEffect, CharacterHpEffect, CharacterPreparedSpell
-from app.sheet.rests import (
+from app.sheet.queries import (
+    CopyPanel,
+    ability_modifier,
+    ac_spells,
+    castable_spells,
+    copy_confirmation,
+    copy_search,
     damage_reactions,
     feature_uses,
-    finish_short_rest,
-    hit_dice,
-    long_rest,
-    recovery_budget,
-    set_uses_remaining,
-    spend_hit_die,
-)
-from app.sheet.rules import heal, hit_die_healing, set_temp_hp, take_damage
-from app.sheet.service import (
-    COPY_SEARCH_MIN,
-    ability_modifier,
-    ability_rows,
-    ac_spells,
-    active_ac_spell_ids,
-    apply_ac_spell,
-    armor_class,
-    attributes,
-    castable_spells,
-    copy_warnings,
     granted_spells,
-    hp_view,
+    hit_dice,
     max_hp,
-    play_state,
     prepared_limit,
     prepared_spell_ids,
-    search_copyable,
-    set_slots_remaining,
-    sheet_features,
-    skill_rows,
+    recovery_budget,
+    refreshed_sheet_view,
+    sheet_view,
     spell_slots,
     spell_warnings,
     spellbook_notes,
-    track_max_change,
 )
+from app.sheet.rests import finish_short_rest, long_rest, set_uses_remaining, spend_hit_die
+from app.sheet.rules import heal, hit_die_healing, set_temp_hp, take_damage
+from app.sheet.service import apply_ac_spell, play_state, set_slots_remaining, track_max_change
 from app.spells.models import Spell, SpellbookEntry
 from app.spells.queries import spellbook
 
 router = APIRouter(tags=["sheet"])
 
-SHEET_SELECTOR = "#sheet-page"
-ACTION_LABELS = {"action": "Action", "bonus_action": "Bonus Action", "reaction": "Reaction"}
-
-
-def render_sheet(
-    request,
-    db,
-    user: User,
-    character: Character,
-    errors=None,
-    status_code=200,
-    resting=False,
-    pending_damage: int | None = None,
-    copying: CopyPanel | None = None,
-    notices=None,
-    read_only: bool = False,
-    base_url: str | None = None,
-):
-    """The sheet. `resting` shows the Short rest panel, which holds every short-rest action
-    (hit dice, Arcane Recovery) so they stay off the main sheet. `notices` report what just
-    happened (a potion's roll). `read_only` is the shared view: the same sheet with every
-    control left out, linking within `base_url` (/shared/<token>) instead of the owner's."""
-    # Every section below needs the character's features; look them up once.
-    groups = feature_groups(db, character)
-    uses = feature_uses(db, character, groups)
-    choices = play_choices(db, character, groups)
-    attrs = attributes(db, character, groups)
-    castable = castable_spells(db, character, groups)
-    slots = spell_slots(db, character)
-    items = inventory(db, character)
-    context = {
-        "user": user,
-        "character": character,
-        "hp": hp_view(db, character),
-        "abilities": ability_rows(db, character, attrs),
-        "attributes": attrs,
-        "skills": skill_rows(db, character),
-        "ac": armor_class(db, character, groups),
-        "ac_spells": ac_spells(db, character, castable, slots),
-        # Rest-only features (like Arcane Recovery) appear only in the Short rest panel.
-        "free_uses": {u.feature.id: u for u in uses},
-        "play_choices": choices,
-        "sheet_features": sheet_features(db, character, groups, uses, choices),
-        "castable": castable,
-        "slots": slots,
-        # Always-prepared spells don't count, even if also picked from the book before.
-        "prepared_count": len(
-            prepared_spell_ids(db, character) - always_prepared_spells(db, character, groups).keys()
-        ),
-        "prepared_limit": prepared_limit(character),
-        "has_spellbook": bool(spellbook(db, character.id)),
-        "resting": resting,
-        "action_labels": ACTION_LABELS,
-        "items": items,
-        "item_features": item_features(db, items),
-        "coin_summary": coin_summary(coin_values(db, character)),
-        "coin_labels": COINS,
-        "inventory_digest": inventory_digest(db, character, items),
-        "max_attuned": MAX_ATTUNED,
-        "healing_uses": healing_uses(items),
-        "ac_scrolls": ac_scrolls(items, active_ac_spell_ids(db, character)),
-        "notices": notices or {},
-        "read_only": read_only,
-        "base_url": base_url or f"/characters/{character.id}",
-        "share": None if read_only else public_share(db, character),
-        "errors": errors or {},
-        "pending_damage": pending_damage,
-        "spell_warnings": spell_warnings(db, character),
-        "spell_notes": spellbook_notes(db, character),
-        "copying": copying,
-    }
-    if copying:
-        context.update(_copy_context(db, character, copying))
-    if pending_damage is not None:
-        # Damage is waiting on "use a reaction or take it all"; each reduce reaction shows the
-        # ability modifier it adds to its roll.
-        context["reactions"] = [
-            (r, ability_modifier(db, character, r.option.damage_reaction.get("ability", "")))
-            for r in damage_reactions(uses)
-        ]
-    if resting:
-        context["hit_dice"] = hit_dice(db, character)
-        context["recoveries"] = [
-            (u, recovery_budget(u)) for u in uses if u.feature.slot_recovery is not None
-        ]
-    return templates.TemplateResponse(request, "sheet/sheet.html", context, status_code=status_code)
-
-
-def refresh_sheet(
-    request,
-    db,
-    user,
-    character,
-    errors=None,
-    status_code=200,
-    resting=False,
-    pending_damage=None,
-    copying=None,
-    notices=None,
-):
-    """Re-render the sheet and morph it into place (see app/core/templates.py)."""
-    db.flush()  # expiring drops changes not yet sent to the database
-    db.expire_all()  # reload what just changed
-    response = render_sheet(
-        request,
-        db,
-        user,
-        character,
-        errors,
-        status_code,
-        resting,
-        pending_damage,
-        copying,
-        notices,
-    )
-    return morph_in_place(response, SHEET_SELECTOR)
-
 
 @router.get("/characters/{character_id}/sheet", response_class=HTMLResponse)
 def show_sheet(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
-    return render_sheet(request, db, user, character)
+    return page.sheet(request, sheet_view(db, user, character))
 
 
 # --- Hit points ---------------------------------------------------------------------------
@@ -219,14 +73,16 @@ def change_hp(
     value = parse_amount(amount, 0, 999)
     if maximum is None or action not in ("damage", "heal") or value is None:
         errors = {"hp": "Enter a whole number from 0 to 999."}
-        return refresh_sheet(request, db, user, character, errors, status_code=400)
+        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
     offer_reactions = action == "damage" and value and not skip_reactions
     if offer_reactions and damage_reactions(feature_uses(db, character)):
         # Offer reactions like Stone's Endurance before the damage lands.
-        return refresh_sheet(request, db, user, character, pending_damage=value)
+        return page.refresh_sheet(
+            request, refreshed_sheet_view(db, user, character, pending_damage=value)
+        )
     state = play_state(db, character)
     (take_damage if action == "damage" else heal)(state, value, maximum)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/sheet/hp/react", response_class=HTMLResponse)
@@ -246,15 +102,15 @@ def react_to_damage(
     reaction = next((r for r in reactions if str(r.option.id) == option_id), None)
     if maximum is None or value is None or reaction is None:
         errors = {"hp": "That reaction isn't available right now."}
-        return refresh_sheet(request, db, user, character, errors, status_code=400)
+        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
 
     if reaction.kind == "reduce":
         low, high = reaction.die_count, reaction.die_count * reaction.die_sides
         rolled = parse_amount(roll, low, high)
         if rolled is None:
             errors = {"reaction": f"Enter your {reaction.dice} roll, from {low} to {high}."}
-            return refresh_sheet(
-                request, db, user, character, errors, status_code=400, pending_damage=value
+            return page.refresh_sheet(
+                request, refreshed_sheet_view(db, user, character, pending_damage=value), errors
             )
         ability = reaction.option.damage_reaction.get("ability")
         reduction = rolled + (ability_modifier(db, character, ability) if ability else 0)
@@ -262,7 +118,7 @@ def react_to_damage(
 
     set_uses_remaining(db, character, reaction.uses, reaction.uses.remaining - 1)
     take_damage(play_state(db, character), value, maximum)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/sheet/temp-hp", response_class=HTMLResponse)
@@ -277,9 +133,9 @@ def change_temp_hp(
     value = parse_amount(amount, 0, 999)
     if value is None:
         errors = {"temp_hp": "Enter a whole number from 0 to 999."}
-        return refresh_sheet(request, db, user, character, errors, status_code=400)
+        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
     set_temp_hp(play_state(db, character), value, source.strip()[:80])
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/sheet/hp-effects", response_class=HTMLResponse)
@@ -295,12 +151,12 @@ def add_hp_effect(
     label = label.strip()[:80]
     if not label or not value:
         errors = {"effect": "Give the effect a name and a non-zero amount (e.g. Aid, +5)."}
-        return refresh_sheet(request, db, user, character, errors, status_code=400)
+        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
     old_max = max_hp(db, character)
     db.add(CharacterHpEffect(character_id=character.id, label=label, max_hp_delta=value))
     # Starting an effect like Aid heals by the increase; a drain only caps current HP.
     track_max_change(db, character, old_max, heal=value > 0)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post(
@@ -317,7 +173,7 @@ def end_hp_effect(
     # Ending an effect never heals: Aid ending only caps current HP, and a drain wearing off
     # raises max HP without restoring any.
     track_max_change(db, character, old_max, heal=False)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 # --- Armor Class effects ------------------------------------------------------------------
@@ -345,9 +201,11 @@ def cast_ac_spell(
     else:
         found, error = _spend_slot(db, character, spell, slot_level)
     if error:
-        return refresh_sheet(request, db, user, character, {"ac_effect": error}, status_code=400)
+        return page.refresh_sheet(
+            request, refreshed_sheet_view(db, user, character), {"ac_effect": error}
+        )
     apply_ac_spell(db, character, found)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/sheet/ac-effects", response_class=HTMLResponse)
@@ -374,9 +232,9 @@ def add_ac_effect(
         problem = "a non-zero bonus (e.g. Shield of Faith, +2)"
     if not label or not amount:
         errors = {"ac_effect": f"Give the effect a name and {problem}."}
-        return refresh_sheet(request, db, user, character, errors, status_code=400)
+        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
     db.add(CharacterAcEffect(character_id=character.id, label=label, kind=kind, value=amount))
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post(
@@ -389,7 +247,7 @@ def end_ac_effect(
     if effect is None or effect.character_id != character.id:
         raise HTTPException(status_code=404)
     db.delete(effect)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 # --- Prepared spells ----------------------------------------------------------------------
@@ -466,7 +324,7 @@ def save_prepared(
     db.add_all(
         CharacterPreparedSpell(character_id=character.id, spell_id=book[key]) for key in picks
     )
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/sheet/prepared/edit", response_class=HTMLResponse)
@@ -497,8 +355,7 @@ def remove_copied_spell(
         error = "Only copied spells can be removed here. Change level-up spells on the Build page."
         return _render_prepared_editor(request, db, character, picks, error, status_code=400)
     db.delete(entry)
-    db.flush()
-    db.expire_all()
+    reload_all(db)
     return _render_prepared_editor(request, db, character, [p for p in picks if p != remove])
 
 
@@ -518,9 +375,9 @@ def set_slots(
     value = parse_amount(remaining, 0, slot.maximum) if slot else None
     if value is None:
         errors = {"slots": "That isn't a valid number of slots."}
-        return refresh_sheet(request, db, user, character, errors, status_code=400)
+        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
     set_slots_remaining(db, character, level, value)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/sheet/cast", response_class=HTMLResponse)
@@ -535,8 +392,10 @@ def cast_spell(
     """Spend a slot to cast a prepared spell, at its level or higher."""
     found, error = _spend_slot(db, character, spell, slot_level)
     if error:
-        return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
-    return refresh_sheet(request, db, user, character)
+        return page.refresh_sheet(
+            request, refreshed_sheet_view(db, user, character), {"cast": error}
+        )
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/sheet/cast-free", response_class=HTMLResponse)
@@ -562,9 +421,11 @@ def cast_free(
             else f"{uses.feature.name}'s free cast is used. It comes back on a long rest."
         )
     if error:
-        return refresh_sheet(request, db, user, character, {"cast": error}, status_code=400)
+        return page.refresh_sheet(
+            request, refreshed_sheet_view(db, user, character), {"cast": error}
+        )
     set_uses_remaining(db, character, uses, uses.remaining - granted[0].charge_cost)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 def _spend_slot(db, character, spell_key: str, slot_level: str) -> tuple[Spell | None, str | None]:
@@ -612,10 +473,10 @@ def set_play_choice(
         error = kind.save(db, choice, character.id, [pick])
         if error:
             errors = {"play_choice": error}
-            return refresh_sheet(request, db, user, character, errors, status_code=400)
+            return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
     else:
         kind.clear(db, [choice.id], character.id)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 # --- Limited-use features -----------------------------------------------------------------
@@ -636,9 +497,9 @@ def set_uses(
     value = parse_amount(remaining, 0, uses.maximum)
     if value is None:
         errors = {"uses": "That isn't a valid number of uses."}
-        return refresh_sheet(request, db, user, character, errors, status_code=400)
+        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
     set_uses_remaining(db, character, uses, value)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post(
@@ -657,9 +518,11 @@ def use_feature(
         raise HTTPException(status_code=404)
     if uses.remaining < feature.spends_amount:
         error = f"{feature.name} takes {feature.spends_amount}; {uses.remaining} left."
-        return refresh_sheet(request, db, user, character, {"uses": error}, status_code=400)
+        return page.refresh_sheet(
+            request, refreshed_sheet_view(db, user, character), {"uses": error}
+        )
     set_uses_remaining(db, character, uses, uses.remaining - feature.spends_amount)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 # --- Rests --------------------------------------------------------------------------------
@@ -667,7 +530,7 @@ def use_feature(
 
 @router.get("/characters/{character_id}/sheet/short-rest", response_class=HTMLResponse)
 def open_short_rest(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
-    return refresh_sheet(request, db, user, character, resting=True)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character, resting=True))
 
 
 @router.post("/characters/{character_id}/sheet/short-rest/hit-die", response_class=HTMLResponse)
@@ -691,13 +554,13 @@ def short_rest_hit_die(
     elif parse_amount(roll, 1, dice.die) is None:
         error = f"Enter your d{dice.die} roll, from 1 to {dice.die}."
     if error:
-        return refresh_sheet(
-            request, db, user, character, {"hit_die": error}, status_code=400, resting=True
+        return page.refresh_sheet(
+            request, refreshed_sheet_view(db, user, character, resting=True), {"hit_die": error}
         )
 
     spend_hit_die(db, character, dice.character_class.id)
     heal(play_state(db, character), hit_die_healing(int(roll), con_mod), maximum)
-    return refresh_sheet(request, db, user, character, resting=True)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character, resting=True))
 
 
 class RecoveryForm(BaseModel):
@@ -754,14 +617,14 @@ def short_rest_recover(
         elif sum(level * n for level, n in counts.items()) > budget:
             error = f"{uses.feature.name} recovers at most {budget} total slot levels."
     if error:
-        return refresh_sheet(
-            request, db, user, character, {"recovery": error}, status_code=400, resting=True
+        return page.refresh_sheet(
+            request, refreshed_sheet_view(db, user, character, resting=True), {"recovery": error}
         )
 
     for level, n in counts.items():
         set_slots_remaining(db, character, level, slots[level].remaining + n)
     set_uses_remaining(db, character, uses, uses.remaining - 1)
-    return refresh_sheet(request, db, user, character, resting=True)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character, resting=True))
 
 
 @router.post("/characters/{character_id}/sheet/short-rest/finish", response_class=HTMLResponse)
@@ -769,64 +632,16 @@ def short_rest_finish(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter
 ):
     finish_short_rest(db, character)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/sheet/long-rest", response_class=HTMLResponse)
 def take_long_rest(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
     long_rest(db, character)
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 # --- Copying spells into the spellbook ----------------------------------------------------
-
-
-@dataclass(frozen=True)
-class CopyPanel:
-    """What the copy panel shows: the search (with `query` typed), or the confirm step for
-    `spell`."""
-
-    query: str = ""
-    spell: Spell | None = None
-
-
-def _copy_cost(spell: Spell) -> str:
-    """2024 rules: 2 hours and 50 GP per spell level."""
-    return f"{2 * spell.level} hours and {50 * spell.level} GP"
-
-
-def _copy_results(db, character, query: str) -> dict:
-    spells = search_copyable(db, query)
-    known = {
-        spell_id: f"Always prepared ({feature})"
-        for spell_id, feature in always_prepared_spells(db, character).items()
-    }
-    known.update((entry.spell_id, "In your spellbook") for entry in spellbook(db, character.id))
-    return {
-        "query": query.strip(),
-        "min_length": COPY_SEARCH_MIN,
-        "results": [
-            (spell, known.get(spell.id, ""), found)
-            for spell, found in copy_warnings(db, character, spells).items()
-        ],
-    }
-
-
-def _copy_context(db, character, panel: CopyPanel) -> dict:
-    if panel.spell is not None:
-        return _confirm_context(db, character, panel.spell, panel.query)
-    return {"copy": _copy_results(db, character, panel.query)}
-
-
-def _confirm_context(db, character, spell: Spell, query: str) -> dict:
-    return {
-        "copy_confirm": {
-            "spell": spell,
-            "query": query,
-            "cost": _copy_cost(spell),
-            "warnings": copy_warnings(db, character, [spell])[spell],
-        }
-    }
 
 
 def _copyable(db, key: str) -> Spell | None:
@@ -841,7 +656,9 @@ def open_copy_panel(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, q: str = ""
 ):
     """The copy panel's search step; `q` refills it when coming back from the confirm step."""
-    return refresh_sheet(request, db, user, character, copying=CopyPanel(query=q))
+    return page.refresh_sheet(
+        request, refreshed_sheet_view(db, user, character, copying=CopyPanel(query=q))
+    )
 
 
 @router.get("/characters/{character_id}/sheet/spellbook/copy/search", response_class=HTMLResponse)
@@ -850,7 +667,7 @@ def search_copy(request: Request, db: DbSession, character: OwnedCharacter, q: s
     return templates.TemplateResponse(
         request,
         "sheet/partials/copy_results.html",
-        {"character": character, "copy": _copy_results(db, character, q)},
+        {"character": character, "copy": copy_search(db, character, q)},
     )
 
 
@@ -869,7 +686,11 @@ def confirm_copy(
     return templates.TemplateResponse(
         request,
         "sheet/partials/copy_confirm.html",
-        {"character": character, "errors": {}, **_confirm_context(db, character, found, q)},
+        {
+            "character": character,
+            "errors": {},
+            "copy_confirm": copy_confirmation(db, character, found, q),
+        },
     )
 
 
@@ -896,8 +717,8 @@ def copy_spell(
         error = always_prepared_error(db, character, [str(found.id)])
     if error:
         panel = CopyPanel(query=q)
-        return refresh_sheet(
-            request, db, user, character, {"copy_spell": error}, status_code=400, copying=panel
+        return page.refresh_sheet(
+            request, refreshed_sheet_view(db, user, character, copying=panel), {"copy_spell": error}
         )
     db.add(
         SpellbookEntry(
@@ -907,4 +728,4 @@ def copy_spell(
             source_note=note.strip()[:120] or None,
         )
     )
-    return refresh_sheet(request, db, user, character)
+    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))

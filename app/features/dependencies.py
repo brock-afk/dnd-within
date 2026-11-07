@@ -31,3 +31,12 @@ def get_grid_choice(choice: ApplicableChoice) -> Choice:
 
 
 GridChoice = Annotated[Choice, Depends(get_grid_choice)]
+
+
+def get_in_play_choice(choice: ApplicableChoice) -> Choice:
+    if not choice.in_play:
+        raise HTTPException(status_code=404)
+    return choice
+
+
+InPlayChoice = Annotated[Choice, Depends(get_in_play_choice)]

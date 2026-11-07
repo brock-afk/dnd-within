@@ -12,6 +12,7 @@ from app.features.kinds import source_name
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.features.queries import feature_groups
 from app.leveling.models import CharacterLevel
+from app.sheet import service as sheet_service
 from app.sheet.queries import attributes, castable_spells, feature_uses
 from app.species.models import Species
 
@@ -113,6 +114,36 @@ def test_granted_spells_cast_free_once_per_long_rest(client, db, legacy_folk):
     assert client.post(f"{sheet}/long-rest").status_code == 200
     db.expire_all()
     assert remaining() == 1
+
+
+def _ember_caster(db, legacy_folk) -> tuple[str, str]:
+    """Legacy Folk with the Ember legacy at level 3: the (spell, feature) keys of its free
+    Test Spell A."""
+    _pick(db, legacy_folk, "ember")
+    _level_up_to(db, legacy_folk, 3)
+    [row] = [r for r in castable_spells(db, legacy_folk) if r.spell.slug == "test-spell-a"]
+    return str(row.spell.id), str(row.granted_by.id)
+
+
+def test_a_used_free_cast_is_refused(db, legacy_folk):
+    spell, feature = _ember_caster(db, legacy_folk)
+    assert sheet_service.cast_free(db, legacy_folk, spell, feature) is None
+
+    error = sheet_service.cast_free(db, legacy_folk, spell, feature)
+
+    assert error.endswith("free cast is used. It comes back on a long rest.")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"), [("spell", "²"), ("spell", "999999"), ("feature", "999999")]
+)
+def test_a_spell_that_isnt_cast_free_changes_nothing(db, legacy_folk, field, value):
+    spell, feature = _ember_caster(db, legacy_folk)
+    form = {"spell": spell, "feature": feature} | {field: value}
+
+    assert sheet_service.cast_free(db, legacy_folk, **form) == "That spell can't be cast for free."
+    [uses] = [u for u in feature_uses(db, legacy_folk) if u.feature.slug == "ember-spell"]
+    assert uses.remaining == 1
 
 
 def test_reimport_retires_what_the_pack_drops(db):

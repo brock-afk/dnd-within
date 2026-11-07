@@ -6,7 +6,10 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.characters.models import Character
-from app.core.forms import parse_amount
+from app.core.forms import parse_amount, parse_id
+from app.features.kinds import KINDS
+from app.features.models import Choice
+from app.features.queries import always_prepared_error
 from app.sheet import rules
 from app.sheet.form import AcEffectForm
 from app.sheet.models import (
@@ -14,6 +17,7 @@ from app.sheet.models import (
     CharacterFeatureUse,
     CharacterHpEffect,
     CharacterPlayState,
+    CharacterPreparedSpell,
     CharacterSpellSlot,
 )
 from app.sheet.queries import (
@@ -21,12 +25,16 @@ from app.sheet.queries import (
     ability_modifier,
     ac_spells,
     castable_spells,
+    copyable,
     damage_reactions,
     feature_uses,
+    granted_spells,
     max_hp,
+    prepared_limit,
     spell_slots,
 )
-from app.spells.models import Spell
+from app.spells.models import Spell, SpellbookEntry
+from app.spells.queries import spellbook
 
 
 def play_state(db: Session, character: Character) -> CharacterPlayState:
@@ -105,29 +113,6 @@ def set_uses_remaining(
         row = CharacterFeatureUse(character_id=character.id, feature_id=uses.feature.id, expended=0)
         db.add(row)
     row.expended = uses.maximum - remaining
-
-
-def spend_slot(db: Session, character: Character, spell_key: str, slot_level: str) -> str | None:
-    """Spend the slot for casting a prepared spell at `slot_level` (its level or higher)."""
-    # A prepared ritual is listed twice (as a ritual and at its level); casting uses the slot row.
-    row = next(
-        (
-            r
-            for r in castable_spells(db, character)
-            if str(r.spell.id) == spell_key and r.uses_slots
-        ),
-        None,
-    )
-    slots = spell_slots(db, character)
-    level = parse_amount(slot_level, 1, 9)
-    if row is None:
-        return "Only prepared spells of level 1 or higher are cast with a slot."
-    if level is None or level < row.spell.level:
-        return f"{row.spell.name} needs a slot of level {row.spell.level} or higher."
-    if level not in slots or slots[level].remaining == 0:
-        return f"You have no level {level} slots left."
-    set_slots_remaining(db, character, level, slots[level].remaining - 1)
-    return None
 
 
 # --- Hit points and Armor Class -----------------------------------------------------------
@@ -239,3 +224,120 @@ def add_ac_effect(db: Session, character: Character, form: AcEffectForm) -> str 
 
 def end_ac_effect(db: Session, effect: CharacterAcEffect) -> None:
     db.delete(effect)
+
+
+# --- Spells -------------------------------------------------------------------------------
+
+
+def spend_slot(db: Session, character: Character, spell_key: str, slot_level: str) -> str | None:
+    """Spend the slot for casting a prepared spell at `slot_level` (its level or higher)."""
+    # A prepared ritual is listed twice (as a ritual and at its level); casting uses the slot row.
+    row = next(
+        (
+            r
+            for r in castable_spells(db, character)
+            if str(r.spell.id) == spell_key and r.uses_slots
+        ),
+        None,
+    )
+    slots = spell_slots(db, character)
+    level = parse_amount(slot_level, 1, 9)
+    if row is None:
+        return "Only prepared spells of level 1 or higher are cast with a slot."
+    if level is None or level < row.spell.level:
+        return f"{row.spell.name} needs a slot of level {row.spell.level} or higher."
+    if level not in slots or slots[level].remaining == 0:
+        return f"You have no level {level} slots left."
+    set_slots_remaining(db, character, level, slots[level].remaining - 1)
+    return None
+
+
+def save_prepared(db: Session, character: Character, picks: list[str]) -> str | None:
+    picks = list(dict.fromkeys(picks))
+    book = {str(entry.spell_id): entry.spell_id for entry in spellbook(db, character.id)}
+    limit = prepared_limit(character)
+    if limit is None:
+        return "This character doesn't prepare spells."
+    if any(key not in book for key in picks):
+        return "You can only prepare spells in your spellbook."
+    if refused := always_prepared_error(db, character, picks):
+        return refused
+    if len(picks) > limit:
+        return f"You can prepare at most {limit}. You picked {len(picks)}."
+    db.execute(
+        delete(CharacterPreparedSpell).where(CharacterPreparedSpell.character_id == character.id)
+    )
+    db.add_all(
+        CharacterPreparedSpell(character_id=character.id, spell_id=book[key]) for key in picks
+    )
+    db.flush()
+    return None
+
+
+def remove_copied_spell(db: Session, character: Character, key: str) -> str | None:
+    """Preparing it is undone by the database (character_prepared_spells cascades from
+    spellbook_entries)."""
+    entry = next((e for e in spellbook(db, character.id) if str(e.spell_id) == key), None)
+    if entry is None or entry.acquired_via != "copied":
+        return "Only copied spells can be removed here. Change level-up spells on the Build page."
+    db.delete(entry)
+    db.flush()
+    return None
+
+
+def change_slots(db: Session, character: Character, level: int, remaining: str) -> str | None:
+    slot = spell_slots(db, character).get(level)
+    value = parse_amount(remaining, 0, slot.maximum) if slot else None
+    if value is None:
+        return "That isn't a valid number of slots."
+    set_slots_remaining(db, character, level, value)
+    return None
+
+
+def cast_free(db: Session, character: Character, spell: str, feature: str) -> str | None:
+    granted = granted_spells(db, character).get(parse_id(spell))
+    uses = next((u for u in feature_uses(db, character) if str(u.feature.id) == feature), None)
+    if granted is None or uses is None:
+        return "That spell can't be cast for free."
+    feature_spell, granting = granted
+    if not feature_spell.free_cast or uses.feature != granting:
+        return "That spell can't be cast for free."
+    cost = feature_spell.charge_cost
+    if uses.remaining < cost:
+        if uses.remaining:
+            return f"{uses.feature.name}: {uses.remaining} left, and this takes {cost}."
+        return f"{uses.feature.name}'s free cast is used. It comes back on a long rest."
+    set_uses_remaining(db, character, uses, uses.remaining - cost)
+    return None
+
+
+def copy_spell(db: Session, character: Character, spell: str, note: str) -> str | None:
+    """Any spell can be copied (rule-breaking ones get a marker); the gold and time are the
+    player's to track."""
+    found = copyable(db, spell)
+    if found is None:
+        return "Choose a spell of level 1 or higher to copy."
+    if found.id in {entry.spell_id for entry in spellbook(db, character.id)}:
+        return f"{found.name} is already in your spellbook."
+    if refused := always_prepared_error(db, character, [str(found.id)]):
+        return refused
+    db.add(
+        SpellbookEntry(
+            character_id=character.id,
+            spell_id=found.id,
+            acquired_via="copied",
+            source_note=note.strip()[:120] or None,
+        )
+    )
+    return None
+
+
+# --- Choices made in play -----------------------------------------------------------------
+
+
+def set_play_choice(db: Session, character: Character, choice: Choice, pick: str) -> str | None:
+    kind = KINDS[choice.kind]
+    if not pick:
+        kind.clear(db, [choice.id], character.id)
+        return None
+    return kind.save(db, choice, character.id, [pick])

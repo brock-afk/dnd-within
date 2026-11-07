@@ -21,7 +21,9 @@ from app.core.db import SessionLocal, engine, get_db
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.leveling.models import CharacterLevel
 from app.main import app
+from app.sheet.models import CharacterPreparedSpell
 from app.species.models import Species
+from app.spells.models import SpellbookEntry
 
 PASSWORD = "test password"
 
@@ -104,6 +106,19 @@ def theirs(db, character, other_user) -> Character:
 def wanderer(db) -> Background:
     """The fixture pack's background with only an ability score increase (STR, DEX, CON)."""
     return db.scalar(select(Background).where(Background.slug == "test-wanderer"))
+
+
+@pytest.fixture
+def prepare_from_book(db):
+    """prepare_from_book(character, spell_id): copy a spell into the spellbook and prepare it."""
+
+    def prepare_from_book(character: Character, spell_id: int) -> None:
+        db.add(SpellbookEntry(character_id=character.id, spell_id=spell_id, acquired_via="copied"))
+        db.flush()  # the prepared row's foreign key points at the spellbook entry
+        db.add(CharacterPreparedSpell(character_id=character.id, spell_id=spell_id))
+        db.flush()
+
+    return prepare_from_book
 
 
 @pytest.fixture

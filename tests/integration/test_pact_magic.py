@@ -8,11 +8,10 @@ from app.classes.models import CharacterClass
 from app.features.kinds import KINDS
 from app.features.models import Choice, Feature
 from app.leveling.service import level_down
-from app.sheet.models import CharacterPreparedSpell
 from app.sheet.queries import castable_spells, spell_slots
 from app.sheet.rests import finish_short_rest
 from app.sheet.service import set_slots_remaining
-from app.spells.models import Spell, SpellbookEntry
+from app.spells.models import Spell
 
 
 def _class_id(db, slug: str) -> int:
@@ -86,13 +85,10 @@ def test_picked_spells_are_cast_with_pact_slots(client, db, warlock):
     assert spell_slots(db, warlock)[1].remaining == 1
 
 
-def test_spell_both_picked_and_prepared_from_a_book_is_listed_once(db, warlock):
+def test_spell_both_picked_and_prepared_from_a_book_is_listed_once(db, warlock, prepare_from_book):
     spell = _spell_id(db, "pact-spell-a")
     assert KINDS["spell"].save(db, _choice(db), warlock.id, [str(spell)]) is None
-    db.add(SpellbookEntry(character_id=warlock.id, spell_id=spell, acquired_via="copied"))
-    db.flush()
-    db.add(CharacterPreparedSpell(character_id=warlock.id, spell_id=spell))
-    db.flush()
+    prepare_from_book(warlock, spell)
 
     assert [r.spell.id for r in castable_spells(db, warlock)].count(spell) == 1
 

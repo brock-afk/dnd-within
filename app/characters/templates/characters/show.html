@@ -24,7 +24,7 @@
       <span class="feature-name">{{ fv.feature.name }}</span>
       {% if fv.feature.level > 1 %}<span class="feature-level">Level {{ fv.feature.level }}</span>{% endif %}
       {% if fv.feature.action or fv.feature.spends_amount %}<span class="muted">
-        {%- if fv.feature.action %}{{ fv.feature.action | replace("_", " ") | title }}{% endif %}
+        {%- if fv.feature.action %}{{ fv.feature.action.label }}{% endif %}
         {%- if fv.feature.action and fv.feature.spends_amount %} · {% endif %}
         {%- if fv.feature.spends_amount %}{{ fv.feature.spends_amount }} charge{{ "s" if fv.feature.spends_amount != 1 }}{% endif %}</span>{% endif %}
       {% if picks %}<span class="feature-picks">{{ picks | join(", ") }}</span>{% endif %}

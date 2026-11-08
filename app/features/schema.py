@@ -4,6 +4,7 @@ from typing import Annotated, Any, Literal, get_args
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.abilities.rules import Ability
+from app.features.rules import Action
 
 DICE = re.compile(r"^\d{1,3}d\d{1,3}$")
 DICE_BONUS = re.compile(r"^\s*\d{1,3}d\d{1,3}(\s*[+-]\s*\d{1,3})?\s*$")
@@ -106,7 +107,7 @@ class OptionDef(BaseModel):
     name: Text80
     summary: Text255
     when: Text120 | None = None
-    action: Literal["action", "bonus_action", "reaction"] | None = None
+    action: Action | None = None
     sheet: Placement | None = None
     damage_reaction: DamageReactionDef | None = None
     grants: GrantsDef | None = None
@@ -287,7 +288,7 @@ class FeatureDef(BaseModel):
     grants: GrantsDef | None = None
     spells: list[FeatureSpellDef] = []
     choices: list[ChoiceDef] = []
-    action: Literal["action", "bonus_action", "reaction"] | None = None
+    action: Action | None = None
     when: Text120 | None = None
     sheet: Placement | None = None
     spends: SpendsDef | None = None

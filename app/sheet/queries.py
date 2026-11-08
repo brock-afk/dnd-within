@@ -23,6 +23,7 @@ from app.features.queries import (
     feature_groups,
     play_choices,
 )
+from app.features.rules import Action
 from app.inventory.models import CharacterItem, Item
 from app.inventory.queries import (
     HealingUse,
@@ -219,9 +220,7 @@ class SheetFeatures:
 
 
 FEATURE_GROUPS = [
-    ("action", "Actions"),
-    ("bonus_action", "Bonus Actions"),
-    ("reaction", "Reactions"),
+    *((action, f"{action.label}s") for action in Action),
     ("triggered", "Triggered"),
     (None, "Other"),
 ]
@@ -246,7 +245,7 @@ def _uses_group(uses: FeatureUses) -> str | None:
         return None
     units = {fs.spell.casting_unit for fs in feature.spells if fs.free_cast}
     unit = units.pop() if len(units) == 1 else None
-    return unit if unit in ("action", "bonus_action", "reaction") else None
+    return Action(unit) if unit in Action else None
 
 
 def sheet_features(

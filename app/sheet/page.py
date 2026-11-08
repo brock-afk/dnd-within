@@ -7,7 +7,6 @@ from app.inventory.rules import COINS, MAX_ATTUNED
 from app.sheet.queries import CopyConfirmView, CopySearchView, PreparedEditorView, SheetView
 
 SHEET_SELECTOR = "#sheet-page"
-ACTION_LABELS = {"action": "Action", "bonus_action": "Bonus Action", "reaction": "Reaction"}
 
 
 def sheet(
@@ -21,7 +20,6 @@ def sheet(
         "sheet/sheet.html",
         view_context(
             view,
-            action_labels=ACTION_LABELS,
             coin_labels=COINS,
             max_attuned=MAX_ATTUNED,
             errors=errors or {},

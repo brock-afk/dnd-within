@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import JSON, CheckConstraint, MetaData, create_engine
+from sqlalchemy import JSON, CheckConstraint, Enum, MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
@@ -35,6 +35,17 @@ def get_db() -> Iterator[Session]:
 
 
 DbSession = Annotated[Session, Depends(get_db, scope="function")]
+
+
+def enum_column(values: type[StrEnum], length: int) -> Enum:
+    return Enum(
+        values,
+        native_enum=False,
+        create_constraint=False,
+        length=length,
+        values_callable=lambda members: [member.value for member in members],
+        validate_strings=True,
+    )
 
 
 def values_check(column: str, values: type[StrEnum], name: str) -> CheckConstraint:

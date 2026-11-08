@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 from pydantic import BaseModel, ConfigDict
 
 from app.core.forms import parse_amount
@@ -29,3 +31,29 @@ class AcEffectForm(BaseModel):
     @property
     def hint(self) -> str:
         return _AC_KINDS[self.effect_kind][2]
+
+
+class RecoveryForm(BaseModel):
+    """How many slots of each level to recover; blank means none."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    level_1: str = ""
+    level_2: str = ""
+    level_3: str = ""
+    level_4: str = ""
+    level_5: str = ""
+    level_6: str = ""
+    level_7: str = ""
+    level_8: str = ""
+    level_9: str = ""
+
+    def counts(self, levels: Iterable[int]) -> dict[int, int] | None:
+        counts = {}
+        for level in levels:
+            count = parse_amount(getattr(self, f"level_{level}") or "0", 0, 99)
+            if count is None:
+                return None
+            if count:
+                counts[level] = count
+        return counts

@@ -2,19 +2,21 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import NamedTuple
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.abilities.queries import constitution_modifier
 from app.characters.models import Character
 from app.core.forms import parse_amount, parse_id
 from app.features.kinds import KINDS
-from app.features.models import Choice
+from app.features.models import Choice, Feature
 from app.features.queries import always_prepared_error
 from app.sheet import rules
-from app.sheet.form import AcEffectForm
+from app.sheet.form import AcEffectForm, RecoveryForm
 from app.sheet.models import (
     CharacterAcEffect,
     CharacterFeatureUse,
+    CharacterHitDice,
     CharacterHpEffect,
     CharacterPlayState,
     CharacterPreparedSpell,
@@ -22,6 +24,7 @@ from app.sheet.models import (
 )
 from app.sheet.queries import (
     FeatureUses,
+    Spender,
     ability_modifier,
     ac_spells,
     castable_spells,
@@ -29,9 +32,12 @@ from app.sheet.queries import (
     damage_reactions,
     feature_uses,
     granted_spells,
+    hit_dice,
     max_hp,
     prepared_limit,
+    recovery_budget,
     spell_slots,
+    uses_of,
 )
 from app.spells.models import Spell, SpellbookEntry
 from app.spells.queries import spellbook
@@ -296,7 +302,7 @@ def change_slots(db: Session, character: Character, level: int, remaining: str) 
 
 def cast_free(db: Session, character: Character, spell: str, feature: str) -> str | None:
     granted = granted_spells(db, character).get(parse_id(spell))
-    uses = next((u for u in feature_uses(db, character) if str(u.feature.id) == feature), None)
+    uses = uses_of(db, character, parse_id(feature))
     if granted is None or uses is None:
         return "That spell can't be cast for free."
     feature_spell, granting = granted
@@ -341,3 +347,132 @@ def set_play_choice(db: Session, character: Character, choice: Choice, pick: str
         kind.clear(db, [choice.id], character.id)
         return None
     return kind.save(db, choice, character.id, [pick])
+
+
+# --- Limited-use features -----------------------------------------------------------------
+
+
+def change_uses(db: Session, character: Character, uses: FeatureUses, remaining: str) -> str | None:
+    value = parse_amount(remaining, 0, uses.maximum)
+    if value is None:
+        return "That isn't a valid number of uses."
+    set_uses_remaining(db, character, uses, value)
+    return None
+
+
+def use_spender(db: Session, character: Character, spender: Spender) -> str | None:
+    uses, feature = spender.uses, spender.feature
+    if uses.remaining < feature.spends_amount:
+        return f"{feature.name} takes {feature.spends_amount}; {uses.remaining} left."
+    set_uses_remaining(db, character, uses, uses.remaining - feature.spends_amount)
+    return None
+
+
+# --- Rests --------------------------------------------------------------------------------
+# Generic: nothing here knows about a specific class; features declare `uses` and
+# `slot_recovery` in their content.
+
+
+def spend_hit_die(db: Session, character: Character, class_id: str, roll: str) -> str | None:
+    dice = next((d for d in hit_dice(db, character) if str(d.character_class.id) == class_id), None)
+    maximum = max_hp(db, character)
+    con_mod = constitution_modifier(db, character)
+    if dice is None or maximum is None or con_mod is None:
+        return "Set ability scores first: hit dice heal using Constitution."
+    if dice.available == 0:
+        return "You have no hit dice left. They come back on a long rest."
+    rolled = parse_amount(roll, 1, dice.die)
+    if rolled is None:
+        return f"Enter your d{dice.die} roll, from 1 to {dice.die}."
+
+    row = db.get(CharacterHitDice, (character.id, dice.character_class.id))
+    if row is None:
+        row = CharacterHitDice(character_id=character.id, class_id=dice.character_class.id, spent=0)
+        db.add(row)
+    row.spent += 1
+    rules.heal(play_state(db, character), rules.hit_die_healing(rolled, con_mod), maximum)
+    return None
+
+
+def recover_slots(
+    db: Session, character: Character, uses: FeatureUses, form: RecoveryForm
+) -> str | None:
+    name = uses.feature.name
+    if uses.remaining == 0:
+        return f"{name} is used. It comes back on a long rest."
+    slots = spell_slots(db, character)
+    counts = form.counts(slots)
+    if counts is None:
+        return "Enter how many slots of each level to recover."
+    max_level = uses.feature.slot_recovery["max_slot_level"]
+    for level, count in counts.items():
+        spent = slots[level].maximum - slots[level].remaining
+        if level > max_level:
+            return f"{name} can't recover slots above level {max_level}."
+        if count > spent:
+            return f"You only have {spent} level {level} slots spent."
+    if not counts:
+        return "Choose at least one slot to recover."
+    budget = recovery_budget(uses)
+    if sum(level * n for level, n in counts.items()) > budget:
+        return f"{name} recovers at most {budget} total slot levels."
+
+    for level, n in counts.items():
+        set_slots_remaining(db, character, level, slots[level].remaining + n)
+    set_uses_remaining(db, character, uses, uses.remaining - 1)
+    return None
+
+
+def finish_short_rest(db: Session, character: Character) -> None:
+    """Restore every use that recharges on a short rest, and every Pact Magic slot."""
+    db.execute(
+        delete(CharacterSpellSlot).where(
+            CharacterSpellSlot.character_id == character.id, CharacterSpellSlot.kind == "pact"
+        )
+    )
+    for uses in feature_uses(db, character):
+        if uses.recharge == "short_rest":
+            db.execute(
+                delete(CharacterFeatureUse).where(
+                    CharacterFeatureUse.character_id == character.id,
+                    CharacterFeatureUse.feature_id == uses.feature.id,
+                )
+            )
+
+
+def long_rest(db: Session, character: Character) -> None:
+    """Full HP, no temporary HP, every hit die back (2024 rules), all spell slots and every
+    feature use restored, and AC spells cast from the sheet ended. Every max HP effect ends: a
+    reduced max returns to normal, and effects like Aid (8 hours) are over.
+
+    Charges regained "at dawn" count as a long rest. Ones that regain a roll (1d3) get that
+    many back instead of all."""
+    db.execute(delete(CharacterHpEffect).where(CharacterHpEffect.character_id == character.id))
+    state = play_state(db, character)
+    state.current_hp = None  # at full, of the restored max
+    state.temp_hp = 0
+    state.temp_hp_source = None
+    # Every spent-uses row, not just active features': an item regains its charges at dawn
+    # whether or not it's attuned.
+    for row, feature in db.execute(
+        select(CharacterFeatureUse, Feature)
+        .join(Feature, Feature.id == CharacterFeatureUse.feature_id)
+        .where(CharacterFeatureUse.character_id == character.id)
+    ):
+        regain = (feature.uses or {}).get("regain")
+        if regain:
+            # A negative roll (1d3-2) regains nothing; a rest never spends charges.
+            regained = max(0, rules.roll(regain))
+            maximum = rules.uses_maximum(feature.uses["max"], character.level)
+            row.expended = max(0, min(row.expended, maximum) - regained)
+        else:
+            db.delete(row)
+    for model in (CharacterHitDice, CharacterSpellSlot):
+        db.execute(delete(model).where(model.character_id == character.id))
+    # Spells like Mage Armor (8 hours) are over; AC effects added by hand stay.
+    db.execute(
+        delete(CharacterAcEffect).where(
+            CharacterAcEffect.character_id == character.id,
+            CharacterAcEffect.ends_on_long_rest.is_(True),
+        )
+    )

@@ -346,16 +346,16 @@
 {% if abilities %}
 <ul class="ability-grid play-abilities">
   {% for row in abilities %}
-  {% set a = row.ability %}
+  {% set a = row.view %}
   <li class="card">
-    <span class="ability-abbr">{{ a.abbr }}</span>
+    <span class="ability-abbr">{{ a.ability }}</span>
     <button type="button" class="ability-mod roll-number" data-roll="1d20{{ '%+d' | format(a.mod) }}"
-            title="Roll a {{ a.name }} check" aria-label="Roll a {{ a.name }} check">{{ a.modifier }}</button>
+            title="Roll a {{ a.ability.label }} check" aria-label="Roll a {{ a.ability.label }} check">{{ a.modifier }}</button>
     <span class="ability-score">{{ a.total }}</span>
     <button type="button" class="ability-save roll-number{% if row.proficient %} proficient{% endif %}"
             data-roll="1d20{{ '%+d' | format(row.save) }}"
-            title="Roll a {{ a.name }} saving throw{% if row.proficient %} (proficient: {{ row.sources | join(", ") }}){% endif %}"
-            aria-label="Roll a {{ a.name }} saving throw">{% if row.proficient %}<span aria-hidden="true">●</span> {% endif %}save {{ signed(row.save) }}</button>
+            title="Roll a {{ a.ability.label }} saving throw{% if row.proficient %} (proficient: {{ row.sources | join(", ") }}){% endif %}"
+            aria-label="Roll a {{ a.ability.label }} saving throw">{% if row.proficient %}<span aria-hidden="true">●</span> {% endif %}save {{ signed(row.save) }}</button>
     <span class="roll-result muted" aria-live="polite"></span>
   </li>
   {% endfor %}

@@ -22,15 +22,15 @@
     <div class="increase-rows">
       {% for row in rows %}
       <div class="increase-row">
-        <span class="row-name">{{ row.name }}</span>
+        <span class="row-name">{{ row.ability.label }}</span>
         {% if even %}
         <span class="increase-amount">+1</span>
         {% else %}
         <span class="increase-toggle">
           {% for field, n in [("plus2", 2), ("plus1", 1)] %}
           <label class="increase-option">
-            <input type="radio" name="{{ field }}" value="{{ row.abbr }}" aria-label="+{{ n }} to {{ row.name }}"
-                   {% if form[field] == row.abbr %}checked{% endif %}
+            <input type="radio" name="{{ field }}" value="{{ row.ability }}" aria-label="+{{ n }} to {{ row.ability.label }}"
+                   {% if form[field] == row.ability %}checked{% endif %}
                    hx-post="{{ url }}/preview" hx-vals='{"changed": "{{ field }}"}' {{ editor_swap | safe }}>
             +{{ n }}
           </label>

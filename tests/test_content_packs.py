@@ -235,3 +235,10 @@ def test_count_by_level_is_only_for_option_choices():
     subclass = {"slug": "sub", "name": "Sub", "kind": "subclass", "count": [1] * 20}
     with pytest.raises(ValidationError, match="count by level is for option choices"):
         ChoiceDef.model_validate(subclass)
+
+
+@pytest.mark.parametrize("unknown", ["XYZ", ["STR"]])
+def test_an_ability_choice_names_real_abilities(unknown):
+    criteria = {"from": ["STR", "DEX", unknown]}
+    with pytest.raises(ValidationError, match="three different abilities"):
+        ChoiceDef(slug="bad", name="Bad", kind="ability_scores", count=1, criteria=criteria)

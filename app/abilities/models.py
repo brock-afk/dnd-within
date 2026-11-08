@@ -1,16 +1,15 @@
 from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base
+from app.abilities.rules import Ability
+from app.core.db import Base, values_check
 
 
 class CharacterAbilityBonus(Base):
     __tablename__ = "character_ability_bonuses"
     __table_args__ = (
         UniqueConstraint("character_id", "choice_id", "ability"),
-        CheckConstraint(
-            "ability IN ('STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA')", name="ability_values"
-        ),
+        values_check("ability", Ability, "ability_values"),
         CheckConstraint("amount BETWEEN 1 AND 2", name="amount_range"),
     )
 

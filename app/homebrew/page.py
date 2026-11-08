@@ -1,9 +1,9 @@
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
+from app.abilities.rules import Ability
 from app.core.templates import templates, view_context
 from app.homebrew.form import (
-    ABILITIES,
     ACTIONS,
     CATEGORIES,
     DAMAGE_TYPES,
@@ -24,7 +24,7 @@ EDITOR_OPTIONS = {
     "actions": ACTIONS,
     "tool_modes": TOOL_MODES,
     "tools": TOOLS,
-    "abilities": ABILITIES,
+    "abilities": list(Ability),
     "damage_types": DAMAGE_TYPES,
 }
 

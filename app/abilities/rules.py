@@ -1,21 +1,22 @@
-from dataclasses import dataclass
+from enum import StrEnum
 
 
-@dataclass(frozen=True)
-class Ability:
-    column: str
-    abbr: str
-    name: str
+class Ability(StrEnum):
+    STRENGTH = "STR"
+    DEXTERITY = "DEX"
+    CONSTITUTION = "CON"
+    INTELLIGENCE = "INT"
+    WISDOM = "WIS"
+    CHARISMA = "CHA"
 
+    @property
+    def column(self) -> str:
+        return self.name.lower()
 
-ABILITIES = [
-    Ability("strength", "STR", "Strength"),
-    Ability("dexterity", "DEX", "Dexterity"),
-    Ability("constitution", "CON", "Constitution"),
-    Ability("intelligence", "INT", "Intelligence"),
-    Ability("wisdom", "WIS", "Wisdom"),
-    Ability("charisma", "CHA", "Charisma"),
-]
+    @property
+    def label(self) -> str:
+        return self.name.title()
+
 
 METHODS = {
     "standard_array": "Standard array",
@@ -68,7 +69,7 @@ def validate(
 
     errors = {}
     if method == "point_buy":
-        for a in ABILITIES:
+        for a in Ability:
             if scores[a.column] not in POINT_BUY_COSTS:
                 errors[a.column] = "Point buy scores are 8–15."
         spent = point_buy_spent(scores)
@@ -87,7 +88,7 @@ def validate(
             errors["rolls"] = f"Rolls are {low}–{high}."
         pool = [r for r in rolls if r is not None]
 
-    for a in ABILITIES:
+    for a in Ability:
         if scores[a.column] is None:
             errors[a.column] = "Choose a score."
     if not errors and sorted(scores.values()) != sorted(pool):

@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from app.abilities.rules import ABILITIES, METHODS, point_buy_step
+from app.abilities.rules import METHODS, Ability, point_buy_step
 from app.core.forms import parse_int
 
 
@@ -21,7 +21,7 @@ class AbilityForm(BaseModel):
         return self.method if self.method in METHODS else "standard_array"
 
     def scores(self) -> dict[str, int | None]:
-        return {a.column: parse_int(getattr(self, a.column)) for a in ABILITIES}
+        return {a.column: parse_int(getattr(self, a.column)) for a in Ability}
 
     def roll_values(self) -> list[int | None]:
         rolls = [parse_int(r) for r in self.rolls[:6]]

@@ -3,6 +3,8 @@ from typing import Annotated, Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.abilities.rules import Ability
+
 DICE = re.compile(r"^\d{1,3}d\d{1,3}$")
 DICE_BONUS = re.compile(r"^\s*\d{1,3}d\d{1,3}(\s*[+-]\s*\d{1,3})?\s*$")
 
@@ -15,7 +17,6 @@ def _text(length: int):
 
 Text50, Text80, Text120, Text255, Text500 = (_text(n) for n in (50, 80, 120, 255, 500))
 
-Ability = Literal["STR", "DEX", "CON", "INT", "WIS", "CHA"]
 DamageType = Literal[
     "acid",
     "bludgeoning",
@@ -175,13 +176,12 @@ class ChoiceDef(BaseModel):
             )
         if self.kind == "ability_scores":
             abilities = self.criteria.get("from")
-            valid = get_args(Ability)
             if (
                 self.criteria.keys() != {"from"}
                 or not isinstance(abilities, list)
+                or any(a not in Ability for a in abilities)
                 or len(set(abilities)) != 3
                 or len(abilities) != 3
-                or any(a not in valid for a in abilities)
                 or self.count != 1
             ):
                 raise ValueError(

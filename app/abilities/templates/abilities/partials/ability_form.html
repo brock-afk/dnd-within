@@ -40,21 +40,21 @@
       {% set col = row.ability.column %}
       <div class="ability-row{% if row.error %} has-error{% endif %}">
         {% if method == "point_buy" %}
-        <span class="row-name">{{ row.ability.name }}</span>
+        <span class="row-name">{{ row.ability.label }}</span>
         <div class="stepper">
-          <button type="button" id="dec-{{ col }}" class="step" aria-label="Lower {{ row.ability.name }}"
+          <button type="button" id="dec-{{ col }}" class="step" aria-label="Lower {{ row.ability.label }}"
                   hx-post="/characters/{{ character.id }}/abilities/preview"
                   hx-vals='{"step": "{{ col }}:-1"}' {{ editor_swap | safe }}
                   {% if not row.can_decrease %}disabled{% endif %}>−</button>
           <output class="step-value" aria-live="polite">{{ row.score if row.score is not none else '' }}</output>
           <input type="hidden" name="{{ col }}" value="{{ row.score if row.score is not none else '' }}">
-          <button type="button" id="inc-{{ col }}" class="step" aria-label="Raise {{ row.ability.name }}"
+          <button type="button" id="inc-{{ col }}" class="step" aria-label="Raise {{ row.ability.label }}"
                   hx-post="/characters/{{ character.id }}/abilities/preview"
                   hx-vals='{"step": "{{ col }}:1"}' {{ editor_swap | safe }}
                   {% if not row.can_increase %}disabled{% endif %}>+</button>
         </div>
         {% else %}
-        <label class="row-name" for="ability-{{ col }}">{{ row.ability.name }}</label>
+        <label class="row-name" for="ability-{{ col }}">{{ row.ability.label }}</label>
         <select id="ability-{{ col }}" name="{{ col }}">
           <option value="">—</option>
           {% for opt in row.options %}

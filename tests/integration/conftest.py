@@ -24,6 +24,7 @@ from app.species.models import Species
 from app.spells.models import SpellbookEntry
 
 PASSWORD = "test password"
+PASSWORD_HASH = hash_password(PASSWORD)
 
 
 @pytest.fixture(scope="session")
@@ -46,7 +47,7 @@ def db(database):
 
 @pytest.fixture
 def character(db) -> Character:
-    user = User(username="tester", password_hash=hash_password(PASSWORD))
+    user = User(username="tester", password_hash=PASSWORD_HASH)
     wizard = db.scalar(select(CharacterClass).where(CharacterClass.slug == "wizard"))
     goliath = db.scalar(select(Species).where(Species.slug == "goliath"))
     db.add(user)
@@ -160,6 +161,17 @@ def serve_with():
 
     yield serve
     app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def visitor(db, serve_with) -> TestClient:
+    serve_with(db)
+    return TestClient(app)
+
+
+@pytest.fixture
+def password() -> str:
+    return PASSWORD
 
 
 @pytest.fixture

@@ -1,15 +1,7 @@
 import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
 from app.sharing.queries import public_share, shared_character
 from app.sharing.service import make_link, stop_sharing
-
-
-@pytest.fixture
-def visitor(db, serve_with) -> TestClient:
-    serve_with(db)
-    return TestClient(app)
 
 
 def test_anyone_with_the_link_sees_the_pages_read_only(db, character, visitor):

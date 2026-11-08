@@ -46,6 +46,13 @@ SPELL_FIELDS = ["spell_id", "spell_charges", "spell_prepared", "spell_note"]
 ABILITY_FIELDS = ["ability_name", "ability_action", "ability_charges", "ability_text"]
 
 
+_ACTION_WORDS = (
+    ("bonus", Action.BONUS_ACTION),
+    ("reaction", Action.REACTION),
+    ("action", Action.ACTION),
+)
+
+
 class ItemForm(BaseModel):
     name: str = ""
     category: str = "magic"
@@ -102,15 +109,7 @@ class ItemForm(BaseModel):
             self.ability_action, self.ability_charges = [], []
             for when in self.ability_when:
                 text = when.lower()
-                action = (
-                    Action.BONUS_ACTION
-                    if "bonus" in text
-                    else Action.REACTION
-                    if "reaction" in text
-                    else Action.ACTION
-                    if "action" in text
-                    else ""
-                )
+                action = next((a for word, a in _ACTION_WORDS if word in text), "")
                 count = re.search(r"(\d+)\s*charge", text)
                 self.ability_action.append(action)
                 self.ability_charges.append(count[1] if count else "1" if "charge" in text else "")

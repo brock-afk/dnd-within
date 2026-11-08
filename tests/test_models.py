@@ -1,5 +1,7 @@
 import pytest
 from sqlalchemy import JSON
+from sqlalchemy.dialects import mysql
+from sqlalchemy.schema import CreateTable
 
 from app.core.db import Base
 
@@ -15,19 +17,24 @@ def test_nullable_json_columns_store_sql_null():
 
 
 @pytest.mark.parametrize(
-    ("table", "name", "sql"),
+    ("table", "check"),
     [
         (
             "character_ability_bonuses",
-            "ability_values",
-            "ability IN ('STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA')",
+            "ck_character_ability_bonuses_ability_values"
+            " CHECK (ability IN ('STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'))",
         ),
-        ("features", "action_values", "action IN ('action', 'bonus_action', 'reaction')"),
-        ("choice_options", "action_values", "action IN ('action', 'bonus_action', 'reaction')"),
+        (
+            "features",
+            "ck_features_action_values CHECK (action IN ('action', 'bonus_action', 'reaction'))",
+        ),
+        (
+            "choice_options",
+            "ck_choice_options_action_values"
+            " CHECK (action IN ('action', 'bonus_action', 'reaction'))",
+        ),
     ],
 )
-def test_enum_check_constraints_match_their_migrations(table, name, sql):
-    [constraint] = [
-        c for c in Base.metadata.tables[table].constraints if str(c.name).endswith(name)
-    ]
-    assert str(constraint.sqltext) == sql
+def test_enum_check_constraints_match_their_migrations(table, check):
+    ddl = str(CreateTable(Base.metadata.tables[table]).compile(dialect=mysql.dialect()))
+    assert f"CONSTRAINT {check}" in ddl

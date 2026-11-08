@@ -1,7 +1,3 @@
-"""Integration tests run on a real MySQL database (dnd_within_test, see tests/conftest.py):
-migrated to head and loaded with the fixture pack (tests/fixtures/content) once per run. Each
-test runs in a transaction that's rolled back afterwards."""
-
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -41,7 +37,6 @@ def database():
 def db(database):
     with engine.connect() as connection:
         transaction = connection.begin()
-        # Commits inside the code under test become savepoints, so the rollback undoes them.
         with Session(
             bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False
         ) as session:
@@ -51,7 +46,6 @@ def db(database):
 
 @pytest.fixture
 def character(db) -> Character:
-    """A level 1 Goliath Wizard with Constitution 14: 8 max HP (d6 + 2)."""
     user = User(username="tester", password_hash=hash_password(PASSWORD))
     wizard = db.scalar(select(CharacterClass).where(CharacterClass.slug == "wizard"))
     goliath = db.scalar(select(Species).where(Species.slug == "goliath"))
@@ -84,7 +78,6 @@ def owner(db, character) -> User:
 
 @pytest.fixture
 def other_user(db) -> User:
-    """A user who doesn't own the test character."""
     user = User(username="someone-else", password_hash="x")
     db.add(user)
     db.flush()
@@ -93,8 +86,6 @@ def other_user(db) -> User:
 
 @pytest.fixture
 def theirs(db, character, other_user) -> Character:
-    """A character of other_user's, committed so a request's 404 can't roll it back: committing
-    the shared test session only releases a savepoint, and the test still rolls back at the end."""
     theirs = Character(user_id=other_user.id, name="Theirs", species_id=character.species_id)
     class_id = character.classes[0].class_id
     theirs.classes.append(CharacterClassLevel(class_id=class_id, position=0))
@@ -106,17 +97,15 @@ def theirs(db, character, other_user) -> Character:
 
 @pytest.fixture
 def wanderer(db) -> Background:
-    """The fixture pack's background with only an ability score increase (STR, DEX, CON)."""
     return db.scalar(select(Background).where(Background.slug == "test-wanderer"))
 
 
 @pytest.fixture
 def prepare_from_book(db):
-    """prepare_from_book(character, spell_id): copy a spell into the spellbook and prepare it."""
 
     def prepare_from_book(character: Character, spell_id: int) -> None:
         db.add(SpellbookEntry(character_id=character.id, spell_id=spell_id, acquired_via="copied"))
-        db.flush()  # the prepared row's foreign key points at the spellbook entry
+        db.flush()
         db.add(CharacterPreparedSpell(character_id=character.id, spell_id=spell_id))
         db.flush()
 
@@ -125,7 +114,6 @@ def prepare_from_book(db):
 
 @pytest.fixture
 def wizard_choice(db):
-    """wizard_choice(slug): one of the fixture pack's Wizard choices, e.g. "skills"."""
 
     def wizard_choice(slug: str) -> Choice:
         return db.scalar(
@@ -140,14 +128,12 @@ def wizard_choice(db):
 
 @pytest.fixture
 def increase(db, character, wanderer) -> Choice:
-    """The test character as a Test Wanderer: its ability score increase choice."""
     choose_origin(db, character, BACKGROUND, str(wanderer.id))
     return db.scalar(select(Choice).join(Feature).where(Feature.background_id == wanderer.id))
 
 
 @pytest.fixture
 def stone_giant(db, character) -> Character:
-    """The character, with Stone Giant ancestry picked: no grants, a damage reaction."""
     stone = db.scalar(select(ChoiceOption).where(ChoiceOption.slug == "stone"))
     db.add(
         CharacterChoicePick(
@@ -160,8 +146,6 @@ def stone_giant(db, character) -> Character:
 
 @pytest.fixture
 def serve_with():
-    """Serve the app's requests on a given session, committing when a route returns and
-    rolling back when it raises, like get_db."""
 
     def serve(session: Session) -> None:
         def get_test_db():
@@ -180,7 +164,6 @@ def serve_with():
 
 @pytest.fixture
 def client(db, character, serve_with):
-    """The real app on the test transaction, logged in as the character's owner."""
     serve_with(db)
     client = TestClient(app)
     user = db.get(User, character.user_id)
@@ -191,8 +174,6 @@ def client(db, character, serve_with):
 
 @pytest.fixture
 def warlock(db, character) -> Character:
-    """A level 1 character in the fixture pack's Test Pact class (Pact Magic, invocations),
-    owned by the test character's user."""
     pact = db.scalar(select(CharacterClass.id).where(CharacterClass.slug == "test-pact"))
     warlock = Character(
         user_id=character.user_id,
@@ -212,7 +193,6 @@ def warlock(db, character) -> Character:
 
 @pytest.fixture
 def level_up(db):
-    """level_up(character, level): add levels in the character's starting class up to `level`."""
 
     def level_up(character: Character, level: int) -> None:
         class_id = character.classes[0].class_id
@@ -227,8 +207,6 @@ def level_up(db):
 
 @pytest.fixture
 def charged_item(db):
-    """charged_item(character, uses, attuned=True): a carried magic item needing attunement,
-    with a charges feature that has these `uses`. Returns the charges feature."""
 
     def charged_item(character: Character, uses: dict, attuned: bool = True) -> Feature:
         source = db.scalar(select(Source).where(Source.slug == "test-core"))

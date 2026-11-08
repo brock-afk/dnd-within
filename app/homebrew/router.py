@@ -46,8 +46,6 @@ def preview(
     user: CurrentUser,
     form: Annotated[ItemForm, Form()],
 ):
-    """Redraw the editor with a spell or ability row added or removed, keeping what's typed."""
-    # The item comes from the form, not the URL, so the dependency is called by hand.
     item_id = parse_id(form.item_id)
     item = get_owned_item(item_id, db, user) if item_id is not None else None
     form.edit_rows()

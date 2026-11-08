@@ -15,14 +15,11 @@ from app.spells.queries import pickable_spells
 
 
 def inventory(db: Session, character: Character) -> list[CharacterItem]:
-    """Everything the character carries, by name."""
     rows = db.scalars(select(CharacterItem).where(CharacterItem.character_id == character.id))
     return sorted(rows, key=lambda row: row.name.lower())
 
 
 def item_features(db: Session, rows: list[CharacterItem]) -> dict[int, list[Feature]]:
-    """{item id: its features} for the items carried: what each item does, shown with it in
-    the inventory whether or not it's attuned."""
     ids = {row.item_id for row in rows}
     features = db.scalars(
         select(Feature)
@@ -37,9 +34,6 @@ def item_features(db: Session, rows: list[CharacterItem]) -> dict[int, list[Feat
 
 @dataclass(frozen=True)
 class HealingUse:
-    """A carried item that heals from the HP panel: a potion (its own dice), or a scroll of a
-    healing spell (the spell's dice; False Life's are temporary hit points)."""
-
     row: CharacterItem
     dice: str
     temporary: bool = False
@@ -64,7 +58,6 @@ def is_ac_scroll(row: CharacterItem) -> bool:
 
 
 def ac_scrolls(rows: list[CharacterItem], active_spell_ids: set[int]) -> list[CharacterItem]:
-    # Like the prepared spell, a scroll isn't offered while its effect is already on.
     return [row for row in rows if is_ac_scroll(row) and row.spell_id not in active_spell_ids]
 
 
@@ -73,7 +66,6 @@ SEARCH_LIMIT = 20
 
 
 def price(cost_cp: int | None) -> str:
-    """ "40 gold", "5 silver", "2 copper", or "" without a price."""
     if cost_cp is None:
         return ""
     for coin, value in [("gold", 100), ("silver", 10)]:
@@ -83,14 +75,11 @@ def price(cost_cp: int | None) -> str:
 
 
 def item_detail(item: Item) -> str:
-    """ "Common · 50 gold": rarity and price, whichever it has."""
     rarity = (item.rarity or "").replace("_", " ").capitalize()
     return " · ".join(part for part in [rarity, price(item.cost_cp)] if part)
 
 
 def search_items(db: Session, query: str, user_id: int) -> list[Item]:
-    """Catalog items named like `query`, once it's long enough: published ones and this
-    user's homebrew."""
     query = query.strip()
     if len(query) < SEARCH_MIN_LENGTH:
         return []
@@ -128,12 +117,10 @@ def item_search(db: Session, character: Character, query: str) -> ItemSearchView
 
 
 def pack_contents(db: Session, item: Item) -> list[tuple[Item, int]]:
-    """(item, quantity) a pack adds."""
     return [(db.get(Item, c["item_id"]), c["quantity"]) for c in item.contents or []]
 
 
 def scroll_spells_query(item: Item, user_id: int) -> Select[tuple[Spell]]:
-    """A Spell Scroll holds any spell of its level, whatever the class."""
     return pickable_spells(user_id).where(Spell.level == item.spell_level)
 
 
@@ -176,20 +163,17 @@ def coins(db: Session, character: Character) -> CharacterPlayState | None:
 
 
 def coin_summary(values: dict[str, int]) -> str:
-    """ "65 gold, 3 silver": the coins the character has, highest first; "" with none."""
     return ", ".join(
         f"{values[column]:,} {label.lower()}" for column, label in COINS if values[column]
     )
 
 
 def coin_values(db: Session, character: Character) -> dict[str, int]:
-    """{"pp": 0, "gp": 65, ...}, highest coin first."""
     state = coins(db, character)
     return {column: getattr(state, column) if state else 0 for column, _ in COINS}
 
 
 def digest(db: Session, character: Character, rows: list[CharacterItem]) -> str:
-    """ "65 gold · 12 items" for the collapsed Inventory section."""
     money = coin_summary(coin_values(db, character))
     count = f"{len(rows)} item{'s' if len(rows) != 1 else ''}" if rows else ""
     return " · ".join(part for part in [money, count] if part)

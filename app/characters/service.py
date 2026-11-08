@@ -24,8 +24,6 @@ def _name_error(name: str) -> str | None:
 def create_character(
     db: Session, user: User, form: CharacterForm
 ) -> tuple[Character | None, dict[str, str]]:
-    """A level 1 character in the chosen class and species, or (None, {field: problem}) with
-    nothing saved."""
     errors = {}
     if error := _name_error(form.name):
         errors["name"] = error
@@ -58,18 +56,13 @@ def rename(character: Character, name: str) -> str | None:
 def delete_character(db: Session, character: Character, confirm: str) -> str | None:
     if confirm.strip().lower() != "delete":
         return "Type delete to confirm."
-    # Classes, skills, spells and choice picks are removed by ON DELETE CASCADE.
     db.delete(character)
     db.flush()
     return None
 
 
 def choose_origin(db: Session, character: Character, origin: Origin, key: str) -> str | None:
-    """Switch the character's species or background to the row `key` names. Picks for the old
-    one's features go with it, choices the new one fills by itself are made, and current HP
-    follows any max HP change (a Constitution increase)."""
     row_id = parse_id(key)
-    # Before the availability check: re-saving a pick whose row was since retired is fine.
     if row_id is not None and row_id == getattr(character, origin.column):
         return None
     row = available_row(db, origin.model, row_id)
@@ -78,7 +71,7 @@ def choose_origin(db: Session, character: Character, origin: Origin, key: str) -
     with tracking_max_hp(db, character, heal=True):
         setattr(character, origin.column, row.id)
         db.flush()
-        db.refresh(character)  # reload the relationship the rules below read
+        db.refresh(character)
         remove_inapplicable_picks(db, character)
         fill_fixed_choices(db, character)
     return None

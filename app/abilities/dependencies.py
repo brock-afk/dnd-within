@@ -7,7 +7,6 @@ from app.features.models import Choice
 
 
 def get_increase_choice(choice: ApplicableChoice) -> Choice:
-    """An ability score increase choice the character has."""
     if choice.kind != "ability_scores":
         raise HTTPException(status_code=404)
     return choice

@@ -25,7 +25,7 @@ def save_background(
     db: DbSession,
     user: CurrentUser,
     character: OwnedCharacter,
-    background_id: Annotated[str, Form()] = "",  # the picker's input is named after the column
+    background_id: Annotated[str, Form()] = "",
 ):
     if error := choose_origin(db, character, BACKGROUND, background_id):
         view = origin_form_view(db, character, BACKGROUND, selected=background_id)

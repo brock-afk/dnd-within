@@ -36,7 +36,6 @@ def _ac_effects(db, character) -> list[CharacterAcEffect]:
 
 @pytest.fixture
 def test_armor(db, character, prepare_from_book) -> Spell:
-    """Test Armor (base AC 13), in the spellbook and prepared."""
     armor = db.scalar(select(Spell).where(Spell.slug == "test-armor"))
     prepare_from_book(character, armor.id)
     return armor
@@ -71,7 +70,7 @@ def test_stones_endurance_reduces_the_damage_and_spends_a_use(db, stone_giant):
 
     assert service.react_to_damage(db, stone_giant, "10", _stone(db), "5") == ({}, None)
 
-    assert _hp(db, stone_giant) == (8, 5)  # 10 - (5 + 2 CON)
+    assert _hp(db, stone_giant) == (8, 5)
     assert _reaction_uses(db, stone_giant) == uses - 1
 
 
@@ -105,14 +104,14 @@ def test_temporary_hit_points(db, character):
 
 
 def test_hp_effects_follow_the_rules(db, character):
-    service.change_hp(db, character, "damage", "3", "")  # 5/8
+    service.change_hp(db, character, "damage", "3", "")
 
     assert service.add_hp_effect(db, character, "Aid", "+5") is None
-    assert _hp(db, character) == (13, 10)  # starting it heals by the increase
+    assert _hp(db, character) == (13, 10)
 
     [aid] = hp_effects(db, character)
     service.end_hp_effect(db, character, aid)
-    assert _hp(db, character) == (8, 8)  # capped, not healed
+    assert _hp(db, character) == (8, 8)
 
     assert service.add_hp_effect(db, character, "Drain", "-6") is None
     assert _hp(db, character) == (2, 2)
@@ -188,7 +187,7 @@ def test_someone_elses_rows_are_not_found(client, db, character, theirs):
     their_hp = CharacterHpEffect(character_id=theirs.id, label="Aid", max_hp_delta=5)
     their_ac = CharacterAcEffect(character_id=theirs.id, label="Mage Armor", kind="base", value=13)
     db.add_all([their_hp, their_ac])
-    db.commit()  # a 404 rolls the request back; committing keeps the setup (see `theirs`)
+    db.commit()
 
     mine = f"/characters/{character.id}/sheet"
     assert client.post(f"{mine}/hp-effects/{their_hp.id}/end").status_code == 404

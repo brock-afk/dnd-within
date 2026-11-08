@@ -1,7 +1,3 @@
-"""Features owned by a choice option (a Fiendish Legacy's spells): they apply while the option
-is picked, unlocked by level like the feature offering the choice. Uses the fixture pack's
-Legacy Folk species."""
-
 import pytest
 from sqlalchemy import delete, select
 
@@ -61,7 +57,6 @@ def _option_features(db, character) -> list[str]:
 
 @pytest.fixture
 def legacy_folk(db, character):
-    """The level 1 test character, as Legacy Folk with no legacy picked yet."""
     character.species_id = db.scalar(select(Species.id).where(Species.slug == "legacy-folk"))
     db.flush()
     db.refresh(character)
@@ -117,8 +112,6 @@ def test_granted_spells_cast_free_once_per_long_rest(client, db, legacy_folk):
 
 
 def _ember_caster(db, legacy_folk) -> tuple[str, str]:
-    """Legacy Folk with the Ember legacy at level 3: the (spell, feature) keys of its free
-    Test Spell A."""
     _pick(db, legacy_folk, "ember")
     _level_up_to(db, legacy_folk, 3)
     [row] = [r for r in castable_spells(db, legacy_folk) if r.spell.slug == "test-spell-a"]

@@ -25,7 +25,7 @@ def save_species(
     db: DbSession,
     user: CurrentUser,
     character: OwnedCharacter,
-    species_id: Annotated[str, Form()] = "",  # the picker's input is named after the column
+    species_id: Annotated[str, Form()] = "",
 ):
     if error := choose_origin(db, character, SPECIES, species_id):
         view = origin_form_view(db, character, SPECIES, selected=species_id)

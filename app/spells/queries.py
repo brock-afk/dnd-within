@@ -6,7 +6,6 @@ from app.spells.models import CharacterSpell, Spell, SpellbookEntry
 
 
 def pickable_spells(user_id: int) -> Select[tuple[Spell]]:
-    """Homebrew is private, so the user is always needed."""
     return select(Spell).where(available(Spell), visible(Spell, user_id))
 
 
@@ -16,6 +15,5 @@ def character_spells(db: Session, character_id: int) -> list[CharacterSpell]:
 
 
 def spellbook(db: Session, character_id: int) -> list[SpellbookEntry]:
-    """The character's spellbook, ordered by spell level then name."""
     rows = db.scalars(select(SpellbookEntry).where(SpellbookEntry.character_id == character_id))
     return sorted(rows, key=lambda entry: (entry.spell.level, entry.spell.name))

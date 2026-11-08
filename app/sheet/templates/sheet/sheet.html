@@ -4,7 +4,6 @@
 {% block scripts %}{% if read_only %}<script src="{{ static_url('live.js') }}" defer></script>{% endif %}{% endblock %}
 {% from "partials/page_tabs.html" import page_tabs %}
 {% from "partials/dice.html" import roll_button %}
-{#- Passive features in a row of Attributes: name, then what it does. -#}
 {% macro trait_lines(entries) %}{% for e in entries or [] %}<span>{{ e.name }} <span class="muted">· {{ e.summary }}</span></span>{% endfor %}{% endmacro %}
 
 {% macro signed(n) %}{{ "+" if n >= 0 else "−" }}{{ n | abs }}{% endmacro %}
@@ -15,13 +14,8 @@
 {% from "partials/spell_list.html" import spell_groups %}
 {% from "partials/section.html" import section %}
 
-{#- What a feature does: its summary, which swaps for the full rules text and back where the
-    pack has it (private packs and homebrew). Only the link toggles, so the text stays
-    selectable. -#}
 {% macro summary_text(summary, description) %}
 {% if description %}
-{#- Both texts sit in the <summary>, one shown at a time, so the link always follows the text
-    on screen. -#}
 <details class="text-toggle">
   <summary><span class="text-summary">{{ summary }}</span><span class="text-full">{{ description }}</span>
     <span class="text-toggle-label"><span class="when-closed">Show full text</span><span class="when-open">Show summary</span></span></summary>
@@ -31,8 +25,6 @@
 {% endif %}
 {% endmacro %}
 
-{#- A feature with uses: pips to set what's left, its recharge, and what a use does (the
-    picked option, like Giant Ancestry's boon, or its own summary). -#}
 {% macro tracked_row(row) %}
 {% set r = row.uses %}
 <div class="resource">
@@ -55,8 +47,6 @@
 </div>
 {% endmacro %}
 
-{#- An ability that spends another feature's uses (a magic item's, from its charges): what it
-    costs, what's left, and Use. -#}
 {% macro spender_row(row) %}
 {% set f, r = row.spender, row.uses %}
 <div class="resource">
@@ -73,7 +63,6 @@
 </div>
 {% endmacro %}
 
-{#- An in-play choice's dropdown (Choice.in_play). Changing it saves; the empty entry clears it. -#}
 {% macro play_choice_select(pc, empty_label, form_class="") %}
 {% if read_only %}
 <div {% if form_class %}class="{{ form_class }}"{% endif %}>
@@ -93,7 +82,6 @@
 {% endif %}
 {% endmacro %}
 
-{#- A use or slot marker: a button that sets how many remain, or just a mark when read-only. -#}
 {% macro pip(filled, url, target, label) %}
 {% if read_only %}<span class="pip{% if filled %} filled{% endif %}" aria-hidden="true"></span>
 {% else %}<button type="button" class="pip{% if filled %} filled{% endif %}" hx-post="{{ url }}"
@@ -119,8 +107,6 @@
 {{ page_tabs(character, "play", base_url) }}
 {% if read_only %}{% with refresh_url=base_url, refresh_selector="#sheet-page" %}{% include "sharing/partials/auto_refresh.html" %}{% endwith %}{% endif %}
 
-{#- Pinned while scrolling: hit points (with damage and healing), armor class and the rests,
-    the things needed at any moment. Temp HP, max HP effects and AC effects open from it. -#}
 {% if read_only %}
 <div class="vitals-bar">
   {% if hp %}
@@ -147,7 +133,6 @@
           {%- if hp.temp %} <span class="vital-temp" title="Temporary hit points">+{{ hp.temp }}<span class="wide-only"> temp</span></span>{% endif %}
           <span class="vital-caret" aria-hidden="true">▾</span>
         </span>
-        {#- Active max HP effects stay in sight, so they're ended when they run out. -#}
         {% if hp.effects %}
         <span class="vital-detail vital-effects" title="Max HP: {{ hp.base }} base{% for e in hp.effects %} {{ signed(e.max_hp_delta) }} {{ e.label }}{% endfor %}">
           {%- for e in hp.effects %}{{ e.label }} {{ signed(e.max_hp_delta) }}{{ " · " if not loop.last }}{% endfor -%}
@@ -189,7 +174,6 @@
           {% if errors.effect %}<p class="error" role="alert">{{ errors.effect }}</p>{% endif %}
         </div>
         {% if healing_uses or notices.hp %}
-        {#- Potions and healing scrolls from the inventory: the app rolls, heals, uses it up. -#}
         <div class="panel-group">
           <h3 class="group-title">Use an item</h3>
           {% if notices.hp %}<p class="notice" role="status">{{ notices.hp }}</p>{% endif %}
@@ -246,8 +230,6 @@
         {%- endif %}
         {% if errors.ac_effect %}<p class="error" role="alert">{{ errors.ac_effect }}</p>{% endif %}
         {% if ac_spells or ac_scrolls %}
-        {#- Prepared spells whose content declares an AC effect, cast on yourself: spends the slot
-            and applies the effect. Scrolls of them from the inventory are read and used up. -#}
         <span class="group-title">Cast on yourself</span>
         <ul class="plain-list ac-spells">
           {% for a in ac_spells %}
@@ -342,8 +324,6 @@
 {% endif %}
 {% if not read_only %}{% include "sheet/partials/short_rest_panel.html" %}{% endif %}
 
-{#- Like the Build page's "Choices to make": in-play choices not made yet. Once picked, they
-    move to Features. -#}
 {% set unchosen = [] if read_only else play_choices | rejectattr("picked") | list %}
 {% if unchosen %}
 <section class="sheet-section pending-section">
@@ -364,7 +344,6 @@
 {% endif %}
 
 {% if abilities %}
-{#- The modifiers and saves are roll buttons (static/dice.js). -#}
 <ul class="ability-grid play-abilities">
   {% for row in abilities %}
   {% set a = row.ability %}
@@ -383,14 +362,9 @@
 </ul>
 {% endif %}
 
-{#- One column on narrow screens, in order of use. From 1100px, two: the character on the left,
-    spells on the right. -#}
 <div class="sheet-columns">
 <div class="sheet-column">
 
-{#- Everything the character's features let them do, grouped by what using it takes
-    (app/sheet/service.py:sheet_features): features with uses (pips), choices made in play,
-    and features or picked options to read. Passive ones go in Attributes, below. -#}
 {% if sheet_features.groups %}
 {% call section("features", "Features", sheet_features.digest) %}
   {% for label, rows in sheet_features.groups %}
@@ -401,7 +375,6 @@
   {% elif row.uses %}
   {{ tracked_row(row) }}
   {% elif row.choice %}
-  {#- A choice that changes during play, like the Transmuter's Stone benefit. Picking saves. -#}
   <div class="resource">
     {{ play_choice_select(row.choice, "None", "slot-row") }}
     <p class="resource-detail">{{ row.choice.picked.summary }}</p>
@@ -422,7 +395,6 @@
 {% if skills %}
 {% set skills_digest %}{% for row in skills if row.proficient %}{{ row.skill.name }} {{ signed(row.bonus) }}{{ " · " if not loop.last }}{% endfor %}{% endset %}
 {% call section("skills", "Skills", skills_digest, classes="order-late") %}
-  {#- Each skill's bonus is a roll button: ● proficient, ◆ Expertise (proficiency bonus doubled). -#}
   <ul class="skill-list">
     {% for row in skills %}
     {% set label = "Expertise (%s)" % row.expertise_source if row.expertise else ("Proficient" if row.proficient else "") %}
@@ -441,11 +413,9 @@
 {% endcall %}
 {% endif %}
 
-{#- Passive data: what the character is, each part with where it comes from. -#}
 {% call section("attributes", "Attributes",
                 "Speed %d ft" % attributes.speed ~ (" · Darkvision %d ft" % attributes.darkvision if attributes.darkvision else ""),
                 classes="order-late") %}
-  {#- Passive features placed in the row they affect, like Devil's Sight under Senses. -#}
   {% set traits = sheet_features.traits %}
   <dl class="attributes">
     {% if attributes.saves or traits.saves %}
@@ -501,7 +471,6 @@
       <span class="slot-label">Level {{ s.level }}</span>
       <span class="slot-pips">
         {% for i in range(1, s.maximum + 1) %}
-        {# Filled = available. Clicking sets how many remain; the last filled pip spends one. #}
         {% set target = i - 1 if i == s.remaining else i %}
         {{ pip(i <= s.remaining, "/characters/%d/sheet/slots/%d" % (character.id, s.level), target,
                "Set level %d slots remaining to %d" % (s.level, target)) }}

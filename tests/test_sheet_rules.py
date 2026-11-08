@@ -22,7 +22,6 @@ def test_current_hp_without_state_is_full():
     assert rules.current_hp(None, 20) == 20
 
 
-# The table in the app/sheet/rules.py docstring, row by row.
 def test_increase_that_heals_adds_to_current():
     s = state(12)
     rules.apply_max_change(s, 20, 25, heal_increase=True)
@@ -38,7 +37,7 @@ def test_increase_that_heals_keeps_full_at_full():
 def test_decrease_caps_current():
     s = state(18)
     rules.apply_max_change(s, 20, 15, heal_increase=False)
-    assert s.current_hp is None  # capped at 15, which is full
+    assert s.current_hp is None
 
 
 def test_decrease_below_current_max_leaves_damage():
@@ -48,7 +47,7 @@ def test_decrease_below_current_max_leaves_damage():
 
 
 def test_drain_ending_does_not_heal():
-    s = state(None)  # full at the drained max of 15
+    s = state(None)
     rules.apply_max_change(s, 15, 20, heal_increase=False)
     assert s.current_hp == 15
 

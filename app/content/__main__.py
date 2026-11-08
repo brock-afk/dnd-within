@@ -1,15 +1,8 @@
-"""Content pack commands.
-
-python -m app.content check                  validate every pack; exit 1 on errors
-python -m app.content import [PACK] [--force]  import changed packs (or PACK); --force
-                                             re-imports even if unchanged
-"""
-
 import argparse
 import logging
 import sys
 
-from app import models  # noqa: F401  (registers every table)
+from app import models  # noqa: F401
 from app.content.importer import import_packs
 from app.content.loader import build_page_only, discover
 from app.core.db import SessionLocal
@@ -29,7 +22,6 @@ def check() -> int:
                 f"{len(pack.feats)} feats, {len(pack.skills)} skills, {len(pack.spells)} spells, "
                 f"{len(pack.items)} items)"
             )
-            # Not an error: some are meant for the Build page, but those say so (sheet: none).
             if missing := build_page_only(pack):
                 print(f"  Build page only (no action, when or sheet): {len(missing)}")
                 for where in missing:

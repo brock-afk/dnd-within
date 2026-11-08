@@ -1,6 +1,3 @@
-"""The ability score editor, and the editor for ability score increases: any feature's
-`ability_scores` choice (a background's +2/+1 or +1/+1/+1)."""
-
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
@@ -33,8 +30,6 @@ def edit_abilities(request: Request, character: OwnedCharacter, method: str = ""
 def preview_abilities(
     request: Request, character: OwnedCharacter, form: Annotated[AbilityForm, Form()]
 ):
-    """Redraw the editor after a stepper click or a changed value: modifiers, costs, and
-    which buttons are enabled all come from the server."""
     view = ability_editor_view(
         character, form.editor_method, form.previewed_scores(), form.roll_values()
     )

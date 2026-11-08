@@ -1,5 +1,4 @@
 {% from "partials/refresh.html" import refresh_button %}
-{# Replaces an item row's buttons: removing asks first. Keep redraws the sheet as it was. #}
 <span class="item-confirm">
   <span>Remove {{ row.name }}{% if row.quantity > 1 %} (all {{ row.quantity }}){% endif %}?</span>
   <button type="button" class="danger-button small-button"

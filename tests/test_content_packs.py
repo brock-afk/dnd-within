@@ -157,9 +157,9 @@ def test_free_cast_without_uses_is_at_will():
 @pytest.mark.parametrize(
     ("criteria", "ok"),
     [
-        ({"level": 0}, True),  # any class's cantrips
+        ({"level": 0}, True),
         ({"level": 1, "ritual": True}, True),
-        ({"max_level": 2}, False),  # a level range needs a class
+        ({"max_level": 2}, False),
         ({"class": "wizard", "level": 1, "ritual": False}, False),
     ],
 )

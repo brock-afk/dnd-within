@@ -1,6 +1,4 @@
 {% from "partials/refresh.html" import refresh_button %}
-{# A background's ability score increases. Every click redraws the editor from the server,
-   so the scores on the right always show the result. #}
 {% set url = "/characters/%d/ability-increases/%d" % (character.id, choice.id) %}
 {% set editor_swap = 'hx-target="#increase-editor-%d" hx-swap="outerHTML"' % choice.id %}
 <div id="increase-editor-{{ choice.id }}" class="ability-editor">
@@ -28,7 +26,6 @@
         {% if even %}
         <span class="increase-amount">+1</span>
         {% else %}
-        {#- Two radio groups (plus2, plus1), shown per row as a +2 / +1 toggle. -#}
         <span class="increase-toggle">
           {% for field, n in [("plus2", 2), ("plus1", 1)] %}
           <label class="increase-option">

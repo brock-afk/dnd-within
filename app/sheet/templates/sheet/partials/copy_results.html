@@ -1,5 +1,3 @@
-{# Search results for the copy panel. `copy.results` is [(spell, why it can't be copied, rule
-   markers)]: already in the book, or always prepared through a feature. #}
 {% if copy.query | length < copy.min_length %}
 {% if copy.query %}<p class="muted">Keep typing…</p>{% endif %}
 {% elif not copy.results %}

@@ -1,29 +1,15 @@
-// Collapsible page sections that remember whether they're open, and popovers.
-//
-// A section is a <details data-collapse="<name>"> inside an element with
-// data-collapse-scope="<key>" (e.g. "play-8": the Play sheet of character 8). Its `open`
-// attribute in the template is the default; once the player opens or closes it, that choice is
-// kept in localStorage and re-applied after a reload and after every htmx swap (morphing the
-// page redraws sections the way the server rendered them).
-//
-// A popover is a <details data-popover> whose content opens over the page (the HP and AC panels,
-// the long rest confirmation). It closes on a click anywhere outside it, or on Escape. With
-// data-popover-stays (and an id), it also stays open after a request sent from inside it, like
-// adding or ending effects one after another; the page refresh would otherwise close it.
-
 const collapseStore = {
   get(key) {
     try {
       return JSON.parse(localStorage.getItem(key)) || {};
     } catch {
-      return {}; // storage blocked or unreadable: sections use their defaults
+      return {};
     }
   },
   set(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch {
-      // storage blocked: toggling still works on the current page
     }
   },
 };
@@ -38,21 +24,15 @@ function rememberSection(section, open) {
   collapseStore.set(collapseKey(scope), saved);
 }
 
-// Opening or closing a section. Saved from the click (which keyboard Enter/Space also fire)
-// rather than the `toggle` event, because morphing the page fires `toggle` too.
 document.addEventListener("click", (event) => {
   const summary = event.target.closest("summary");
   const section = summary && summary.parentElement;
-  // A button marked data-summary-action (a feature group's Change) works while the section is
-  // collapsed: htmx has already sent its request, so stop the click toggling the section and
-  // open it instead, to show what loads. That isn't remembered as the player's choice.
   if (section && event.target.closest("[data-summary-action]")) {
     event.preventDefault();
     section.open = true;
     return;
   }
   if (section && section.matches("[data-collapse]")) {
-    // The click toggles the section after this handler runs, so `!section.open` is its new state.
     rememberSection(section, !section.open);
   }
 });
@@ -68,10 +48,9 @@ function restoreSections() {
 }
 
 document.addEventListener("DOMContentLoaded", restoreSections);
-window.addEventListener("pageshow", restoreSections); // back/forward cache restores
-document.addEventListener("htmx:after:settle", restoreSections); // after any htmx swap or morph
+window.addEventListener("pageshow", restoreSections);
+document.addEventListener("htmx:after:settle", restoreSections);
 
-// Popovers: a click outside an open one closes it (a click inside, like a form button, doesn't).
 document.addEventListener("click", (event) => {
   for (const popover of document.querySelectorAll("details[data-popover][open]")) {
     if (!popover.contains(event.target)) popover.open = false;
@@ -86,8 +65,6 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-// Popovers that stay: remember the one a request came from, and reopen it once the page has
-// been refreshed.
 let reopenPopover = null;
 document.addEventListener("htmx:before:request", (event) => {
   const popover = event.target.closest?.("details[data-popover-stays][open]");

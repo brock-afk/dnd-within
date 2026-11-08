@@ -13,4 +13,4 @@ class Species(ContentMixin, Base):
     slug: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(50))
     summary: Mapped[str] = mapped_column(String(255))
-    speed: Mapped[int] = mapped_column(SmallInteger, default=30, server_default="30")  # feet
+    speed: Mapped[int] = mapped_column(SmallInteger, default=30, server_default="30")

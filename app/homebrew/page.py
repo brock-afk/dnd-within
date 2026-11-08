@@ -1,6 +1,3 @@
-"""Rendering the homebrew pages from their view models (app/homebrew/queries.py), including
-the editor's errors. Nothing here touches the database."""
-
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
@@ -19,7 +16,6 @@ from app.homebrew.queries import EditorView, LibraryView
 from app.inventory.models import Item
 from app.inventory.rules import TOOLS
 
-# The editor's fixed choices.
 EDITOR_OPTIONS = {
     "categories": CATEGORIES,
     "rarities": RARITIES,
@@ -42,15 +38,12 @@ def _editor_context(view: EditorView, errors: dict[str, str] | None) -> dict:
 
 
 def editor_page(request: Request, view: EditorView) -> HTMLResponse:
-    """The editor as a full page, opened from the library or a character's Add item."""
     return templates.TemplateResponse(request, "homebrew/edit.html", _editor_context(view, None))
 
 
 def editor_form(
     request: Request, view: EditorView, errors: dict[str, str] | None = None
 ) -> HTMLResponse:
-    """Just the editor's form, swapped in place: after adding or removing a row, or to show
-    `errors` ({field: problem}) next to their fields."""
     return templates.TemplateResponse(
         request,
         "homebrew/partials/item_form.html",
@@ -60,7 +53,6 @@ def editor_form(
 
 
 def delete_confirm(request: Request, item: Item) -> HTMLResponse:
-    """Asks before deleting, in place of the item's buttons."""
     return templates.TemplateResponse(
         request, "homebrew/partials/delete_confirm.html", {"item": item}
     )

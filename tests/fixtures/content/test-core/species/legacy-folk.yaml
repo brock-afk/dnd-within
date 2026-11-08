@@ -1,6 +1,3 @@
-# A species whose choice options own features, like the Tiefling's Fiendish Legacy: each
-# legacy grants a resistance, a cantrip at level 1, and a spell at level 3 castable once per
-# Long Rest without a slot.
 slug: legacy-folk
 name: Legacy Folk
 summary: Test species with legacies that grant spells.

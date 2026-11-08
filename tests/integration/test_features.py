@@ -12,7 +12,6 @@ from app.skills.models import Skill
 
 @pytest.fixture
 def skills(wizard_choice) -> Choice:
-    """The test wizard's two skill proficiencies, from Arcana, History, Insight, …"""
     return wizard_choice("skills")
 
 
@@ -37,7 +36,7 @@ def test_saving_picks(db, character, skills):
     ("skills_picked", "unknown", "error"),
     [
         (["arcana"], [], "Choose exactly 2. You picked 1."),
-        (["arcana", "arcana"], [], "Choose exactly 2. You picked 1."),  # a repeat counts once
+        (["arcana", "arcana"], [], "Choose exactly 2. You picked 1."),
         (["arcana", "insight", "medicine"], [], "Choose exactly 2. You picked 3."),
         (["arcana"], ["999999"], "That isn't one of the options."),
     ],
@@ -54,12 +53,12 @@ def test_an_invalid_pick_changes_nothing(db, character, skills, skills_picked, u
 def test_only_the_characters_own_grid_choices_are_found(
     client, db, character, theirs, skills, wizard_choice, increase
 ):
-    scholar = wizard_choice("scholar")  # a level 2 feature's: not had at level 1
+    scholar = wizard_choice("scholar")
 
     for url in (
         f"/characters/{theirs.id}/choices/{skills.id}",
         f"/characters/{character.id}/choices/{scholar.id}",
-        f"/characters/{character.id}/choices/{increase.id}",  # has its own editor
+        f"/characters/{character.id}/choices/{increase.id}",
     ):
         assert client.get(url).status_code == 404
         assert client.post(url, data={"picks": [_key(db, "arcana")]}).status_code == 404
@@ -67,7 +66,7 @@ def test_only_the_characters_own_grid_choices_are_found(
 
 def test_choosing_through_the_app(client, db, character, skills):
     url = f"/characters/{character.id}/choices/{skills.id}"
-    assert f'hx-get="{url}"' in client.get(f"/characters/{character.id}").text  # its Choose button
+    assert f'hx-get="{url}"' in client.get(f"/characters/{character.id}").text
     assert "Choose 2" in client.get(url).text
 
     response = client.post(url, data={"picks": [_key(db, "arcana")]})
@@ -83,19 +82,19 @@ def test_a_retired_choice_cant_be_opened_or_changed(client, db, character, skill
     keys = [_key(db, "arcana"), _key(db, "history")]
     service.save_choice(db, character, skills, keys)
     (skills if retired == "choice" else skills.feature).retired_at = datetime.now()
-    db.commit()  # a 404 rolls the request back; committing keeps the setup (see `theirs`)
+    db.commit()
     url = f"/characters/{character.id}/choices/{skills.id}"
 
     assert client.get(url).status_code == 404
     assert client.post(url, data={"picks": keys}).status_code == 404
 
     service.remove_inapplicable_picks(db, character)
-    assert _picked(db, skills, character) == ["Arcana", "History"]  # picks made before stay
+    assert _picked(db, skills, character) == ["Arcana", "History"]
 
 
 def test_a_retired_increase_cant_be_opened_or_changed(client, db, character, increase):
     increase.retired_at = datetime.now()
-    db.commit()  # a 404 rolls the request back; committing keeps the setup (see `theirs`)
+    db.commit()
     url = f"/characters/{character.id}/ability-increases/{increase.id}"
 
     assert client.get(url).status_code == 404

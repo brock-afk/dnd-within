@@ -1,6 +1,3 @@
-"""Rendering the score editor and the increase editor from their view models
-(app/abilities/queries.py)."""
-
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 

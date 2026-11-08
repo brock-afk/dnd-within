@@ -12,7 +12,7 @@ from app.auth.limits import auth_attempts, client_key
 from app.auth.models import User
 from app.auth.security import HashingBusy, hash_password, verify_password
 from app.core.config import settings
-from app.core.db import DbSession
+from app.core.db import DbSession, release_connection
 from app.core.templates import form_error, hx_redirect, templates
 
 router = APIRouter(tags=["auth"])
@@ -22,13 +22,11 @@ TOO_MANY = "Too many attempts. Try again in a few minutes."
 
 
 def _client(request: Request) -> str:
-    # The real address behind Caddy: uvicorn runs with --proxy-headers in production.
     return client_key(request.client.host if request.client else "")
 
 
 @contextmanager
 def _refund_if_busy(key: str):
-    """Turned away before anything was checked, so it isn't a guess."""
     try:
         yield
     except HashingBusy:
@@ -59,12 +57,12 @@ def login(
     if not auth_attempts.attempt(key):
         return form_error(request, TOO_MANY, status_code=429)
     user = db.scalar(select(User).where(User.username == username.strip()))
-    db.commit()  # hands the connection back to the pool while hashing (may wait for a slot)
+    release_connection(db)
     with _refund_if_busy(key):
         valid = verify_password(user.password_hash if user else None, password)
     if not valid:
         return form_error(request, "Invalid username or password.", status_code=401)
-    auth_attempts.refund(key)  # only failed guesses count
+    auth_attempts.refund(key)
     _log_in(request, user)
     return hx_redirect("/")
 
@@ -87,7 +85,6 @@ def register(
     confirm_password: Annotated[str, Form()],
     invite_code: Annotated[str, Form()] = "",
 ):
-    # Typos are checked first, so they don't use up attempts.
     username = username.strip()
     if not 3 <= len(username) <= 50:
         return form_error(request, "Username must be 3–50 characters.")
@@ -103,7 +100,7 @@ def register(
     ):
         return form_error(request, "That invite code isn't right.", status_code=403)
     taken = db.scalar(select(User.id).where(User.username == username))
-    db.commit()  # hands the connection back to the pool while hashing (may wait for a slot)
+    release_connection(db)
     if taken:
         return form_error(request, "That username is taken.", status_code=409)
 
@@ -112,10 +109,10 @@ def register(
     db.add(user)
     try:
         db.commit()
-    except IntegrityError:  # registered by someone else since the check above
+    except IntegrityError:
         db.rollback()
         return form_error(request, "That username is taken.", status_code=409)
-    auth_attempts.refund(key)  # only failed guesses count
+    auth_attempts.refund(key)
     _log_in(request, user)
     return hx_redirect("/")
 

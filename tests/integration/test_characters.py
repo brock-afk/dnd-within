@@ -9,7 +9,6 @@ from app.characters.service import create_character, delete_character, rename
 
 @pytest.fixture
 def form(character) -> CharacterForm:
-    """The test character's class and species."""
     return CharacterForm(
         name="  New Hero  ",
         class_id=character.classes[0].class_id,
@@ -50,7 +49,6 @@ def test_rename_and_delete_errors_change_nothing(db, character):
 
 
 def test_list_opens_unbuilt_characters_on_the_build_page(db, owner, character):
-    # The fixture character has no background yet.
     view = character_list_view(db, owner)
 
     assert view.characters == [character]
@@ -59,7 +57,6 @@ def test_list_opens_unbuilt_characters_on_the_build_page(db, owner, character):
 
 def test_the_refreshed_view_shows_changes_made_since_loading(db, owner, character):
     build_page_view(db, owner, character)
-    # Changed in the database, not on the loaded object, like a relationship's row.
     db.execute(
         update(Character).where(Character.id == character.id).values(name="Renamed"),
         execution_options={"synchronize_session": False},

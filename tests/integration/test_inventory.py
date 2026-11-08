@@ -48,9 +48,6 @@ def _armor(db) -> Spell:
     return db.scalar(select(Spell).where(Spell.slug == "test-armor"))
 
 
-# --- Adding from the catalog --------------------------------------------------------------
-
-
 def test_adding_stacks_onto_the_carried_row(db, character):
     rope = _item(db, "rope")
 
@@ -95,9 +92,6 @@ def test_a_bad_quantity_adds_nothing(db, character, quantity):
     assert _carried(db, character) == {}
 
 
-# --- Carried items ------------------------------------------------------------------------
-
-
 def test_quantity_never_drops_below_one(db, character):
     row = _carry(db, character, _item(db, "rope"))
 
@@ -136,9 +130,6 @@ def test_removing_an_item(db, character):
     assert _carried(db, character) == {}
 
 
-# --- Healing and AC scrolls ---------------------------------------------------------------
-
-
 def test_a_potion_heals_and_says_how_much(db, character):
     _carry(db, character, _item(db, "potion", consumable=True, healing="2"), quantity=2)
     play_state(db, character).current_hp = 7
@@ -162,11 +153,7 @@ def test_an_ac_scroll_starts_its_effect_once(db, character):
     assert _carried(db, character) == {"Spell Scroll: Test Armor": 1}
 
 
-# --- Attunement ---------------------------------------------------------------------------
-
-
 def _tool_pick(db, character, item: Item) -> CharacterChoicePick:
-    """An attuned item's feature with a choice the character picked, like an item's tool."""
     feature = Feature(item_id=item.id, slug="gift", name="Gift", summary="")
     db.add(feature)
     db.flush()
@@ -204,9 +191,6 @@ def test_an_item_without_attunement_isnt_attuned(db, character):
 
     assert service.attune(db, character, row, "1") == "Rope doesn't need attunement."
     assert not row.attuned
-
-
-# --- Coins --------------------------------------------------------------------------------
 
 
 def test_gaining_and_spending_coins(db, character):
@@ -253,13 +237,9 @@ def test_setting_every_coin(db, character):
     assert coin_values(db, character)["gp"] == 1_000_000
 
 
-# --- Requests -----------------------------------------------------------------------------
-
-
 def test_someone_elses_inventory_is_not_found(client, db, character, theirs):
     their_row = _carry(db, theirs, _item(db, "rope"))
     db.commit()
-    # Their row, on their sheet and on yours.
     for owner in (theirs, character):
         base = f"/characters/{owner.id}/sheet/inventory/{their_row.id}"
         assert client.get(f"{base}/remove").status_code == 404

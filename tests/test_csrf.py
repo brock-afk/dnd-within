@@ -15,7 +15,6 @@ def test_safe_methods_always_pass(method):
     [("same-origin", False), ("none", False), ("same-site", True), ("cross-site", True)],
 )
 def test_sec_fetch_site_decides_when_sent(site, refused):
-    # Takes precedence over Origin, even a matching one.
     assert is_cross_origin("POST", site, f"https://{HOST}", HOST) is refused
 
 
@@ -25,7 +24,7 @@ def test_sec_fetch_site_decides_when_sent(site, refused):
         (f"https://{HOST}", False),
         ("https://evil.example", True),
         (f"https://sub.{HOST}", True),
-        ("null", True),  # sandboxed iframes and some redirects
+        ("null", True),
     ],
 )
 def test_origin_must_match_host_without_sec_fetch_site(origin, refused):
@@ -38,5 +37,4 @@ def test_origin_compares_port():
 
 
 def test_no_browser_headers_pass():
-    # curl and scripts: no victim browser, so no stolen cookie to ride on.
     assert not is_cross_origin("POST", None, None, HOST)

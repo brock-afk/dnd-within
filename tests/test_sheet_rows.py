@@ -12,9 +12,9 @@ def _row(name: str, source: str) -> FeatureRow:
 @pytest.mark.parametrize(
     ("name", "source", "shown"),
     [
-        ("Tome of Bal'vir charges", "Tome of Bal'vir", "Charges"),  # the homebrew editor's name
-        ("Tome Fire Charges", "Tome", "Fire Charges"),  # only the first letter changes
-        ("Bardic Inspiration", "Bard", "Bardic Inspiration"),  # a prefix, not a whole word
+        ("Tome of Bal'vir charges", "Tome of Bal'vir", "Charges"),
+        ("Tome Fire Charges", "Tome", "Fire Charges"),
+        ("Bardic Inspiration", "Bard", "Bardic Inspiration"),
         ("Monk's Focus", "Monk", "Monk's Focus"),
         ("Giant Ancestry", "Goliath", "Giant Ancestry"),
     ],

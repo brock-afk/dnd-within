@@ -1,7 +1,3 @@
-"""Eldritch Invocation mechanics, with the fixture pack's Test Pact invocations: a count that
-grows with level, prerequisites, a spell cast at will (Armor of Shadows), and a pact with its
-own any-class picks (Pact of the Tome)."""
-
 from sqlalchemy import delete, select
 
 from app.features.kinds import KINDS
@@ -73,7 +69,6 @@ def test_level_down_drops_unmet_then_trims_newest(db, warlock, level_up):
 
     _lose_levels_to(db, warlock, 4)
 
-    # Deep Gift needs level 5; then the newest pick goes to fit 3.
     assert _picked(db, warlock) == ["Blade Pact", "Shadow Armor", "Thirsting"]
 
 
@@ -84,7 +79,7 @@ def test_prerequisites(db, warlock, level_up):
     assert options["Thirsting"].warnings == ("Needs Blade Pact",)
     unavailable = KINDS["option"].unavailable(db, _choice(db), warlock.id)
     assert unavailable[_key(db, "deep-gift")] == "From Test Pact 5"
-    assert _key(db, "thirsting") not in unavailable  # pickable together with Blade Pact
+    assert _key(db, "thirsting") not in unavailable
 
     assert _save(db, warlock, "deep-gift", "keen-mind", "shadow-armor") == (
         "Deep Gift needs Test Pact 5."
@@ -94,7 +89,6 @@ def test_prerequisites(db, warlock, level_up):
     )
     assert _save(db, warlock, "blade-pact", "thirsting", "keen-mind") is None
 
-    # Unpicking Blade Pact (here directly) leaves Thirsting without its prerequisite.
     db.execute(
         delete(CharacterChoicePick).where(
             CharacterChoicePick.option_id == int(_key(db, "blade-pact"))
@@ -107,7 +101,7 @@ def test_prerequisites(db, warlock, level_up):
 
 def test_ac_spell_cast_at_will(client, db, warlock):
     assert _save(db, warlock, "shadow-armor") is None
-    db.commit()  # the requests below share this session
+    db.commit()
     armor = db.scalar(select(Spell).where(Spell.slug == "test-armor"))
 
     [row] = [r for r in castable_spells(db, warlock) if r.spell.id == armor.id]
@@ -126,19 +120,19 @@ def test_ac_spell_cast_at_will(client, db, warlock):
         select(CharacterAcEffect).where(CharacterAcEffect.character_id == warlock.id)
     )
     assert (effect.spell_id, effect.kind, effect.value) == (armor.id, "base", 13)
-    assert spell_slots(db, warlock)[1].remaining == 1  # no slot spent
+    assert spell_slots(db, warlock)[1].remaining == 1
 
 
 def test_tome_picks_spells_from_any_class(client, db, warlock):
     assert _save(db, warlock, "tome-pact") is None
     db.commit()
     tome_cantrips, tome_rituals = _choice(db, "tome-cantrips"), _choice(db, "tome-rituals")
-    assert _choice_view(db, warlock, "tome-cantrips")  # shown once the pact is picked
+    assert _choice_view(db, warlock, "tome-cantrips")
 
-    cantrip = db.scalar(select(Spell).where(Spell.slug == "test-cantrip-a"))  # a Wizard cantrip
-    ritual = db.scalar(select(Spell).where(Spell.slug == "find-familiar"))  # a Wizard ritual
+    cantrip = db.scalar(select(Spell).where(Spell.slug == "test-cantrip-a"))
+    ritual = db.scalar(select(Spell).where(Spell.slug == "find-familiar"))
     names = [o.name for o in KINDS["spell"].options(db, tome_rituals, warlock)]
-    assert names == ["Find Familiar"]  # level 1 rituals only
+    assert names == ["Find Familiar"]
     for choice, spell in [(tome_cantrips, cantrip), (tome_rituals, ritual)]:
         url = f"/characters/{warlock.id}/choices/{choice.id}"
         assert client.post(url, data={"picks": [spell.id]}).status_code == 200
@@ -148,7 +142,6 @@ def test_tome_picks_spells_from_any_class(client, db, warlock):
     assert ("test-cantrip-a", False, False) in rows
     assert ("find-familiar", True, False) in rows and ("find-familiar", True, True) in rows
 
-    # Swapping the pact away removes the book's picks with it.
     url = f"/characters/{warlock.id}/choices/{_choice(db).id}"
     assert client.post(url, data={"picks": [_key(db, "keen-mind")]}).status_code == 200
     db.expire_all()

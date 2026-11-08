@@ -39,7 +39,6 @@ def get_feature_uses(feature_id: int, db: DbSession, character: OwnedCharacter) 
 
 
 def get_tracked_uses(uses: Annotated[FeatureUses, Depends(get_feature_uses)]) -> FeatureUses:
-    # Rest-only uses (Arcane Recovery) are spent through the rest panel's own checks.
     if uses.rest_only:
         raise HTTPException(status_code=404)
     return uses

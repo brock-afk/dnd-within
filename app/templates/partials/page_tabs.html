@@ -1,5 +1,3 @@
-{# Switches between the character's Build page and Play sheet. `base` is where they live: the
-   owner's /characters/<id>, or a shared view's /shared/<token> (Build at /build there). #}
 {% macro page_tabs(character, active, base=none) %}
 {% set shared = base and base.startswith("/shared/") %}
 {% set base = base or "/characters/%d" % character.id %}

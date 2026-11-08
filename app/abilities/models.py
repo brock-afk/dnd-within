@@ -5,12 +5,6 @@ from app.core.db import Base
 
 
 class CharacterAbilityBonus(Base):
-    """An increase to one ability from a choice (a background's +2/+1, a level 4 increase, ...).
-
-    Kept apart from the base scores on Character, so changing a background or redoing
-    a choice never corrupts the scores the player rolled or bought.
-    """
-
     __tablename__ = "character_ability_bonuses"
     __table_args__ = (
         UniqueConstraint("character_id", "choice_id", "ability"),

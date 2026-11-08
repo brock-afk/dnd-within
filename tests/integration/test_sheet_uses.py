@@ -11,7 +11,6 @@ def _uses(db, character, slug: str):
 
 @pytest.fixture
 def blast(db, character, charged_item) -> Feature:
-    """An ability of a 3-charge item that takes 2 of them."""
     charges = charged_item(character, {"max": 3, "recharge": "dawn"})
     blast = Feature(
         item_id=charges.item_id,
@@ -59,8 +58,6 @@ def test_uses_are_changed_only_where_they_belong(client, db, character):
     ancestry = _uses(db, character, "giant-ancestry").feature.id
     recovery = _uses(db, character, "arcane-recovery").feature.id
 
-    # Arcane Recovery is spent in the rest panel; Giant Ancestry recovers no slots and isn't
-    # an ability that spends another's uses.
     assert client.post(f"{sheet}/uses/{recovery}", data={"remaining": "0"}).status_code == 404
     assert client.post(f"{sheet}/short-rest/recover/{ancestry}").status_code == 404
     assert client.post(f"{sheet}/features/{ancestry}/use").status_code == 404

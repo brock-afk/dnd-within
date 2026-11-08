@@ -18,7 +18,7 @@ def test_modifier(score, mod):
 
 
 def test_point_buy_full_budget_is_valid():
-    s = scores(15, 15, 15, 8, 8, 8)  # 9 * 3 = 27
+    s = scores(15, 15, 15, 8, 8, 8)
     assert rules.point_buy_spent(s) == 27
     assert rules.validate("point_buy", s) == {}
 
@@ -36,9 +36,9 @@ def test_point_buy_out_of_range_score():
 def test_point_buy_step_respects_budget_and_range():
     s = scores(15, 15, 15, 8, 8, 8)
     rules.point_buy_step(s, "wisdom", +1)
-    assert s["wisdom"] == 8  # no points left
+    assert s["wisdom"] == 8
     rules.point_buy_step(s, "strength", +1)
-    assert s["strength"] == 15  # 16 isn't buyable
+    assert s["strength"] == 15
     rules.point_buy_step(s, "strength", -1)
     assert s["strength"] == 14
 

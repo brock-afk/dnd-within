@@ -12,12 +12,10 @@ class Skill(ContentMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     slug: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(50))
-    ability: Mapped[str] = mapped_column(String(3))  # "STR", "DEX", "CON", "INT", "WIS", "CHA"
+    ability: Mapped[str] = mapped_column(String(3))
 
 
 class CharacterSkill(Base):
-    """A skill a character is proficient in, and the choice that granted it."""
-
     __tablename__ = "character_skills"
     __table_args__ = (UniqueConstraint("character_id", "skill_id"),)
 
@@ -30,9 +28,6 @@ class CharacterSkill(Base):
 
 
 class CharacterSkillExpertise(Base):
-    """A skill a character has Expertise in (proficiency bonus doubled), and the choice that
-    granted it, like the Wizard's Scholar. Only counts while they're proficient in the skill."""
-
     __tablename__ = "character_skill_expertise"
     __table_args__ = (UniqueConstraint("character_id", "skill_id"),)
 

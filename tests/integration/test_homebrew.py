@@ -67,8 +67,6 @@ def test_new_item_drops_someone_elses_character(db, character, other_user):
 def test_someone_elses_item_is_not_found(client, db, other_user):
     save_from_form(db, other_user, _ring(), None, None)
     [(item, _)] = library_view(db, other_user).items
-    # A 404 rolls back the request's changes; on the shared test session that would take the
-    # setup with it. Committing only releases a savepoint: the test still rolls back at the end.
     db.commit()
 
     assert client.get(f"/homebrew/items/{item.id}/edit").status_code == 404
@@ -99,11 +97,11 @@ def test_editor_rows_cancel_link_and_delete_confirm(client, db, owner, character
     sheet = f"/characters/{character.id}/sheet"
 
     page = client.get("/homebrew/items/new", params={"character": character.id}).text
-    assert f'href="{sheet}"' in page  # Cancel goes back to the sheet it was opened from
+    assert f'href="{sheet}"' in page
 
     preview = client.post("/homebrew/items/preview", data=form | {"add_row": "ability"})
     assert preview.status_code == 200 and preview.text.count('name="ability_name"') == 1
-    assert 'value="Test Ring"' in preview.text  # what was typed is kept
+    assert 'value="Test Ring"' in preview.text
 
     response = client.post("/homebrew/items", data=form | {"character": character.id})
     assert response.headers["HX-Redirect"] == sheet

@@ -1,7 +1,3 @@
-"""The Build page's features and choices, the choice form's view model, and the lookups both
-rest on (which choices a character has, which spells their features keep prepared), loaded
-from the database."""
-
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -27,14 +23,13 @@ from app.spells.models import Spell
 class ChoiceView:
     choice: Choice
     picked: list[OptionView]
-    level: int = 1  # the class level (character level for species, backgrounds, feats)
-    level_name: str = "Level"  # "Wizard" for class and subclass choices, so "Wizard 2"
-    count: int = 1  # how many to pick now: a growing choice's count at the current level
-    url: str = ""  # the form that makes this choice
+    level: int = 1
+    level_name: str = "Level"
+    count: int = 1
+    url: str = ""
 
     @property
     def level_label(self) -> str:
-        """ "Wizard 2", or "" for level 1 choices (no need to say)."""
         return f"{self.level_name} {self.level}" if self.level > 1 else ""
 
     @property
@@ -50,26 +45,19 @@ class FeatureView:
 
 @dataclass
 class FeatureSection:
-    """Part of a group: its own features (no title), or features that come with it, like a
-    background's origin feat ("Origin feat · Familiar Friend")."""
-
     title: str
     features: list[FeatureView]
 
 
 @dataclass
 class FeatureGroup:
-    """Features from one source: the species, the background (with its origin feat), or one
-    of the character's classes or subclasses."""
-
     name: str
-    kind: str  # what the name is: "Species", "Background", "Class", "Wizard subclass"
+    kind: str
     sections: list[FeatureSection]
-    change_url: str = ""  # the form for picking a different one, shown by the group's name
+    change_url: str = ""
 
     @property
     def features(self) -> list[FeatureView]:
-        """Every feature in the group, across its sections."""
         return [fv for section in self.sections for fv in section.features]
 
 
@@ -84,10 +72,6 @@ def _applies(applies_to: str, cc: CharacterClassLevel) -> bool:
 def _views(
     db: Session, character: Character, features, level: int, level_name: str = "Level"
 ) -> list[FeatureView]:
-    """Features with the choices unlocked at `level` (the class level, or the character level
-    for species features), each followed by the features of the options picked in its choices
-    (a Fiendish Legacy's spells, an invocation's), unlocked by the same level, with their own
-    choices (Pact of the Tome's cantrips). `level_name` labels those levels, e.g. "Wizard"."""
     views = []
     for f in features:
         choices = [
@@ -111,29 +95,21 @@ def _views(
                 .where(Feature.option_id.in_(picked), Feature.level <= level, available(Feature))
                 .order_by(ChoiceOption.position, Feature.position)
             ).all()
-            # The schema stops nesting here: these features' options own no features.
             views.extend(_views(db, character, option_features, level, level_name))
     return views
 
 
 def _active_item_ids(db: Session, character: Character) -> list[int]:
-    """Items whose features apply: attuned ones, and carried ones that don't need attunement."""
     rows = db.scalars(select(CharacterItem).where(CharacterItem.character_id == character.id)).all()
     ids = {r.item_id for r in rows if r.attuned or not r.item.requires_attunement}
     return sorted(ids)
 
 
 def _origin_feat_id(character: Character) -> int | None:
-    """The origin feat the character's background gives, if they've picked one."""
     return character.background.feat_id if character.background else None
 
 
 def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
-    """The species', background's and origin feat's features (by character level), then those
-    of magic items that are attuned (or carried, if they don't need it), then for each class
-    its features and its subclass's features (both by that class's level). Features
-    and choices retired from their pack aren't shown, though picks already made for them are
-    kept."""
 
     def by_character_level(column, parent_id: int) -> list[FeatureView]:
         features = db.scalars(
@@ -181,7 +157,6 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
         applicable = [f for f in class_features if _applies(f.applies_to, cc)]
         views = _views(db, character, applicable, cc.level, cc.character_class.name)
         groups.append(FeatureGroup(cc.character_class.name, "Class", [FeatureSection("", views)]))
-        # The subclass group is changed through this class's subclass choice.
         subclass_choice = next(
             (cv for fv in views for cv in fv.choices if cv.choice.kind == "subclass"), None
         )
@@ -207,9 +182,6 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
 def always_prepared_spells(
     db: Session, character: Character, groups: list[FeatureGroup] | None = None
 ) -> dict[int, str]:
-    """{spell id: feature name} for spells the character's features keep always prepared
-    (Familiar Friend's Find Familiar). Writing one into the spellbook or preparing it again
-    would waste a pick, so both are blocked. Pass `groups` if they're already worked out."""
     found: dict[int, str] = {}
     for group in feature_groups(db, character) if groups is None else groups:
         for fv in group.features:
@@ -220,8 +192,6 @@ def always_prepared_spells(
 
 
 def always_prepared_reasons(db: Session, character: Character) -> dict[str, str]:
-    """{spell key: why} for the spells a choice or the prepared editor can't take, because a
-    feature keeps them prepared anyway: picking one would waste a pick."""
     return {
         str(spell_id): f"Always prepared ({feature})"
         for spell_id, feature in always_prepared_spells(db, character).items()
@@ -229,7 +199,6 @@ def always_prepared_reasons(db: Session, character: Character) -> dict[str, str]
 
 
 def always_prepared_error(db: Session, character: Character, keys: list[str]) -> str | None:
-    """Why these picked spells (form keys) can't be picked, if one is always prepared."""
     granted = {str(i): feature for i, feature in always_prepared_spells(db, character).items()}
     key = next((k for k in keys if k in granted), None)
     if key is None:
@@ -239,8 +208,6 @@ def always_prepared_error(db: Session, character: Character, keys: list[str]) ->
 
 @dataclass
 class PlayChoice:
-    """A choice made on the Play sheet (Choice.in_play), with every option it offers."""
-
     feature: Feature
     choice: Choice
     options: list[OptionView]
@@ -250,8 +217,6 @@ class PlayChoice:
 def play_choices(
     db: Session, character: Character, groups: list[FeatureGroup] | None = None
 ) -> list[PlayChoice]:
-    """The character's in-play choices, following the same level, subclass and retired rules
-    as feature_groups. Pass `groups` if they're already worked out."""
     return [
         PlayChoice(
             fv.feature,
@@ -267,22 +232,17 @@ def play_choices(
 
 
 def _level_label(db: Session, choice: Choice) -> str:
-    """Like ChoiceView.level_label, for a choice on its own (e.g. its form). Species,
-    background and feat choices go by character level ("Level 3")."""
     level = max(choice.feature.level, choice.level)
     return f"{owner_level_name(db, choice.feature)} {level}" if level > 1 else ""
 
 
 def applicable_choice(db: Session, character: Character, choice_id: int) -> Choice | None:
-    """The choice, if this character has its feature, using the same rules as feature_groups."""
     choice = db.get(Choice, choice_id)
     if choice is None:
         return None
     feature = choice.feature
     unlocks_at = max(feature.level, choice.level)
     if feature.option_id is not None:
-        # A picked option's feature (Pact of the Tome): the option must be picked, in a choice
-        # the character has, and the owner's level reached.
         option = db.get(ChoiceOption, feature.option_id)
         picked = db.scalar(
             select(CharacterChoicePick.id).where(
@@ -321,10 +281,10 @@ class ChoiceFormView:
     character: Character
     choice: Choice
     level_label: str
-    count: int  # how many to pick now
+    count: int
     options: list[OptionView]
-    filter_schools: list[str]  # spell choices get filters, for the schools among the options
-    known: dict[str, str]  # {key: why} for options that can't be picked
+    filter_schools: list[str]
+    known: dict[str, str]
     noun: tuple[str, str]
     selected: list[str]
 
@@ -332,8 +292,6 @@ class ChoiceFormView:
 def choice_form_view(
     db: Session, character: Character, choice: Choice, selected: list[str] | None = None
 ) -> ChoiceFormView:
-    """The option grid for one choice. `selected` keeps what was submitted; by default it's the
-    saved picks."""
     kind = KINDS[choice.kind]
     options = kind.options(db, choice, character)
     known = kind.unavailable(db, choice, character.id)

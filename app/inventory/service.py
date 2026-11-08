@@ -1,6 +1,3 @@
-"""What a character carries: adding (packs expand, scrolls hold a spell), quantities, using
-consumables, attunement and coins. Changes are flushed but not committed; routes commit."""
-
 from typing import NamedTuple
 
 from sqlalchemy import select
@@ -21,7 +18,6 @@ from app.spells.models import Spell
 
 
 def _stack(db: Session, character: Character, item_id: int, quantity: int, spell_id=None) -> None:
-    """Add to the row for this item (and spell), or start one."""
     row = db.scalar(
         select(CharacterItem).where(
             CharacterItem.character_id == character.id,
@@ -44,8 +40,6 @@ def _stack(db: Session, character: Character, item_id: int, quantity: int, spell
 def add_item(
     db: Session, character: Character, item: Item, quantity: int, spell: Spell | None = None
 ) -> str | None:
-    """Add `quantity` of an item. A pack adds its contents instead; a scroll needs the spell
-    it holds. Returns an error message instead if that can't be done."""
     if item.category == "scroll":
         if spell is None:
             return "Choose the spell on the scroll."
@@ -72,8 +66,6 @@ def add_from_catalog(
 
 
 def change_quantity(db: Session, row: CharacterItem, delta: str) -> str | None:
-    """Add or take away, but never below 1: getting rid of an item is Remove (which asks
-    first), so a stray click can't lose the only backpack."""
     if delta not in ("1", "-1"):
         return "Use − or + to change the quantity."
     row.quantity = max(1, row.quantity + int(delta))
@@ -89,7 +81,6 @@ def use_item(db: Session, row: CharacterItem) -> str | None:
 
 
 def use_one(db: Session, row: CharacterItem) -> None:
-    """Spend one of a consumable; the last one used is gone."""
     row.quantity -= 1
     if row.quantity <= 0:
         db.delete(row)
@@ -143,7 +134,6 @@ def attune(db: Session, character: Character, row: CharacterItem, attuned: str) 
             return f"You can be attuned to at most {MAX_ATTUNED} items. End one first."
     row.attuned = wanted
     db.flush()
-    # Ending attunement ends the item's benefits, and picks made for them (its tool).
     remove_inapplicable_picks(db, character)
     return None
 

@@ -1,9 +1,3 @@
-"""The shape of every file in a content pack. Packs are validated against these before
-anything is imported, so mistakes are reported with their file instead of breaking pages.
-
-Feature, choice and option definitions are shared with app/features/schema.py.
-"""
-
 import re
 from typing import Annotated, Literal
 
@@ -22,13 +16,10 @@ from app.features.schema import (
     spends_errors,
 )
 
-# "8d6", "1d4+1", "2d4 + 4", or a flat number like "5". At most three digits per number.
 DICE = re.compile(r"^\s*(\d{1,3}d\d{1,3}(\s*[+-]\s*\d{1,3})?|\d{1,3})\s*$")
 
 
 class Strict(BaseModel):
-    """Unknown keys are errors, so a typo like `concentraton` isn't silently ignored."""
-
     model_config = ConfigDict(extra="forbid")
 
 
@@ -56,23 +47,14 @@ class SpeciesDef(Strict):
     slug: Slug
     name: Text50
     summary: Text255
-    speed: int = Field(default=30, ge=0, le=120)  # walking speed in feet
+    speed: int = Field(default=30, ge=0, le=120)
     features: list[FeatureDef] = []
 
 
 class Spellcasting(Strict):
-    """How a class casts spells."""
-
     ability: Ability
-    # Spells you can prepare at each class level, 1 through 20, changed daily from a spellbook
-    # (the Wizard). Left out by casters who pick their list through spell choices on level up
-    # (the Warlock).
     prepared: Annotated[list[int], Field(min_length=20, max_length=20)] | None = None
-    # Which ritual spells you can cast as rituals: only prepared ones (the general rule), or any
-    # in your spellbook without preparing them (the Wizard's Ritual Adept).
     ritual_casting: Literal["prepared", "spellbook"] = "prepared"
-    # Spell slot progression; the tables themselves live in app/sheet/slots.py. "pact" is Pact
-    # Magic: a few slots, all one level, back on a short rest.
     slots: Literal["full", "pact"] = "full"
 
 
@@ -81,7 +63,6 @@ class ClassDef(Strict):
     name: Text50
     summary: Text255
     hit_die: Literal[6, 8, 10, 12]
-    # Saving throw proficiencies, granted by the starting class only (2024 multiclassing).
     saving_throws: list[Ability] = Field(min_length=2, max_length=2)
     spellcasting: Spellcasting | None = None
     features: list[FeatureDef] = []
@@ -92,7 +73,7 @@ class SubclassDef(Strict):
 
     slug: Slug
     name: Text50
-    class_: str = Field(alias="class")  # class slug, e.g. "wizard" or "phb-2024/wizard"
+    class_: str = Field(alias="class")
     summary: Text255
     features: list[FeatureDef] = []
 
@@ -102,22 +83,16 @@ class FeatDef(Strict):
     name: Text50
     category: Literal["origin", "general"] = "origin"
     summary: Text255
-    description: str | None = None  # full rules text: only in private packs (copyright)
-    # Each benefit is its own feature, so each can have its own uses (Familiar Friend's free
-    # Find Familiar and Helpful Friend recharge separately).
+    description: str | None = None
     features: list[FeatureDef] = []
 
 
 class BackgroundDef(Strict):
-    """A 2024 background. Ability score increases, skills and tools are written as features
-    with choices (kinds ability_scores, skill, option), so backgrounds that bend the usual
-    pattern need no code."""
-
     slug: Slug
     name: Text50
     summary: Text255
     description: str | None = None
-    feat: str  # origin feat slug, e.g. "magic-initiate" or "phb-2024/magic-initiate"
+    feat: str
     features: list[FeatureDef] = []
 
     @model_validator(mode="after")
@@ -128,39 +103,31 @@ class BackgroundDef(Strict):
         return self
 
 
-# --- Items -------------------------------------------------------------------------------
-
-# "40 GP", "5 SP", "1 CP": a price, stored in copper pieces.
 COST = re.compile(r"^\s*(\d+)\s*(CP|SP|EP|GP|PP)\s*$", re.IGNORECASE)
 COPPER = {"CP": 1, "SP": 10, "EP": 50, "GP": 100, "PP": 1000}
 
 
 class PackItem(Strict):
-    item: str  # item slug, e.g. "parchment" or "phb-2024/parchment"
+    item: str
     quantity: int = Field(default=1, ge=1)
 
 
 class ItemDef(Strict):
-    """An item in the catalog. A pack lists `contents` (adding it adds those); a spell scroll
-    has a `spell_level`, and the spell is picked when it's added to a character."""
-
     slug: Slug
     name: Text80
     category: Literal["gear", "consumable", "pack", "scroll", "tool", "magic"]
     rarity: Literal["common", "uncommon", "rare", "very_rare", "legendary", "artifact"] | None = (
         None
     )
-    cost: str | None = None  # "40 GP"
-    weight: float | None = Field(default=None, ge=0)  # pounds
+    cost: str | None = None
+    weight: float | None = Field(default=None, ge=0)
     summary: Text255
-    description: str | None = None  # full rules text: only in private packs (copyright)
-    consumable: bool = False  # potions and scrolls are, without saying so
+    description: str | None = None
+    consumable: bool = False
     requires_attunement: bool = False
     spell_level: int | None = Field(default=None, ge=0, le=9)
-    healing: str | None = None  # dice healed when used, e.g. "2d4+2" (a Potion of Healing)
+    healing: str | None = None
     contents: list[PackItem] = []
-    # A magic item's charges and benefits. They apply while it's attuned, or while it's carried
-    # if it doesn't need attunement.
     features: list[FeatureDef] = []
 
     @field_validator("healing")
@@ -197,13 +164,10 @@ class ItemDef(Strict):
         return int(amount) * COPPER[coin.upper()]
 
 
-# --- Spells -------------------------------------------------------------------------------
-
-
 class CastingTime(Strict):
     unit: Literal["action", "bonus_action", "reaction", "minute", "hour"]
     amount: int = Field(default=1, ge=1)
-    trigger: str | None = None  # required for reactions: "when you're hit by an attack roll"
+    trigger: str | None = None
 
     @model_validator(mode="after")
     def check(self):
@@ -228,13 +192,13 @@ class Range(Strict):
 class Area(Strict):
     shape: Literal["cone", "cube", "cylinder", "emanation", "line", "sphere", "square"]
     feet: int
-    width_feet: int | None = None  # lines
-    height_feet: int | None = None  # cylinders
+    width_feet: int | None = None
+    height_feet: int | None = None
 
 
 class Material(Strict):
     text: str
-    cost_gp: int | None = None  # only for components with a listed price
+    cost_gp: int | None = None
     consumed: bool = False
 
 
@@ -269,7 +233,7 @@ class Attack(Strict):
 class Damage(Strict):
     dice: str
     type: DamageType | None = None
-    type_choice: list[DamageType] | None = None  # e.g. Chromatic Orb
+    type_choice: list[DamageType] | None = None
     note: str | None = None
 
     _dice = field_validator("dice")(_check_dice)
@@ -283,7 +247,7 @@ class Damage(Strict):
 
 class Healing(Strict):
     dice: str
-    temporary: bool = False  # temporary hit points
+    temporary: bool = False
     note: str | None = None
 
     _dice = field_validator("dice")(_check_dice)
@@ -301,12 +265,6 @@ class HigherSlots(Strict):
 
 
 class AcEffectDef(Strict):
-    """What the spell does to your AC when you cast it on yourself from the AC card. Only for
-    spells lasting a minute or more.
-    base:    AC becomes value + DEX modifier (Mage Armor 13)
-    bonus:   added to AC
-    minimum: AC can't be lower than value (Barkskin 17)"""
-
     kind: Literal["base", "bonus", "minimum"]
     value: int
 
@@ -340,8 +298,8 @@ class SpellDef(Strict):
     higher_slots: HigherSlots | None = None
     ac_effect: AcEffectDef | None = None
     note: str | None = None
-    summary: Text255  # required, in our own words
-    description: str | None = None  # full rules text: only in private packs (copyright)
+    summary: Text255
+    description: str | None = None
     page: int | None = None
 
     @field_validator("cantrip_scaling")
@@ -357,15 +315,12 @@ class SpellDef(Strict):
             raise ValueError("cantrips don't use higher_slots")
         if self.concentration and self.duration.kind != "timed":
             raise ValueError("concentration spells need a timed duration")
-        # The sheet tracks AC effects until ended or a long rest. Round-long ones (Shield)
-        # are over before they'd be worth recording.
         too_short = self.duration.kind == "instantaneous" or self.duration.unit == "round"
         if self.ac_effect and too_short:
             raise ValueError("ac_effect is for spells lasting a minute or more")
         return self
 
     def details(self) -> dict:
-        """The structured fields that go into the spells.details JSON column."""
         data = self.model_dump(
             mode="json",
             exclude_none=True,

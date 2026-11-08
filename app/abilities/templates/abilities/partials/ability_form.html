@@ -1,6 +1,4 @@
 {% from "partials/refresh.html" import refresh_button %}
-{# Loaded in place on the character page. Tabs, stepper clicks and value changes redraw the
-   whole editor from the server; saving redirects. #}
 {% set editor_swap = 'hx-target="#ability-editor" hx-swap="outerHTML"' %}
 <div id="ability-editor" class="ability-editor">
   <div class="tabs" role="tablist">
@@ -15,7 +13,6 @@
   <form hx-post="/characters/{{ character.id }}/abilities" {{ editor_swap | safe }} novalidate
         class="ability-form">
     <input type="hidden" name="method" value="{{ method }}">
-    {# Any changed dropdown or roll redraws the editor: modifiers, what's left to assign. #}
     <div hidden hx-post="/characters/{{ character.id }}/abilities/preview"
          hx-trigger='change from:"closest form"' {{ editor_swap | safe }}></div>
 

@@ -1,17 +1,3 @@
-"""The custom item editor's form: what the player enters, and how it becomes an ItemDef whose
-features carry the item's mechanics.
-
-The form is flat, so it posts as plain fields; spell and ability rows are parallel lists
-(spell_id[i], spell_charges[i], ...). It's stored as the item's `definition` so the editor can
-reopen it, and `build_item_def` derives the item from it:
-
-  charges   -> feature "charges":  uses, plus the spells cast by spending charges
-  spells    -> feature "spells":   spells kept always prepared without a charge cost
-  bonuses   -> feature "benefits": grants (AC, darkvision, speed, resistances, saves, a tool)
-  tool      -> feature "tool":     an in-play choice of any tool, changed on the Play sheet
-  abilities -> one feature each:   its action, and the charges a use spends (Use on the sheet)
-"""
-
 import re
 
 from pydantic import BaseModel, ValidationError
@@ -71,16 +57,16 @@ class ItemForm(BaseModel):
     name: str = ""
     category: str = "magic"
     rarity: str = ""
-    attunement: str = ""  # "1" when checked
+    attunement: str = ""
     summary: str = ""
     description: str = ""
-    healing: str = ""  # dice healed when used ("2d4+2"): drunk from the HP panel
+    healing: str = ""
     charges: str = ""
     recharge: str = "dawn"
     regain: str = ""
     spell_id: list[str] = []
-    spell_charges: list[str] = []  # charges a cast spends; blank: not cast with charges
-    spell_prepared: list[str] = []  # "yes": also always prepared, cast with slots
+    spell_charges: list[str] = []
+    spell_prepared: list[str] = []
     spell_note: list[str] = []
     ac_bonus: str = ""
     darkvision: str = ""
@@ -90,17 +76,15 @@ class ItemForm(BaseModel):
     tool_mode: str = "none"
     tool: str = ""
     ability_name: list[str] = []
-    ability_action: list[str] = []  # "", "action", "bonus_action", "reaction"
-    ability_charges: list[str] = []  # charges a use spends; blank: none
+    ability_action: list[str] = []
+    ability_charges: list[str] = []
     ability_text: list[str] = []
-    # Items saved before these fields existed; converted by `upgrade` when reopened.
     spell_cast: list[str] = []
     ability_when: list[str] = []
-    # Not stored: the editor's own controls.
-    add_row: str = ""  # "spell" or "ability": redraw with one more blank row
-    remove_row: str = ""  # "spell:2": redraw without that row
-    character: str = ""  # opened from this character's Add item: add it there once saved
-    item_id: str = ""  # the item being edited, for redraws
+    add_row: str = ""
+    remove_row: str = ""
+    character: str = ""
+    item_id: str = ""
 
     def _rows(self, fields: list[str]) -> list[list[str]]:
         columns = [getattr(self, f) for f in fields]
@@ -112,16 +96,12 @@ class ItemForm(BaseModel):
             setattr(self, field, [row[i] for row in rows])
 
     def spell_rows(self) -> list[list[str]]:
-        """[spell id, charges, prepared, note] per row."""
         return self._rows(SPELL_FIELDS)
 
     def ability_rows(self) -> list[list[str]]:
-        """[name, action, charges, text] per row."""
         return self._rows(ABILITY_FIELDS)
 
     def upgrade(self) -> ItemForm:
-        """Convert an item saved by the first version of the editor: a spell's "Spend a charge"
-        or "Always prepared", and an ability's free-text "Bonus Action · 1 charge"."""
         if self.spell_cast and not self.spell_charges:
             self.spell_charges = ["1" if cast == "charge" else "" for cast in self.spell_cast]
             self.spell_prepared = ["no" if cast == "charge" else "yes" for cast in self.spell_cast]
@@ -145,7 +125,6 @@ class ItemForm(BaseModel):
         return self
 
     def edit_rows(self) -> None:
-        """Apply Add spell / Add ability / Remove from the editor's buttons."""
         kind, _, index = self.remove_row.partition(":")
         rows = {"spell": self.spell_rows(), "ability": self.ability_rows()}
         position = parse_id(index)
@@ -160,7 +139,6 @@ class ItemForm(BaseModel):
         self.add_row = self.remove_row = ""
 
     def definition(self) -> dict:
-        """What's stored to reopen the editor: the fields, without blank rows or controls."""
         self._set_rows(SPELL_FIELDS, [r for r in self.spell_rows() if r[0]])
         self._set_rows(
             ABILITY_FIELDS, [r for r in self.ability_rows() if r[0].strip() or r[3].strip()]
@@ -200,7 +178,6 @@ def _regain_text(form: ItemForm) -> str:
 def build_item_def(
     db: Session, form: ItemForm, user_id: int
 ) -> tuple[ItemDef | None, dict[str, str]]:
-    """The item the form describes, or (None, {field: problem})."""
     errors: dict[str, str] = {}
     name = form.name.strip()
     if not name or len(name) > 80:
@@ -220,7 +197,6 @@ def build_item_def(
     if form.regain.strip() and form.recharge != "dawn":
         errors["regain"] = "A number regained is only for charges that come back at dawn."
 
-    # Spells: cast by spending charges, and/or kept always prepared (cast with slots).
     charge_spells, prepared_spells = [], []
     for spell_key, spell_charges, prepared, note in form.spell_rows():
         if not spell_key:
@@ -255,7 +231,6 @@ def build_item_def(
     if charge_spells and charges is None:
         errors["spells"] = "Spells cast with charges need the item to have charges."
 
-    # Always-on benefits while attuned (or carried).
     grants: dict = {}
     if (ac := _number(form.ac_bonus, 1, 10, "AC bonus", errors, "ac_bonus")) is not None:
         grants["ac_bonus"] = ac
@@ -275,7 +250,6 @@ def build_item_def(
         else:
             grants["tool_proficiencies"] = [form.tool]
 
-    # Abilities: what each takes (an action, bonus action, reaction) and the charges it spends.
     abilities = []
     for i, (ability, action, ability_charges, text) in enumerate(form.ability_rows()):
         ability, text = ability.strip(), text.strip()

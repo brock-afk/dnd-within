@@ -61,17 +61,23 @@ scripts/restore-drill.sh              # server: restore the newest blob into a s
 - UI, template or htmx changes: check them in the running app (`/run`).
 - Before committing: `/simplify`, then `/code-review` on the diff (`high` for rules, importer, migrations).
 - Changes to `auth/`, `sharing/`, `homebrew/` or anything public-facing: `/security-review`.
-- Comments and docstrings say only why: the PHB rule followed, a constraint, a trade-off, or a gotcha the code can't show. Never describe what the code does or which callers rely on it; that goes stale as soon as the behaviour changes. If there's no why, write no comment.
+- No comments or docstrings, in any file, unless one is absolutely necessary. Code that seems to need a comment should be made clearer instead: a better name, a named constant, a smaller function, or a test that pins the behaviour. Lint directives (`# noqa`) and functional headers (`#!`, `# syntax=`, `#cloud-config`) are not comments.
 
 ## Architecture
 
 ### Domain packages
-`app/<domain>/` holds one area each (`auth`, `characters`, `abilities`, `classes`, `species`, `backgrounds`, `feats`, `skills`, `spells`, `features`, `leveling`, `sheet`, `content`). A domain has some of these modules:
+`app/<domain>/` holds one area each (`auth`, `characters`, `abilities`, `classes`, `species`, `backgrounds`, `feats`, `skills`, `spells`, `features`, `leveling`, `sheet`, `inventory`, `homebrew`, `sharing`, `content`). A domain has some of these modules:
 - `models.py`: SQLAlchemy tables
-- `router.py`: routes, registered in `app/main.py`
-- `service.py` / `queries.py`: DB-backed logic and view dataclasses
-- `rules.py`: pure 2024 PHB rule math with no DB access; docstrings cite the PHB rule each function follows
+- `router.py`: routes, registered in `app/main.py`. A route loads its rows through a dependency, runs one service operation, builds a view with a `queries.py` builder and renders it with a `page.py` function. Routers don't import SQLAlchemy, templates, `HTTPException` or Pydantic, and don't construct models.
+- `dependencies.py`: `Annotated` loaders such as `OwnedCharacter`, `OwnedItemRow` and `SharedCharacter`. A missing row, another user's row and a row of the wrong kind for the route all get a 404, so ids can't be probed. Child rows use `characters/dependencies.py:owned_child`.
+- `form.py`: Pydantic models for submitted forms, parsed with `core/forms.py` (`parse_id`, `parse_int`, `parse_amount`; never `isdigit()` and `int()`). It may read the database for a lookup a check needs, but never writes.
+- `queries.py`: read lookups, frozen view dataclasses (never raw dicts) and the builders that fill them. A builder does the reload after a change. A lookup by id uses the same query as the list the id came from (`content/queries.py:picked_row`). It never imports a service.
+- `service.py`: operations. Each checks first, then writes, and returns its errors (a message as `str | None`, or field errors as `dict[str, str]`) with nothing changed when there are any. Operations flush; `get_db` commits once per request.
+- `page.py`: render functions taking the request, a view and an optional error. No database access. The view's fields become the template context (`core/templates.py:view_context`).
+- `rules.py`: pure 2024 PHB rule math and constants with no DB access; anything may import it
 - `templates/<domain>/`: Jinja templates, referenced as `"<domain>/x.html"`
+
+`auth` keeps its older layout (routes with their own logic) by choice.
 
 `app/core/` (config, db, templates) must never import from domains. `app/models.py` imports every domain's models so `Base.metadata` is complete. Alembic and the app both rely on it, so **any new models module must be added there**.
 

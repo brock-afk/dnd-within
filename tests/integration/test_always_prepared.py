@@ -1,6 +1,3 @@
-"""A spell a feature already gives as always prepared can't be written into the spellbook or
-prepared again: that would waste a pick."""
-
 import pytest
 from sqlalchemy import select
 
@@ -16,7 +13,6 @@ REFUSED = "Find Familiar is always prepared (Familiar Gift)."
 
 @pytest.fixture
 def find_familiar(db, character) -> Spell:
-    """Find Familiar, always prepared through a carried charm's Familiar Gift."""
     source = db.scalar(select(Source).where(Source.slug == "test-core"))
     spell = db.scalar(select(Spell).where(Spell.slug == "find-familiar"))
     charm = Item(
@@ -63,7 +59,6 @@ def test_copy_panel_blocks_it(client, character, find_familiar):
 
 @pytest.fixture
 def prepared_from_book(character, find_familiar, prepare_from_book):
-    """Find Familiar also in the spellbook and prepared from it, as picked before the block."""
     prepare_from_book(character, find_familiar.id)
 
 
@@ -78,5 +73,4 @@ def test_prepare_editor_blocks_it(client, character, find_familiar, prepared_fro
 
 
 def test_it_doesnt_count_toward_the_prepare_limit(client, character, prepared_from_book):
-    # A level 1 Wizard prepares 4.
     assert "0/4 prepared" in client.get(f"/characters/{character.id}/sheet").text

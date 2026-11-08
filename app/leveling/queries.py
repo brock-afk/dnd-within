@@ -1,5 +1,3 @@
-"""Hit points by level and the level-up panel's view model, loaded from the database."""
-
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -33,7 +31,6 @@ class HitPoints:
 
     @property
     def breakdown(self) -> str:
-        """e.g. "L1 Wizard: 6 (max) +2 CON = 8 · L2 Wizard: 4 (fixed) +2 CON = 6"."""
         return " · ".join(
             f"L{lv.character_level} {lv.class_name}: {lv.die} ({lv.hp_method}) "
             f"{'+' if lv.con_mod >= 0 else '−'}{abs(lv.con_mod)} CON = {lv.hp}"
@@ -42,7 +39,6 @@ class HitPoints:
 
 
 def hit_points(db: Session, character: Character) -> HitPoints | None:
-    """Max HP, or None until ability scores (and so Constitution) are set."""
     con_mod = constitution_modifier(db, character)
     if con_mod is None:
         return None
@@ -67,14 +63,13 @@ class LevelUpView:
     next_level: int
     at_max: bool
     hit_die: int
-    con_mod: int | None  # None until ability scores are set
+    con_mod: int | None
     fixed: int
     fixed_gain: int | None
-    roll: str  # the roll entered, kept when it's sent back with an error
+    roll: str
 
 
 def starting_class(character: Character) -> CharacterClass:
-    """The class a new level goes to: always the starting class, until multiclassing."""
     return character.classes[0].character_class
 
 

@@ -1,5 +1,3 @@
-{# The Short rest panel: every short-rest action (hit dice, Arcane Recovery...), shown while
-   resting. #}
 {% from "partials/refresh.html" import refresh_button %}
 {% from "partials/dice.html" import roll_button %}
 {% if resting %}
@@ -28,7 +26,6 @@
 
   {% for uses, budget in recoveries %}
   {% set max_level = uses.feature.slot_recovery.max_slot_level %}
-  {# Slot levels it can recover from: at or below its limit, with at least one slot spent. #}
   {% set spent_slots = slots.values() | selectattr("level", "le", max_level)
                        | selectattr("expended", "gt", 0) | list %}
   <div class="rest-block">

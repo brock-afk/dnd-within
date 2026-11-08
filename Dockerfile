@@ -1,6 +1,12 @@
 # Digests, so a rebuild can't silently pick up a different image.
 FROM python:3.15-slim@sha256:e97b88e416c3c01eb427b21fd8cd3ebf006e6ee38afcfcc3cae1c54ee2ab0a75
 
+# Debian security fixes land before the base image is rebuilt; a fixed snapshot keeps rebuilds identical.
+ARG DEBIAN_SNAPSHOT=20261108T000000Z
+RUN apt-get -S "$DEBIAN_SNAPSHOT" update \
+    && DEBIAN_FRONTEND=noninteractive apt-get -S "$DEBIAN_SNAPSHOT" upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=ghcr.io/astral-sh/uv:0.12.23@sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21 /uv /bin/uv
 
 ENV UV_COMPILE_BYTECODE=1 \
@@ -20,7 +26,8 @@ WORKDIR /app
 
 # Install dependencies first so code changes don't invalidate this layer.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-dev --no-install-project
+# Otherwise the cache ships in the image.
+RUN uv sync --locked --no-dev --no-install-project --no-cache
 
 COPY alembic.ini ./
 COPY migrations ./migrations

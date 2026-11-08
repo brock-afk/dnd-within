@@ -24,6 +24,7 @@ from app.sheet.slots import slot_maximums
 from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.species.models import Species
 from app.spells.models import CharacterSpell, Spell, SpellbookEntry
+from app.spells.queries import pickable_spells
 
 
 def owner_feature(db: Session, feature: Feature) -> Feature:
@@ -402,7 +403,7 @@ class SpellKind(ChoiceKind):
 
     def options_query(self, choice, character):
         criteria = choice.criteria
-        query = select(Spell).where(available(Spell))
+        query = pickable_spells(character.user_id)
         if "class_id" in criteria:  # else any class's spells (Pact of the Tome)
             query = query.join(Spell.classes).where(CharacterClass.id == criteria["class_id"])
         if criteria.get("ritual"):

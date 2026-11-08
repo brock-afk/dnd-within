@@ -320,7 +320,7 @@ def cast_free(db: Session, character: Character, spell: str, feature: str) -> st
 def copy_spell(db: Session, character: Character, spell: str, note: str) -> str | None:
     """Any spell can be copied (rule-breaking ones get a marker); the gold and time are the
     player's to track."""
-    found = copyable(db, spell)
+    found = copyable(db, spell, character.user_id)
     if found is None:
         return "Choose a spell of level 1 or higher to copy."
     if found.id in {entry.spell_id for entry in spellbook(db, character.id)}:

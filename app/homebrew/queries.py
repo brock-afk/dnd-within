@@ -9,12 +9,12 @@ from sqlalchemy.orm import Session
 from app.auth.models import User
 from app.characters.models import Character
 from app.content.models import Source
-from app.content.queries import available, visible
 from app.core.forms import parse_id
 from app.homebrew.form import ItemForm
 from app.inventory.models import Item
 from app.inventory.queries import item_detail
 from app.spells.models import Spell
+from app.spells.queries import pickable_spells
 
 
 def user_items(db: Session, user: User) -> list[Item]:
@@ -59,11 +59,7 @@ class EditorView:
 
 
 def editor_view(db: Session, user: User, form: ItemForm, item: Item | None) -> EditorView:
-    spells = db.scalars(
-        select(Spell)
-        .where(available(Spell), visible(Spell, user.id))
-        .order_by(Spell.level, Spell.name)
-    ).all()
+    spells = db.scalars(pickable_spells(user.id).order_by(Spell.level, Spell.name)).all()
     return EditorView(
         user=user,
         form=form,

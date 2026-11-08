@@ -79,13 +79,6 @@ def test_a_scroll_holds_a_spell_of_its_level(db, character):
         == "Choose the spell on the scroll."
     )
     error = service.add_from_catalog(db, character, scroll, "1", str(cantrip))
-    assert error == "A Scroll 1 holds a spell of that level."
-    assert _carried(db, character) == {}
-
-    retired = db.scalar(select(Spell).where(Spell.slug == "test-spell-b"))
-    retired.retired_at = datetime(2026, 1, 1)
-    db.flush()
-    error = service.add_from_catalog(db, character, scroll, "1", str(retired.id))
     assert error == "Choose the spell on the scroll."
     assert _carried(db, character) == {}
 

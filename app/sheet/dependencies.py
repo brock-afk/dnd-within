@@ -21,8 +21,8 @@ OwnedHpEffect = Annotated[CharacterHpEffect, Depends(get_hp_effect)]
 OwnedAcEffect = Annotated[CharacterAcEffect, Depends(get_ac_effect)]
 
 
-def get_copyable_spell(db: DbSession, spell: str = "") -> Spell:
-    found = copyable(db, spell)
+def get_copyable_spell(db: DbSession, character: OwnedCharacter, spell: str = "") -> Spell:
+    found = copyable(db, spell, character.user_id)
     if found is None:
         raise HTTPException(status_code=404)
     return found

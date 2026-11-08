@@ -22,11 +22,8 @@ body {
 }
 
 main { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
-/* Character pages (Build and Play): one width, so switching tabs doesn't resize the page.
-   The Play sheet uses it for two columns. */
 body.wide main { max-width: 1240px; }
 
-/* Auth pages: a single card in the middle of the screen. */
 body.centered { display: grid; place-items: center; padding: 1rem; }
 body.centered main { width: 100%; max-width: 380px; padding: 0; }
 
@@ -100,14 +97,12 @@ a { color: var(--accent); }
   margin-bottom: 1.5rem;
 }
 
-/* Character list */
 .character-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
 .character-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; }
 .character-name { font-weight: 600; }
 .empty { text-align: center; }
 .empty p { margin: 0 0 0.5rem; color: var(--muted); }
 
-/* Character creation */
 .character-form { display: grid; gap: 2rem; }
 .character-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .character-form > button { justify-self: start; }
@@ -130,12 +125,10 @@ a { color: var(--accent); }
 .choice:hover { border-color: var(--border-strong); }
 .choice:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* The radio stays in the DOM for keyboard and screen-reader use; the card shows the state. */
 .choice input { position: absolute; opacity: 0; pointer-events: none; }
 .choice-name { display: block; font-weight: 600; }
 .choice-summary { display: block; margin-top: 0.25rem; font-size: 0.85rem; color: var(--muted); line-height: 1.35; }
 
-/* Validation errors */
 .form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
 .form-actions .error { margin: 0; }
 .field-error { margin: -0.4rem 0 0.75rem; }
@@ -143,14 +136,11 @@ a { color: var(--accent); }
 .has-error input[type="text"] { border-color: var(--error); }
 .has-error .choice { border-color: color-mix(in srgb, var(--error) 45%, var(--border)); }
 
-/* Character page */
 .page-header .subtitle { margin: 0.25rem 0 0; }
 .sheet-section { margin-bottom: 2.25rem; }
 .sheet-section h2 { margin: 0 0 0.75rem; font-size: 1.25rem; }
 .group-title { margin: 1.25rem 0 0.5rem; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 
-/* Collapsible sections (partials/section.html, static/collapse.js): a ruled header with a
-   chevron; collapsed, it shows a one-line digest of what's inside. */
 details.sheet-section { margin-bottom: 0.5rem; border-top: 1px solid var(--border); scroll-margin-top: 7rem; }
 .section-summary {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem;
@@ -170,7 +160,6 @@ details[open] > .section-summary .section-digest { display: none; }
 
 .pending-choice { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; border-color: var(--accent); }
 .pending-choice:has(form) { display: block; }
-/* The Play sheet's in-play choices keep their dropdown on the same row. */
 .pending-choice.play-pending { display: flex; }
 
 .spell-list li { display: grid; gap: 0.15rem; }
@@ -185,14 +174,12 @@ details[open] > .section-summary .section-digest { display: none; }
 .tag-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .tag-list li { padding: 0.35rem 0.7rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
 
-/* Choice forms loaded into the page */
 .choice-form { display: grid; gap: 0.75rem; }
 .choice-form-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.75rem; }
 .choice-form-header .section-title { margin: 0; }
 .choice-form .field-error { margin: 0; }
 .choice-detail { display: block; margin-top: 0.15rem; font-size: 0.8rem; color: var(--accent); }
 
-/* Inline rename */
 .name-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.75rem; }
 .name-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
 .name-form input[type="text"] { width: auto; flex: 1 1 16rem; font-size: 1.3rem; font-weight: 600; }
@@ -202,7 +189,6 @@ details[open] > .section-summary .section-digest { display: none; }
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-/* Delete character */
 .danger-zone { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 .danger-zone summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; width: fit-content; }
 .danger-zone summary:hover { color: var(--error); }
@@ -214,7 +200,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .danger-button { background: #b91c1c; }
 .danger-button:hover { background: #dc2626; }
 
-/* Ability scores */
 .section-heading { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.75rem; }
 .section-heading h2 { margin: 0; }
 .ability-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); gap: 0.6rem; }
@@ -262,7 +247,6 @@ details[open] > .section-summary .section-digest { display: none; }
 
 .editor-status { margin: 0; }
 
-/* Ability score increases: name, amount (a fixed +1, or a +2 / +1 toggle), resulting score. */
 .increase-rows { display: grid; gap: 0.2rem; max-width: 26rem; }
 .increase-row {
   display: grid; grid-template-columns: minmax(7rem, 1fr) 4.5rem 6rem;
@@ -271,7 +255,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .increase-amount { padding: 0.1rem 0.4rem; font-weight: 600; color: var(--accent); }
 .increase-toggle { display: inline-flex; gap: 0.15rem; }
 .increase-option {
-  /* A label, so undo the form-label margin and size: rows match the "+1 to each" ones. */
   position: relative; margin: 0; padding: 0.1rem 0.4rem; border-radius: 4px;
   font-size: inherit; font-weight: 600; color: var(--muted); cursor: pointer;
 }
@@ -286,7 +269,6 @@ details[open] > .section-summary .section-digest { display: none; }
   .row-cost { grid-column: 2 / -1; text-align: right; margin-top: -0.35rem; }
 }
 
-/* Leveling */
 .level-up-button { margin-left: 0.5rem; }
 #level-up-slot:not(:empty) { margin-bottom: 2rem; }
 .level-up-panel { display: grid; gap: 0.75rem; max-width: 36rem; }
@@ -302,12 +284,10 @@ details[open] > .section-summary .section-digest { display: none; }
 .remove-level p { margin: 0 0 0.75rem; }
 .danger-zone + .danger-zone { margin-top: 1rem; padding-top: 0; border-top: 0; }
 
-/* Options the character already has from elsewhere */
 .choice.known { cursor: not-allowed; opacity: 0.6; }
 .choice.known:hover { border-color: var(--border); }
 .choice-known { display: inline-block; margin-top: 0.3rem; font-size: 0.75rem; font-weight: 600; color: var(--accent); }
 
-/* Collapsible option groups (e.g. spells by level) */
 .choice-group { border-top: 1px solid var(--border); padding-top: 0.6rem; }
 .choice-group + .choice-group { margin-top: 0.6rem; }
 .choice-group > summary {
@@ -320,7 +300,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .choice-group-name { font-weight: 600; }
 .choice-group > summary .muted { font-size: 0.85rem; }
 
-/* Option filters (spells) */
 [hidden] { display: none !important; }
 .option-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
 .option-filters input[type="search"], .option-filters select, .copy-search input[type="search"] {
@@ -331,13 +310,11 @@ details[open] > .section-summary .section-digest { display: none; }
 .filter-check { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 0.9rem; }
 .filter-empty { flex-basis: 100%; font-size: 0.9rem; }
 
-/* Build | Play tabs */
 .page-tabs { display: flex; gap: 0.25rem; margin: -0.5rem 0 1.25rem; border-bottom: 1px solid var(--border); }
 .page-tabs a { padding: 0.5rem 1rem; color: var(--muted); text-decoration: none; border-radius: 6px 6px 0 0; }
 .page-tabs a:hover { color: var(--text); background: var(--surface); }
 .page-tabs a.active { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
 
-/* Sheet: hit points */
 .secondary-button { background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); }
 .secondary-button:hover { background: var(--border); }
 .hp-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
@@ -350,7 +327,6 @@ details[open] > .section-summary .section-digest { display: none; }
 #prepared-section .section-heading { margin-bottom: 0.5rem; }
 #prepared-section .group-title { margin: 1.25rem 0 0; }
 
-/* Spell lists: name line with tags */
 .spell-groups { display: grid; gap: 0.6rem; }
 .spell-groups .choice-group { padding-bottom: 0.4rem; }
 .spell-list li { padding: 0.2rem 0; }
@@ -362,7 +338,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .spell-tag.ritual-only { color: var(--accent); border-color: var(--accent); }
 #prepared-section .section-heading .group-title { margin: 0; }
 
-/* Spell slots */
 .slot-tracker { display: grid; gap: 0.4rem; margin: 0 0 1rem; }
 .slot-tracker .group-title { margin: 0 0 0.1rem; }
 .slot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
@@ -376,7 +351,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .pip:hover { background: color-mix(in srgb, var(--accent) 45%, transparent); }
 .pip:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
-/* Casting */
 .spell-tag.ritual { color: var(--accent); border-color: var(--accent); }
 .spell-level-note { font-size: 0.8rem; }
 .cast-menu { position: relative; margin-left: auto; }
@@ -394,12 +368,10 @@ details[open] > .section-summary .section-digest { display: none; }
 .cast-options button { width: 100%; padding: 0.4rem 0.6rem; font-size: 0.85rem; text-align: left; }
 .cast-none { margin-left: auto; font-size: 0.8rem; }
 
-/* Rests and resources */
 .rest-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .rest-bar .secondary-button { padding: 0.45rem 0.9rem; font-size: 0.9rem; }
 .long-rest > summary { list-style: none; cursor: pointer; display: inline-block; border-radius: 6px; }
 .long-rest > summary::-webkit-details-marker { display: none; }
-/* Opens over the page from the sticky bar. */
 .long-rest { position: relative; }
 .long-rest-confirm { position: absolute; right: 0; z-index: 20; margin-top: 0.5rem; width: min(26rem, 90vw);
   display: grid; gap: 0.5rem; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); }
@@ -414,11 +386,9 @@ details[open] > .section-summary .section-digest { display: none; }
 .recovery-row input { width: 4rem; padding: 0.4rem; text-align: center; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: inherit; font: inherit; }
 .resource-label { min-width: 8rem; font-size: 0.95rem; font-weight: 600; }
 
-/* Features: tracked rows and what their picked options do */
 .resource + .resource { margin-top: 0.75rem; }
 .resource-option { font-weight: 400; color: var(--muted); }
 .resource-detail { margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--muted); }
-/* A summary that swaps for the full rules text and back, in place. */
 .text-toggle { margin: 0.25rem 0 0; font-size: 0.9rem; color: var(--muted); }
 .text-toggle > summary { list-style: none; pointer-events: none; }
 .text-toggle > summary::-webkit-details-marker { display: none; }
@@ -430,7 +400,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .play-choice-select { padding: 0.35rem 0.5rem; border: 1px solid var(--border-strong); border-radius: 6px;
   background: var(--bg); color: inherit; font: inherit; font-size: 0.9rem; }
 
-/* Dice */
 .roll-button {
   padding: 0.4rem 0.7rem; background: var(--surface); color: var(--text);
   border: 1px solid var(--border-strong); font-weight: 500; font-size: 0.9rem;
@@ -438,13 +407,11 @@ details[open] > .section-summary .section-digest { display: none; }
 .roll-button:hover { background: var(--border); }
 .roll-result { font-size: 0.85rem; }
 
-/* Damage reactions */
 .damage-prompt { display: grid; gap: 0.75rem; border-color: var(--accent); max-width: 36rem; }
 .damage-prompt .section-title { margin: 0; }
 .reaction-form { display: grid; gap: 0.35rem; }
 .reaction-form p { margin: 0; }
 
-/* Copying spells, rule markers */
 .copy-panel { margin-bottom: 1.25rem; border-color: var(--accent); }
 .copy-rules { margin: 0; font-size: 0.9rem; }
 .spell-tag.warning { color: var(--error); border-color: var(--error); }
@@ -461,18 +428,15 @@ details[open] > .section-summary .section-digest { display: none; }
 .copy-result .secondary-button { padding: 0.35rem 0.9rem; }
 .copy-pick { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.6rem; }
 .copy-pick .choice-summary { flex-basis: 100%; margin: 0; }
-/* The confirm step: spell, cost, note and buttons, evenly spaced. */
 .copy-confirm { display: flex; flex-direction: column; gap: 1.1rem; margin-top: 1rem; }
 .copy-confirm > p { margin: 0; }
 .copy-confirm .form-actions { margin-top: 0.25rem; }
 .copy-confirm .hp-form input[name="note"] { width: auto; flex: 1 1 14rem; }
 .copy-panel .choice-form-header { justify-content: space-between; }
-/* Removing a copied spell from the prepared editor's cards */
 .card-remove { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem;
   margin-top: 0.5rem; font-size: 0.85rem; }
 .card-remove .link-button { font-size: 0.85rem; }
 .small-button { padding: 0.3rem 0.75rem; font-size: 0.85rem; }
-/* Build page: spells by the level they were chosen at */
 .spell-levels { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem;
   margin-top: 0.5rem; align-items: baseline; }
 .spell-level-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
@@ -482,7 +446,6 @@ details[open] > .section-summary .section-digest { display: none; }
   .spell-levels { grid-template-columns: 1fr; gap: 0.15rem; }
   .spell-level-choices { margin-bottom: 0.4rem; }
 }
-/* Play page: abilities with saves */
 .ac-effect-form select { padding: 0.45rem 0.5rem; border: 1px solid var(--border-strong); border-radius: 6px;
   background: var(--bg); color: inherit; font: inherit; font-size: 0.9rem; }
 .ac-effect-form input[name="label"] { width: auto; flex: 1 1 9rem; }
@@ -520,8 +483,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .ac-cast-slots { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .ac-spells .secondary-button { padding: 0.3rem 0.7rem; font-size: 0.85rem; }
 
-/* Play sheet: the sticky bar, the only place HP and AC are shown. Clicking HP or AC opens a
-   panel over the page (temp HP and max HP effects; AC breakdown and effects). */
 .vitals-bar {
   position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center;
   gap: 0.6rem 1.5rem; margin: -0.5rem -1rem 1.25rem; padding: 0.6rem 1rem;
@@ -530,7 +491,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .vital-group { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem; }
 .vital { display: inline-grid; gap: 0.15rem; }
 .vital-main { display: inline-flex; align-items: baseline; gap: 0.35rem; white-space: nowrap; }
-/* How the number is made up, under it: AC's breakdown, HP's active max HP effects. */
 .vital-detail { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
 .vital-effects { justify-self: start; padding: 0 0.45rem; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); }
 .vital strong { font-size: 1.6rem; line-height: 1; color: var(--accent); }
@@ -549,7 +509,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .vital-panel p { margin: 0; }
 .vital-panel .group-title { margin: 0.25rem 0 0.4rem; }
 .vital-panel .error { margin: 0; }
-/* Panel contents: groups (heading, list, one-line form) spaced apart, tight inside. */
 .vital-panel.hp-panel { gap: 1.25rem; }
 .panel-group { display: grid; gap: 0.5rem; }
 .panel-group > .group-title { margin: 0; }
@@ -570,7 +529,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .damage-prompt { margin: 0 0 1.25rem; }
 .play-abilities { margin-bottom: 1.5rem; }
 
-/* Play sheet columns: one column in order of use; from 1100px, spells get their own column. */
 .sheet-columns { display: flex; flex-direction: column; }
 .sheet-column { display: contents; }
 .sheet-columns .order-late { order: 1; }
@@ -580,8 +538,6 @@ details[open] > .section-summary .section-digest { display: none; }
 }
 .pending-section { margin-bottom: 1.5rem; }
 
-
-/* Compact spell rows: the name line expands to the details; Cast sits beside it. */
 .spell-list li.spell-row { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
 .spell-list li.spell-row:last-child { border-bottom: 0; }
 .spell-details { flex: 1; min-width: 0; }
@@ -591,7 +547,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .spell-more { display: grid; gap: 0.15rem; padding: 0.3rem 0 0.2rem; }
 .spell-row .cast-menu { margin-left: 0; flex-shrink: 0; }
 
-/* Build page: features grouped by source; each feature collapses to its name and picks */
 .feature-group { margin-bottom: 0.75rem; }
 .feature-group > summary {
   display: flex; align-items: baseline; gap: 0.6rem; padding: 0.4rem 0; cursor: pointer;
@@ -604,8 +559,7 @@ details[open] > .section-summary .section-digest { display: none; }
 .feature-group > summary .muted { font-size: 0.85rem; }
 .feature-group .feature-list { gap: 0; margin-left: 1.1rem; }
 .feature-group > summary .link-button { font-size: 0.85rem; }
-.feature-group > summary + div:not(:empty) { margin: 0.25rem 0 0.5rem 1.1rem; }  /* Change form */
-/* A section that comes with the group, like a background's origin feat. */
+.feature-group > summary + div:not(:empty) { margin: 0.25rem 0 0.5rem 1.1rem; }
 .feature-section-title { margin: 0.75rem 0 0.1rem 1.1rem; }
 .feature-list > li { border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
 .feature-list > li:last-child { border-bottom: 0; }
@@ -620,8 +574,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .feature-picks::before { content: "· "; }
 .feature[open] > summary .feature-picks { display: none; }
 .feature-body { display: grid; gap: 0.15rem; padding: 0 0 0.75rem; }
-/* Phones: HP, AC (its breakdown wrapping under it) and the rests, stacked, in one row; the
-   damage box under them. Keeps the pinned bar to two rows. */
 @media (max-width: 640px) {
   .vitals-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 0.5rem 0.6rem; }
   .vital-group { display: contents; }
@@ -637,21 +589,17 @@ details[open] > .section-summary .section-digest { display: none; }
   .vital-detail { white-space: normal; }
   .vitals-bar .wide-only { display: none; }
   .vital-menu > summary { padding: 0.15rem 0.25rem; }
-  /* Panels open under the whole bar rather than under HP or AC, so they fit on screen. */
   .vital-menu { position: static; }
   .vital-panel { left: 1rem; top: 100%; }
 }
 }
 
-/* Inventory (Play sheet): coins, then compact item rows like the spell rows. */
-/* Two titled parts, like Spells: Coins, then Items well below it. */
 .coins { display: grid; gap: 0.6rem; }
 .coins-total { font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 #section-inventory .section-heading { margin-bottom: 0.5rem; }
 #section-inventory .section-heading .group-title { margin: 0; }
 .inventory-items-heading { margin-top: 2rem; }
 .coins .error { margin: 0; }
-/* Amount, coin, Add, Spend: one row of controls, all the same height and text size. */
 .coin-change { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.5rem; padding-top: 0.5rem; }
 .coin-change > * {
   height: 2.25rem; margin: 0; padding: 0 0.75rem;
@@ -683,7 +631,6 @@ details[open] > .section-summary .section-digest { display: none; }
 .item-notes input[type="text"] { padding: 0.35rem 0.5rem; font-size: 0.9rem; }
 .item-actions { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
 .item-actions .link-button { font-size: 0.85rem; }
-/* Remove: a quiet × at the end of each row; it turns into "Remove X? Remove · Keep" in place. */
 .item-remove-button { padding: 0 0.3rem; background: none; color: var(--muted); font-size: 1.1rem; font-weight: 400; line-height: 1; }
 .item-remove-button:hover { background: none; color: var(--error); }
 .item-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; font-size: 0.9rem; }
@@ -698,7 +645,6 @@ details[open] > .section-summary .section-digest { display: none; }
 
 .add-custom { margin: 0.75rem 0 0; font-size: 0.9rem; }
 
-/* Homebrew library and item editor */
 .homebrew-item { align-items: flex-start; flex-wrap: nowrap; }
 .homebrew-item-text { display: grid; gap: 0.15rem; min-width: 0; }
 .homebrew-item-summary { margin: 0.2rem 0 0; font-size: 0.9rem; }
@@ -727,10 +673,8 @@ details[open] > .section-summary .section-digest { display: none; }
 .homebrew-form .has-error input, .homebrew-form .has-error select { border-color: var(--error); }
 .homebrew-form .field-error { margin: 0; }
 
-/* A report of what just happened, like a potion's roll in the HP panel. */
 .notice { margin: 0 0 0.5rem; padding: 0.4rem 0.6rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-size: 0.9rem; }
 
-/* Sharing: the owner's Share menu, and the shared view's note */
 .page-header-actions { display: flex; align-items: center; gap: 1.25rem; }
 .share-menu { position: relative; }
 .share-menu > summary { list-style: none; cursor: pointer; }
@@ -744,4 +688,4 @@ details[open] > .section-summary .section-digest { display: none; }
 span.pip { display: inline-block; cursor: default; }
 span.pip:hover { background: none; }
 span.pip.filled:hover { background: var(--accent); }
-.page-header .share-menu { position: relative; }  /* also on phones, where vital menus go static */
+.page-header .share-menu { position: relative; }

@@ -1,5 +1,3 @@
-{#- Coins: what the character has, and a quick add/spend (amount, coin, Add or Spend). The
-    Coins heading above it (inventory_section.html) has Edit, which sets each coin exactly. -#}
 {% set base = "/characters/%d/sheet/inventory" % character.id %}
 {% set choice = coin_choice | default("gp") %}
 <div id="coins" class="coins">

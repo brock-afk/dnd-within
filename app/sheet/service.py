@@ -44,7 +44,6 @@ from app.spells.queries import spellbook
 
 
 def play_state(db: Session, character: Character) -> CharacterPlayState:
-    """The character's play state, created (at full HP) the first time it's needed."""
     state = db.get(CharacterPlayState, character.id)
     if state is None:
         state = CharacterPlayState(
@@ -56,19 +55,16 @@ def play_state(db: Session, character: Character) -> CharacterPlayState:
 
 @contextmanager
 def tracking_max_hp(db: Session, character: Character, heal: bool) -> Iterator[None]:
-    """Current HP is stored, so a change to max HP must move it by the PHB rules in
-    app/sheet/rules.py:apply_max_change."""
     old_max = max_hp(db, character)
     yield
     db.flush()
     new_max = max_hp(db, character)
     if old_max is None or new_max is None or old_max == new_max:
-        return  # None until ability scores are set
+        return
     rules.apply_max_change(play_state(db, character), old_max, new_max, heal)
 
 
 def _ends_on_long_rest(spell: Spell) -> bool:
-    """Spells lasting 8 hours or less are over by the end of a long rest."""
     duration = spell.details.get("duration", {})
     if duration.get("kind") != "timed":
         return False
@@ -78,8 +74,6 @@ def _ends_on_long_rest(spell: Spell) -> bool:
 
 
 def apply_ac_spell(db: Session, character: Character, spell: Spell) -> None:
-    """Add the spell's AC effect, replacing one from an earlier casting (recasting refreshes,
-    never stacks). The caller spends the slot."""
     db.execute(
         delete(CharacterAcEffect).where(
             CharacterAcEffect.character_id == character.id,
@@ -100,7 +94,6 @@ def apply_ac_spell(db: Session, character: Character, spell: Spell) -> None:
 
 
 def set_slots_remaining(db: Session, character: Character, level: int, remaining: int) -> None:
-    """Record that `remaining` slots of this level are left (the caller validated it)."""
     slot = spell_slots(db, character)[level]
     row = db.get(CharacterSpellSlot, (character.id, slot.kind, level))
     if row is None:
@@ -121,9 +114,6 @@ def set_uses_remaining(
     row.expended = uses.maximum - remaining
 
 
-# --- Hit points and Armor Class -----------------------------------------------------------
-
-
 class HpOutcome(NamedTuple):
     errors: dict[str, str]
     pending_damage: int | None
@@ -138,7 +128,6 @@ def change_hp(
         return HpOutcome({"hp": "Enter a whole number from 0 to 999."}, None)
     offer_reactions = action == "damage" and value and not skip_reactions
     if offer_reactions and damage_reactions(feature_uses(db, character)):
-        # Offer reactions like Stone's Endurance before the damage lands.
         return HpOutcome({}, value)
     (rules.take_damage if action == "damage" else rules.heal)(
         play_state(db, character), value, maximum
@@ -149,7 +138,6 @@ def change_hp(
 def react_to_damage(
     db: Session, character: Character, amount: str, option_id: str, roll: str
 ) -> HpOutcome:
-    """Use a damage reaction (Stone's Endurance, Storm's Thunder...), then take the damage."""
     maximum = max_hp(db, character)
     value = parse_amount(amount, 1, 999)
     reactions = damage_reactions(feature_uses(db, character))
@@ -186,23 +174,17 @@ def add_hp_effect(db: Session, character: Character, label: str, delta: str) -> 
     label = label.strip()[:80]
     if not label or not value:
         return "Give the effect a name and a non-zero amount (e.g. Aid, +5)."
-    # Starting an effect like Aid heals by the increase; a drain only caps current HP.
     with tracking_max_hp(db, character, heal=value > 0):
         db.add(CharacterHpEffect(character_id=character.id, label=label, max_hp_delta=value))
     return None
 
 
 def end_hp_effect(db: Session, character: Character, effect: CharacterHpEffect) -> None:
-    # Ending an effect never heals: Aid ending only caps current HP, and a drain wearing off
-    # raises max HP without restoring any.
     with tracking_max_hp(db, character, heal=False):
         db.delete(effect)
 
 
 def cast_ac_spell(db: Session, character: Character, spell: str, slot_level: str) -> str | None:
-    """Cast an AC spell on yourself (Mage Armor, Barkskin): spend the slot, or with
-    `slot_level` "at_will" cast it free through a feature like Armor of Shadows, and apply its
-    effect. Casting from the spell list doesn't, since the target may be someone else."""
     ac = next((a for a in ac_spells(db, character) if str(a.spell.id) == spell), None)
     if ac is None:
         return "Only spells that change your AC can be cast here."
@@ -232,12 +214,7 @@ def end_ac_effect(db: Session, effect: CharacterAcEffect) -> None:
     db.delete(effect)
 
 
-# --- Spells -------------------------------------------------------------------------------
-
-
 def spend_slot(db: Session, character: Character, spell_key: str, slot_level: str) -> str | None:
-    """Spend the slot for casting a prepared spell at `slot_level` (its level or higher)."""
-    # A prepared ritual is listed twice (as a ritual and at its level); casting uses the slot row.
     row = next(
         (
             r
@@ -281,8 +258,6 @@ def save_prepared(db: Session, character: Character, picks: list[str]) -> str | 
 
 
 def remove_copied_spell(db: Session, character: Character, key: str) -> str | None:
-    """Preparing it is undone by the database (character_prepared_spells cascades from
-    spellbook_entries)."""
     entry = next((e for e in spellbook(db, character.id) if str(e.spell_id) == key), None)
     if entry is None or entry.acquired_via != "copied":
         return "Only copied spells can be removed here. Change level-up spells on the Build page."
@@ -318,8 +293,6 @@ def cast_free(db: Session, character: Character, spell: str, feature: str) -> st
 
 
 def copy_spell(db: Session, character: Character, spell: str, note: str) -> str | None:
-    """Any spell can be copied (rule-breaking ones get a marker); the gold and time are the
-    player's to track."""
     found = copyable(db, spell, character.user_id)
     if found is None:
         return "Choose a spell of level 1 or higher to copy."
@@ -338,18 +311,12 @@ def copy_spell(db: Session, character: Character, spell: str, note: str) -> str 
     return None
 
 
-# --- Choices made in play -----------------------------------------------------------------
-
-
 def set_play_choice(db: Session, character: Character, choice: Choice, pick: str) -> str | None:
     kind = KINDS[choice.kind]
     if not pick:
         kind.clear(db, [choice.id], character.id)
         return None
     return kind.save(db, choice, character.id, [pick])
-
-
-# --- Limited-use features -----------------------------------------------------------------
 
 
 def change_uses(db: Session, character: Character, uses: FeatureUses, remaining: str) -> str | None:
@@ -366,11 +333,6 @@ def use_spender(db: Session, character: Character, spender: Spender) -> str | No
         return f"{feature.name} takes {feature.spends_amount}; {uses.remaining} left."
     set_uses_remaining(db, character, uses, uses.remaining - feature.spends_amount)
     return None
-
-
-# --- Rests --------------------------------------------------------------------------------
-# Generic: nothing here knows about a specific class; features declare `uses` and
-# `slot_recovery` in their content.
 
 
 def spend_hit_die(db: Session, character: Character, class_id: str, roll: str) -> str | None:
@@ -424,7 +386,6 @@ def recover_slots(
 
 
 def finish_short_rest(db: Session, character: Character) -> None:
-    """Restore every use that recharges on a short rest, and every Pact Magic slot."""
     db.execute(
         delete(CharacterSpellSlot).where(
             CharacterSpellSlot.character_id == character.id, CharacterSpellSlot.kind == "pact"
@@ -441,19 +402,11 @@ def finish_short_rest(db: Session, character: Character) -> None:
 
 
 def long_rest(db: Session, character: Character) -> None:
-    """Full HP, no temporary HP, every hit die back (2024 rules), all spell slots and every
-    feature use restored, and AC spells cast from the sheet ended. Every max HP effect ends: a
-    reduced max returns to normal, and effects like Aid (8 hours) are over.
-
-    Charges regained "at dawn" count as a long rest. Ones that regain a roll (1d3) get that
-    many back instead of all."""
     db.execute(delete(CharacterHpEffect).where(CharacterHpEffect.character_id == character.id))
     state = play_state(db, character)
-    state.current_hp = None  # at full, of the restored max
+    state.current_hp = None
     state.temp_hp = 0
     state.temp_hp_source = None
-    # Every spent-uses row, not just active features': an item regains its charges at dawn
-    # whether or not it's attuned.
     for row, feature in db.execute(
         select(CharacterFeatureUse, Feature)
         .join(Feature, Feature.id == CharacterFeatureUse.feature_id)
@@ -461,7 +414,6 @@ def long_rest(db: Session, character: Character) -> None:
     ):
         regain = (feature.uses or {}).get("regain")
         if regain:
-            # A negative roll (1d3-2) regains nothing; a rest never spends charges.
             regained = max(0, rules.roll(regain))
             maximum = rules.uses_maximum(feature.uses["max"], character.level)
             row.expended = max(0, min(row.expended, maximum) - regained)
@@ -469,7 +421,6 @@ def long_rest(db: Session, character: Character) -> None:
             db.delete(row)
     for model in (CharacterHitDice, CharacterSpellSlot):
         db.execute(delete(model).where(model.character_id == character.id))
-    # Spells like Mage Armor (8 hours) are over; AC effects added by hand stay.
     db.execute(
         delete(CharacterAcEffect).where(
             CharacterAcEffect.character_id == character.id,

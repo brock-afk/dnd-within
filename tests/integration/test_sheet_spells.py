@@ -30,17 +30,13 @@ def _add(db, character, *slugs: str, via: str = "copied") -> list[str]:
     return [str(spell.id) for spell in spells]
 
 
-# --- Prepared spells ----------------------------------------------------------------------
-
-
 def test_preparing_spells_from_the_book(db, character):
     keys = _add(db, character, "test-spell-a", "test-spell-b")
 
-    assert service.save_prepared(db, character, keys + keys[:1]) is None  # a repeat counts once
+    assert service.save_prepared(db, character, keys + keys[:1]) is None
 
     assert prepared_spell_ids(db, character) == {int(k) for k in keys}
     assert sorted(prepared_editor_view(db, character).selected) == sorted(keys)
-    # Only spells still in the book stay ticked, e.g. after one is removed.
     assert prepared_editor_view(db, character, [keys[0], "999999"]).selected == [keys[0]]
 
 
@@ -82,9 +78,6 @@ def test_a_level_up_spell_isnt_removed_here(db, character):
     assert "test-spell-a" in _book(db, character)
 
 
-# --- Slots and casting --------------------------------------------------------------------
-
-
 def test_setting_slots(db, character):
     assert service.change_slots(db, character, 1, "1") is None
     assert spell_slots(db, character)[1].remaining == 1
@@ -96,9 +89,6 @@ def test_an_invalid_slot_count_changes_nothing(db, character, level, remaining):
 
     assert error == "That isn't a valid number of slots."
     assert spell_slots(db, character)[1].remaining == 2
-
-
-# --- Copying spells -----------------------------------------------------------------------
 
 
 def test_copying_a_spell_with_its_note(db, character):
@@ -129,9 +119,6 @@ def test_a_spell_already_in_the_book_isnt_copied_again(db, character):
         spell.slug: why for spell, why, _ in copy_search(db, character, "Test Spell").results
     }
     assert reasons["test-spell-a"] == "In your spellbook"
-
-
-# --- Requests -----------------------------------------------------------------------------
 
 
 def test_only_in_play_choices_are_set_on_the_sheet(client, character, wizard_choice):

@@ -1,6 +1,3 @@
-"""Final ability scores, and the view models of the score editor and the ability score increase
-editor, loaded from the database."""
-
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
@@ -53,8 +50,6 @@ class AbilityView:
 def bonus_totals(
     db: Session, character: Character, except_choice_id: int | None = None
 ) -> dict[str, int]:
-    """{ability: total bonus} from every choice, or every choice but one (to show scores
-    before that choice's increases)."""
     query = select(CharacterAbilityBonus).where(CharacterAbilityBonus.character_id == character.id)
     if except_choice_id is not None:
         query = query.where(CharacterAbilityBonus.choice_id != except_choice_id)
@@ -67,8 +62,6 @@ def bonus_totals(
 def ability_views(
     db: Session, character: Character, except_choice_id: int | None = None
 ) -> list[AbilityView] | None:
-    """Final scores for display, or None if the character hasn't set them yet. With
-    `except_choice_id`, leaves out that choice's bonuses."""
     if character.ability_method is None:
         return None
     bonuses = bonus_totals(db, character, except_choice_id)
@@ -79,20 +72,16 @@ def ability_views(
 
 
 def constitution_modifier(db: Session, character: Character) -> int | None:
-    """Uses the final score (base + bonuses), or None if scores aren't set yet."""
     abilities = ability_views(db, character)
     if abilities is None:
         return None
     return next(a for a in abilities if a.abbr == "CON").mod
 
 
-# --- The score editor ---------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class Option:
     value: int
-    disabled: bool  # already given to another ability
+    disabled: bool
 
 
 @dataclass
@@ -100,10 +89,10 @@ class Row:
     ability: Ability
     score: int | None
     error: str | None = None
-    options: list[Option] = field(default_factory=list)  # standard array / manual
-    can_decrease: bool = False  # point buy
+    options: list[Option] = field(default_factory=list)
+    can_decrease: bool = False
     can_increase: bool = False
-    cost: int | None = None  # point buy: total points this score costs
+    cost: int | None = None
 
     @property
     def modifier(self) -> str:
@@ -119,7 +108,7 @@ class AbilityEditorView:
     rolls: list[int | None]
     has_pool: bool
     left_to_assign: list[int]
-    remaining: int  # point buy budget left
+    remaining: int
     budget: int
     errors: dict[str, str]
 
@@ -131,7 +120,6 @@ def ability_editor_view(
     rolls: list[int | None],
     errors: dict[str, str] | None = None,
 ) -> AbilityEditorView:
-    """The editor for one method's tab, with these scores entered so far."""
     errors = errors or {}
     remaining = POINT_BUY_BUDGET - point_buy_spent(scores)
     pool = STANDARD_ARRAY if method == "standard_array" else [r for r in rolls if r is not None]
@@ -145,8 +133,6 @@ def ability_editor_view(
                 row.can_decrease = score > 8
                 row.can_increase = score < 15 and POINT_BUY_COSTS[score + 1] - row.cost <= remaining
         else:
-            # A value is free for this ability if the pool still has a copy of it once the
-            # other abilities' picks are taken out. Duplicate rolls count separately.
             others = {c: s for c, s in scores.items() if c != a.column}
             free = Counter(unassigned(pool, others))
             row.options = [Option(v, free[v] == 0) for v in sorted(set(pool), reverse=True)]
@@ -166,8 +152,6 @@ def ability_editor_view(
 
 
 def saved_editor_view(character: Character, method: str) -> AbilityEditorView:
-    """What a freshly opened tab shows, starting from the saved scores where they fit. An
-    unknown method opens the saved one's tab, or the standard array's."""
     if method not in METHODS:
         method = character.ability_method or "standard_array"
     saved = {a.column: getattr(character, a.column) for a in ABILITIES}
@@ -177,7 +161,6 @@ def saved_editor_view(character: Character, method: str) -> AbilityEditorView:
         fits = fits and point_buy_spent(saved) <= POINT_BUY_BUDGET
         scores, rolls = (saved if fits else dict.fromkeys(saved, 8)), []
     elif method == "manual" and has_saved:
-        # Reopen with the saved scores as the "rolls", already assigned.
         scores, rolls = saved, sorted(saved.values(), reverse=True)
     elif method == "standard_array" and character.ability_method == "standard_array":
         scores, rolls = saved, []
@@ -186,14 +169,11 @@ def saved_editor_view(character: Character, method: str) -> AbilityEditorView:
     return ability_editor_view(character, method, scores, rolls)
 
 
-# --- The ability score increase editor ----------------------------------------------------
-
-
 @dataclass(frozen=True)
 class IncreaseRow:
     abbr: str
     name: str
-    before: int | None  # with every other bonus; None until ability scores are set
+    before: int | None
     amount: int
 
     @property
@@ -219,10 +199,9 @@ class IncreaseView:
 def increase_view(
     db: Session, character: Character, choice: Choice, form: IncreaseForm
 ) -> IncreaseView:
-    """The +2/+1 editor: one row per ability with a +2 and a +1 radio, or just +1 each."""
     even = form.split == "even"
     amounts = KINDS["ability_scores"].split(choice, form.plus2, form.plus1, even) or {}
-    if not even:  # show a half-made pick too, e.g. only the +2 chosen so far
+    if not even:
         amounts = {form.plus1: 1, form.plus2: 2} | amounts
     before = {a.abbr: a.total for a in ability_views(db, character, choice.id) or []}
     names = {a.abbr: a.name for a in ABILITIES}
@@ -241,7 +220,6 @@ def increase_view(
 
 
 def saved_increase_view(db: Session, character: Character, choice: Choice) -> IncreaseView:
-    """The editor opened from a Choose or Change button, starting from the saved pick."""
     saved = KINDS["ability_scores"].picked_amounts(db, choice, character.id)
     if saved and set(saved.values()) == {1}:
         form = IncreaseForm(split="even")

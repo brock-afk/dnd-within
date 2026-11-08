@@ -1,6 +1,3 @@
-{#- Two parts, like Spells: Coins (with a quick add/spend), then Items, one line per item: name and quantity,
-    with −/+ and Use or Attune beside it. An item opens to its summary and notes; × at the end asks before removing it. Every
-    change refreshes the sheet in place. -#}
 {% set base = "/characters/%d/sheet/inventory" % character.id %}
 {% call section("inventory", "Inventory", inventory_digest, classes="order-late") %}
   <div class="section-heading">
@@ -66,7 +63,6 @@
         <button type="button" class="link-button" hx-post="{{ base }}/{{ row.id }}/attune"
                 hx-vals='{"attuned": "{{ 0 if row.attuned else 1 }}"}'>{{ "End attunement" if row.attuned else "Attune" }}</button>
         {% endif %}
-        {#- Only where counting matters. − stops at 1; × (which asks first) gets rid of it. -#}
         {% if row.quantity > 1 or row.item.consumable %}
         <span class="qty-steps">
           <button type="button" class="qty-step" hx-post="{{ base }}/{{ row.id }}/quantity"

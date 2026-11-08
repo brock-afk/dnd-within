@@ -1,15 +1,6 @@
 {% from "partials/option_filters.html" import filter_attrs %}
-{# A grid of selectable cards. Radio buttons for a single pick, checkboxes for several.
-   `options` need .name, plus optional .summary / .detail; `value_key` picks the value attribute.
-   `known` ({value: label}) marks options that can't be picked, each shown with its label
-   (e.g. "Already proficient").
-   `removal` puts a two-step Remove link on options with .removable: a dict with `ask_url`
-   (asks "Remove X?"), `url` (removes), `target`, `asking` (the value being asked about) and
-   `from_label` (e.g. "your spellbook"). Both requests post the enclosing form. #}
 {% macro choice_grid(field, options, selected=[], multiple=false, value_key="id", known={},
                      noun=("option", "options"), removal=none) %}
-{#- Options with a `group` (e.g. spell level) get one collapsible section per group, in the
-    order they come in. A single group needs no section. -#}
 {% set groups = options | map(attribute="group") | unique | list if options and options[0].group is defined else [] %}
 {% if groups | length > 1 %}
   {% for group in groups %}

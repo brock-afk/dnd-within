@@ -12,8 +12,6 @@ _AC_KINDS = {
 
 
 class AcEffectForm(BaseModel):
-    """By hand: Mage Armor base 13 (+ DEX), Shield of Faith bonus +2, Barkskin minimum 17."""
-
     model_config = ConfigDict(str_strip_whitespace=True)
 
     label: str = ""
@@ -34,8 +32,6 @@ class AcEffectForm(BaseModel):
 
 
 class RecoveryForm(BaseModel):
-    """How many slots of each level to recover; blank means none."""
-
     model_config = ConfigDict(str_strip_whitespace=True)
 
     level_1: str = ""

@@ -46,7 +46,7 @@ def test_refund_gives_back_one_attempt_only():
     limiter = AttemptLimiter(limit=3, window=60, clock=Clock())
     for _ in range(3):
         limiter.attempt("a")
-    limiter.refund("a")  # a success refunds itself, not the failed guesses before it
+    limiter.refund("a")
     assert limiter.attempt("a")
     assert not limiter.attempt("a")
 
@@ -63,7 +63,7 @@ def test_sweep_runs_at_most_once_a_minute():
     limiter.attempt("a")
     clock.now = 59
     limiter.attempt("b")
-    assert set(limiter._attempts) == {"a", "b"}  # "a" is stale, but no sweep yet
+    assert set(limiter._attempts) == {"a", "b"}
     clock.now = 60
     limiter.attempt("c")
     assert set(limiter._attempts) == {"b", "c"}
@@ -92,11 +92,13 @@ def test_client_key_groups_ipv6_by_64(host, key):
     assert limits.client_key(host) == key
 
 
-def test_hashing_turns_away_when_slots_are_full(monkeypatch):
+@pytest.mark.parametrize("known", [True, False], ids=["wrong password", "unknown user"])
+def test_hashing_turns_away_when_slots_are_full(monkeypatch, known):
+    password_hash = security.hash_password("password") if known else None
     monkeypatch.setattr(security, "_slots", threading.BoundedSemaphore(0))
     monkeypatch.setattr(security, "SLOT_WAIT_SECONDS", 0.01)
     with pytest.raises(security.HashingBusy):
-        security.verify_password(None, "password")
+        security.verify_password(password_hash, "wrong")
 
 
 def test_slot_is_released_after_verifying(monkeypatch):

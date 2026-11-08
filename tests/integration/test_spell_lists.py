@@ -1,6 +1,3 @@
-"""Every list of spells to pick from, and the lookup that accepts a pick from it, agree: a
-spell is offered and accepted exactly when it's available and visible to the user."""
-
 from datetime import datetime
 
 import pytest

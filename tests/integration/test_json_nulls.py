@@ -11,7 +11,7 @@ def test_new_rows_store_sql_null(db):
     stone = db.scalar(select(ChoiceOption).where(ChoiceOption.slug == "stone"))
     option = ChoiceOption(
         choice_id=stone.choice_id, slug="test", name="Test", summary="", grants=None
-    )  # set explicitly, as the importer does
+    )
     db.add(option)
     db.flush()
     sql_null = text("SELECT grants IS NULL FROM choice_options WHERE id = :id")

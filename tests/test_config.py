@@ -25,5 +25,5 @@ def test_production_refuses_default_or_short_key(key):
 
 
 def test_production_accepts_a_generated_key():
-    key = "k" * 43  # the length of secrets.token_urlsafe(32)
+    key = "k" * 43
     assert settings(secret_key=key, session_https_only=True).secret_key == key

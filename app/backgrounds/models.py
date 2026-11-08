@@ -7,9 +7,6 @@ from app.feats.models import Feat
 
 
 class Background(ContentMixin, Base):
-    """A background, like Sage. Its ability score increases, skills and tools are features
-    with choices (features.background_id); `feat` is the origin feat it gives."""
-
     __tablename__ = "backgrounds"
     __table_args__ = (UniqueConstraint("source_id", "slug"),)
 
@@ -17,7 +14,7 @@ class Background(ContentMixin, Base):
     slug: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(50))
     summary: Mapped[str] = mapped_column(String(255))
-    description: Mapped[str | None] = mapped_column(Text)  # full text: private packs, homebrew
+    description: Mapped[str | None] = mapped_column(Text)
     feat_id: Mapped[int] = mapped_column(ForeignKey("feats.id"))
 
     feat: Mapped[Feat] = relationship(lazy="joined")

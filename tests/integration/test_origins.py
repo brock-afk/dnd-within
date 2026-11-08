@@ -56,7 +56,7 @@ def test_re_saving_a_retired_current_pick_is_allowed(db, character, wanderer):
 
 
 def test_switching_species_drops_the_old_ones_picks(db, stone_giant):
-    assert _picks(db, stone_giant)  # Goliath's Giant Ancestry
+    assert _picks(db, stone_giant)
     legacy_folk = db.scalar(select(Species).where(Species.slug == "legacy-folk"))
 
     assert choose_origin(db, stone_giant, SPECIES, str(legacy_folk.id)) is None
@@ -93,7 +93,7 @@ def test_picking_a_background_through_the_app(client, db, character, wanderer):
 
     response = client.post(url, data={"background_id": "abc"})
     assert response.status_code == 400 and "Choose a background." in response.text
-    assert "removes the picks" not in response.text  # nothing picked yet
+    assert "removes the picks" not in response.text
 
     response = client.post(url, data={"background_id": wanderer.id})
     assert response.headers["HX-Retarget"] == "#character-page"

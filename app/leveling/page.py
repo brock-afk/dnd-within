@@ -1,5 +1,3 @@
-"""Rendering the level-up panel from its view model (app/leveling/queries.py)."""
-
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 

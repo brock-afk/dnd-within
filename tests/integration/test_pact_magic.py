@@ -1,7 +1,3 @@
-"""Pact Magic and a spell list picked on level up (the Warlock), using the fixture pack's Test
-Pact class: its slots are one level and come back on a short rest, and its spell choice offers
-spells up to that slot level."""
-
 from sqlalchemy import select
 
 from app.classes.models import CharacterClass
@@ -44,7 +40,7 @@ def test_pact_slots_follow_the_class_level(db, warlock, level_up):
 
 def test_short_rest_restores_pact_slots_only(db, warlock, character):
     set_slots_remaining(db, warlock, 1, 0)
-    set_slots_remaining(db, character, 1, 0)  # the Wizard's full-caster slots
+    set_slots_remaining(db, character, 1, 0)
     db.flush()
 
     finish_short_rest(db, warlock)
@@ -68,7 +64,7 @@ def test_spell_choice_offers_spells_up_to_the_slot_level(db, warlock, level_up):
 def test_picked_spells_are_cast_with_pact_slots(client, db, warlock):
     spell = _spell_id(db, "pact-spell-a")
     assert KINDS["spell"].save(db, _choice(db), warlock.id, [str(spell)]) is None
-    db.commit()  # the requests below share this session
+    db.commit()
 
     [row] = [r for r in castable_spells(db, warlock) if r.spell.id == spell]
     assert row.prepared and row.uses_slots
@@ -111,7 +107,7 @@ def test_level_down_drops_spells_above_the_slot_level(db, warlock, level_up):
     level_2 = str(_spell_id(db, "pact-spell-c"))
     assert KINDS["spell"].save(db, _choice(db), warlock.id, [level_2]) is None
 
-    while warlock.level > 2:  # pact slots drop back to level 1
+    while warlock.level > 2:
         assert level_down(db, warlock, str(warlock.level)) is None
     db.expire_all()
 

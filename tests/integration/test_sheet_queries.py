@@ -4,24 +4,16 @@ from sqlalchemy import event
 
 from app.core.db import engine
 
-# The Play sheet re-renders after every action, so it should look up the character's features
-# once, not once per section (it was 140 queries when each section looked them up).
 MAX_QUERIES = 46
-# Damage with a reaction to offer: the route checks for reactions, then the prompt reuses the
-# sheet's feature uses (it was 86 queries when the prompt looked them up again). Each lookup
-# also checks the picked Giant Ancestry for features of its own.
 MAX_DAMAGE_PROMPT_QUERIES = 71
 
 
 @contextmanager
 def count_queries():
-    """Collects the SQL statements run inside the block."""
     queries = []
 
     def count(*args):
         statement = args[2]
-        # The test session turns each commit into savepoints; in production a commit isn't a
-        # statement at all.
         if "SAVEPOINT" not in statement:
             queries.append(statement)
 

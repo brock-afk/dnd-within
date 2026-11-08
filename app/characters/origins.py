@@ -1,6 +1,3 @@
-"""A character's species and background: picked the same way, from one shared form, so each is
-described here and the queries, page and service work for both."""
-
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -12,8 +9,8 @@ from app.species.models import Species
 @dataclass(frozen=True)
 class Origin:
     model: type[Background] | type[Species]
-    name: str  # the Character column is <name>_id, the routes /characters/{id}/<name>
-    detail: Callable[[Any], str]  # the line under a row's name in the picker
+    name: str
+    detail: Callable[[Any], str]
 
     @property
     def column(self) -> str:

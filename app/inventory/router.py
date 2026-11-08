@@ -29,13 +29,8 @@ router = APIRouter(tags=["inventory"])
 BASE = "/characters/{character_id}/sheet/inventory"
 
 
-# --- Adding from the catalog --------------------------------------------------------------
-
-
 @router.get(BASE + "/add", response_class=HTMLResponse)
 def add_panel(request: Request, db: DbSession, character: OwnedCharacter, q: str = ""):
-    """Add an item, like copying a spell: search by name, pick one, confirm. `q` refills the
-    search when coming back from the confirm step."""
     return page.add_panel(request, character, item_search(db, character, q))
 
 
@@ -68,9 +63,6 @@ def add(
     return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
-# --- Carried items ------------------------------------------------------------------------
-
-
 @router.post(BASE + "/{row_id}/quantity", response_class=HTMLResponse)
 def quantity(
     request: Request,
@@ -89,7 +81,6 @@ def quantity(
 def use(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, row: OwnedItemRow
 ):
-    """Spend one of a consumable (drink the potion, read the scroll)."""
     error = service.use_item(db, row)
     view = refreshed_sheet_view(db, user, character)
     return sheet_page.refresh_sheet(request, view, {"inventory": error} if error else None)
@@ -114,8 +105,6 @@ def heal_with(
 def cast_ac_scroll(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, row: AcScroll
 ):
-    """Read a scroll of an AC spell (Mage Armor) from the AC card: its effect starts and the
-    scroll is used up."""
     error = service.cast_ac_scroll(db, character, row)
     view = refreshed_sheet_view(db, user, character)
     return sheet_page.refresh_sheet(request, view, {"ac_effect": error} if error else None)
@@ -150,7 +139,6 @@ def notes(
 
 @router.get(BASE + "/{row_id}/remove", response_class=HTMLResponse)
 def remove_confirm(request: Request, character: OwnedCharacter, row: OwnedItemRow):
-    """Asks before removing, in place of the row's buttons."""
     return page.remove_confirm(request, character, row)
 
 
@@ -160,9 +148,6 @@ def remove(
 ):
     service.remove_item(db, character, row)
     return sheet_page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
-
-
-# --- Coins --------------------------------------------------------------------------------
 
 
 @router.post(BASE + "/coins/change", response_class=HTMLResponse)

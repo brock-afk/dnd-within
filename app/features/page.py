@@ -1,5 +1,3 @@
-"""Rendering the choice form from its view model (app/features/queries.py)."""
-
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 

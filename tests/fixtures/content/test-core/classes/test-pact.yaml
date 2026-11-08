@@ -1,4 +1,3 @@
-# Pact Magic and a spell list picked on level up, like the Warlock.
 slug: test-pact
 name: Test Pact
 summary: Test class with Pact Magic.
@@ -34,8 +33,6 @@ features:
   name: Patron Gift
   summary: Pact Spell B is always prepared.
   spells: [{spell: pact-spell-b}]
-# Like Eldritch Invocations: more picks as the class levels, prerequisites, spells cast at will
-# or once per Long Rest, and a pact with its own any-class picks.
 - slug: invocations
   name: Invocations
   summary: Test invocations.

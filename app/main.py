@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import models  # noqa: F401  (registers every table, so relationships resolve)
+from app import models  # noqa: F401
 from app.abilities.router import router as abilities_router
 from app.auth.dependencies import LoginRequired, hashing_busy_handler, login_required_handler
 from app.auth.router import router as auth_router
@@ -40,7 +40,6 @@ app.add_exception_handler(HashingBusy, hashing_busy_handler)
 
 @app.middleware("http")
 async def refuse_cross_origin(request: Request, call_next):
-    """CSRF protection for every route that changes something (app/core/csrf.py)."""
     h = request.headers
     if is_cross_origin(request.method, h.get("sec-fetch-site"), h.get("origin"), h.get("host", "")):
         return PlainTextResponse("Cross-origin request refused.", status_code=403)
@@ -52,8 +51,6 @@ CHARACTER_PATH = re.compile(r"^/characters/(\d+)/")
 
 @app.middleware("http")
 async def notify_shared_views(request: Request, call_next):
-    """After any successful change to a character, tell its open shared views (see
-    app/sharing/live.py). One place for every route that changes something."""
     response = await call_next(request)
     if request.method != "GET" and response.status_code < 400:
         if match := CHARACTER_PATH.match(request.url.path):
@@ -65,8 +62,6 @@ async def notify_shared_views(request: Request, call_next):
 
 @app.get("/healthz", include_in_schema=False)
 def healthz(db: DbSession):
-    """For the container healthcheck and the post-deploy smoke test: the app is only useful if
-    it can reach the database."""
     try:
         db.execute(text("SELECT 1"))
     except SQLAlchemyError:

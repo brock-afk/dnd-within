@@ -1,7 +1,3 @@
-{# Filters for spell lists and spell choice cards, applied in the browser by
-   static/option-filters.js to [data-filter-item] elements inside the nearest
-   [data-filter-scope="<key>"], which also remembers them per key. The inputs have no name, so
-   they're never submitted, and hidden choice cards keep their picks. #}
 
 {% macro filter_bar(schools, noun=("spell", "spells")) %}
 {% if schools %}
@@ -22,7 +18,6 @@
 {% endif %}
 {% endmacro %}
 
-{# The data attributes a filterable item needs. #}
 {% macro filter_attrs(name, school="", ritual=false) -%}
 data-filter-item data-name="{{ name | lower }}"
 {%- if school %} data-school="{{ school }}" data-ritual="{{ '1' if ritual else '0' }}"{% endif %}

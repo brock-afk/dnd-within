@@ -25,7 +25,7 @@ def level_up(
     db: DbSession,
     user: CurrentUser,
     character: OwnedCharacter,
-    level: Annotated[str, Form()] = "",  # the level the page showed
+    level: Annotated[str, Form()] = "",
     hp_method: Annotated[str, Form()] = "",
     hp_roll: Annotated[str, Form()] = "",
 ):
@@ -41,9 +41,7 @@ def level_down(
     db: DbSession,
     user: CurrentUser,
     character: OwnedCharacter,
-    level: Annotated[str, Form()] = "",  # the level the page showed
+    level: Annotated[str, Form()] = "",
 ):
-    # Every error means the page was stale (the button only shows above level 1), and the
-    # refreshed page shows the real level.
     service.level_down(db, character, level)
     return characters_page.refresh_build(request, refreshed_build_view(db, user, character))

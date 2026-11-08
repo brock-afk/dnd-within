@@ -1,11 +1,3 @@
-"""Writing a validated content pack into the database.
-
-One pack is imported in one transaction: if anything fails, nothing from that pack changes.
-Rows are matched by slug within the pack's source and updated in place, so IDs (and every
-character's picks pointing at them) survive re-imports. Rows that disappear from a pack are
-marked retired rather than deleted, because characters may still reference them.
-"""
-
 import logging
 from datetime import datetime
 
@@ -29,22 +21,14 @@ log = logging.getLogger(__name__)
 
 
 class FeatureSync:
-    """Writing features (with their uses, granted spells, choices and options) for one parent
-    row: a class, species, subclass, background, feat or item. Shared by the pack importer and
-    the homebrew editor, which differ only in how they resolve slug references (`_id`)."""
-
     def __init__(self, db: Session):
         self.db = db
         self.now = datetime.now()
 
     def _id(self, model, ref: str, kind: str) -> int:
-        """Database id for a reference like "disguise-self" or "phb-2024/disguise-self"."""
         raise NotImplementedError
 
-    # --- features -------------------------------------------------------------------------
-
     def _criteria(self, choice: ChoiceDef) -> dict:
-        """Choice rules as written in YAML use slugs; the database stores resolved ids."""
         if choice.kind in ("skill", "expertise") and "from" in choice.criteria:
             return {
                 "skill_ids": [self._id(Skill, ref, "skills") for ref in choice.criteria["from"]]
@@ -52,7 +36,7 @@ class FeatureSync:
         if choice.kind in ("spell", "spellbook"):
             rest = {k: v for k, v in choice.criteria.items() if k != "class"}
             if "class" not in choice.criteria:
-                return rest  # any class's spells
+                return rest
             return {
                 "class_id": self._id(CharacterClass, choice.criteria["class"], "classes"),
                 **rest,
@@ -88,7 +72,6 @@ class FeatureSync:
             self._sync_choices(feature, fdef)
         for feature in existing.values():
             self._retire(feature)
-        # What a feature spends points at a sibling, so it's set once they all have ids.
         self.db.flush()
         by_slug = {
             f.slug: f
@@ -102,7 +85,6 @@ class FeatureSync:
             feature.spends_amount = fdef.spends.amount if fdef.spends else None
 
     def _sync_feature_spells(self, feature: Feature, fdef: FeatureDef) -> None:
-        """Keep rows for spells still listed (matched by spell), add new ones, drop the rest."""
         existing = {fs.spell_id: fs for fs in feature.spells}
         rows = []
         for sdef in fdef.spells:
@@ -158,8 +140,7 @@ class FeatureSync:
             for option in options.values():
                 option.retired_at = option.retired_at or self.now
             self._retire_features_of("option_id", [o.id for o in options.values()])
-            # Every option, so features dropped from the pack are retired too.
-            self.db.flush()  # new options need ids to own features
+            self.db.flush()
             by_slug = {o.slug: o for o in choice.options}
             for odef in cdef.options:
                 self._sync_features("option_id", by_slug[odef.slug].id, odef.features)
@@ -172,7 +153,6 @@ class FeatureSync:
             choice.retired_at = choice.retired_at or self.now
 
     def _retire_features_of(self, fk_column: str, parent_ids: list[int]) -> None:
-        """Features of a parent that was itself removed from the pack."""
         for feature in self.db.scalars(
             select(Feature).where(getattr(Feature, fk_column).in_(parent_ids))
         ):
@@ -186,10 +166,7 @@ class _Importer(FeatureSync):
         self.by_slug = by_slug
         self.source: Source | None = None
 
-    # --- lookups --------------------------------------------------------------------------
-
     def _id(self, model, ref: str, kind: str) -> int:
-        """Database id for a slug reference, in this pack or one it requires."""
         pack_slug = resolve(ref, kind, self.pack, self.by_slug)
         _, slug = split_ref(ref)
         row = self.db.scalar(
@@ -197,18 +174,11 @@ class _Importer(FeatureSync):
             .join(Source, Source.id == model.source_id)
             .where(Source.slug == pack_slug, model.slug == slug)
         )
-        if row is None:  # the loader checked references, so the required pack wasn't imported
+        if row is None:
             raise LookupError(f"{ref!r} isn't in the database; import {pack_slug!r} first")
         return row
 
-    # --- generic upsert -------------------------------------------------------------------
-
     def _sync_rows(self, model, defs, values, scope=None) -> dict[str, object]:
-        """Upsert one content table for this source and retire rows missing from the pack.
-
-        `values(def)` gives the columns to set; `scope` narrows matching (e.g. subclasses
-        are unique per class). Returns slug -> row.
-        """
         query = select(model).where(model.source_id == self.source.id)
         existing = {self._key(row, scope): row for row in self.db.scalars(query)}
         seen = {}
@@ -232,8 +202,6 @@ class _Importer(FeatureSync):
     @staticmethod
     def _key(row, scope):
         return (getattr(row, scope), row.slug) if scope else row.slug
-
-    # --- the pack -------------------------------------------------------------------------
 
     def run(self) -> None:
         meta = self.pack.meta
@@ -331,7 +299,6 @@ class _Importer(FeatureSync):
                 "healing": d.healing,
             },
         )
-        # Pack contents point at other items, so they're set once every item has an id.
         for d in self.pack.items:
             items[d.slug].contents = [
                 {"item_id": self._id(Item, c.item, "items"), "quantity": c.quantity}
@@ -351,7 +318,6 @@ class _Importer(FeatureSync):
         for d in self.pack.items:
             self._sync_features("item_id", items[d.slug].id, d.features)
 
-        # Parents retired from the pack take their features with them.
         for model, column in [
             (Species, "species_id"),
             (CharacterClass, "class_id"),
@@ -374,7 +340,6 @@ class _Importer(FeatureSync):
 
 
 def import_pack(db: Session, pack: Pack, by_slug: dict[str, Pack]) -> None:
-    """Import one validated pack in a single transaction."""
     try:
         _Importer(db, pack, by_slug).run()
         db.commit()
@@ -384,12 +349,8 @@ def import_pack(db: Session, pack: Pack, by_slug: dict[str, Pack]) -> None:
 
 
 def import_packs(db: Session, only: str | None = None, force: bool = False) -> bool:
-    """Import every valid pack whose files changed since its last import (or all of them with
-    `force`). Invalid packs are skipped with their errors logged, and keep their previous data.
-    Returns False if no packs were found, or any pack was invalid or failed."""
     packs = import_order(discover())
     if not packs:
-        # Packs come from a mounted repo, so a missing clone or copy would otherwise go unnoticed.
         log.warning("No content packs found in CONTENT_PATHS (%s).", settings.content_paths)
         return False
     by_slug = {p.slug: p for p in packs}

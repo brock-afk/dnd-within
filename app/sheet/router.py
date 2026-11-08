@@ -35,9 +35,6 @@ def show_sheet(request: Request, db: DbSession, user: CurrentUser, character: Ow
     return page.sheet(request, sheet_view(db, user, character))
 
 
-# --- Hit points ---------------------------------------------------------------------------
-
-
 @router.post("/characters/{character_id}/sheet/hp", response_class=HTMLResponse)
 def change_hp(
     request: Request,
@@ -110,9 +107,6 @@ def end_hp_effect(
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
-# --- Armor Class effects ------------------------------------------------------------------
-
-
 @router.post("/characters/{character_id}/sheet/ac-effects/cast", response_class=HTMLResponse)
 def cast_ac_spell(
     request: Request,
@@ -154,9 +148,6 @@ def end_ac_effect(
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
-# --- Prepared spells ----------------------------------------------------------------------
-
-
 @router.get("/characters/{character_id}/sheet/prepared/edit", response_class=HTMLResponse)
 def edit_prepared(request: Request, db: DbSession, character: OwnedCharacter):
     return page.prepared_editor(request, prepared_editor_view(db, character))
@@ -183,8 +174,6 @@ def ask_remove(
     picks: Annotated[list[str], Form()] = [],
     asking: Annotated[str, Form()] = "",
 ):
-    """Show (or with no `asking`, hide) "Remove X from your spellbook?" in the editor, keeping
-    the unsaved picks."""
     return page.prepared_editor(request, prepared_editor_view(db, character, picks, asking))
 
 
@@ -199,9 +188,6 @@ def remove_copied_spell(
     if error := service.remove_copied_spell(db, character, remove):
         return page.prepared_editor(request, prepared_editor_view(db, character, picks), error)
     return page.prepared_editor(request, refreshed_prepared_editor_view(db, character, picks))
-
-
-# --- Spell slots ----------------------------------------------------------------------------
 
 
 @router.post("/characters/{character_id}/sheet/slots/{level}", response_class=HTMLResponse)
@@ -227,7 +213,6 @@ def cast_spell(
     spell: Annotated[str, Form()] = "",
     slot_level: Annotated[str, Form()] = "",
 ):
-    """Spend a slot to cast a prepared spell, at its level or higher."""
     error = service.spend_slot(db, character, spell, slot_level)
     view = refreshed_sheet_view(db, user, character)
     return page.refresh_sheet(request, view, {"cast": error} if error else None)
@@ -247,9 +232,6 @@ def cast_free(
     return page.refresh_sheet(request, view, {"cast": error} if error else None)
 
 
-# --- Choices made in play -----------------------------------------------------------------
-
-
 @router.post("/characters/{character_id}/sheet/choices/{choice_id}", response_class=HTMLResponse)
 def set_play_choice(
     request: Request,
@@ -259,13 +241,9 @@ def set_play_choice(
     choice: InPlayChoice,
     pick: Annotated[str, Form()] = "",
 ):
-    """Pick (or with no `pick`, clear) an in-play choice, like the Transmuter's Stone benefit."""
     error = service.set_play_choice(db, character, choice, pick)
     view = refreshed_sheet_view(db, user, character)
     return page.refresh_sheet(request, view, {"play_choice": error} if error else None)
-
-
-# --- Limited-use features -----------------------------------------------------------------
 
 
 @router.post("/characters/{character_id}/sheet/uses/{feature_id}", response_class=HTMLResponse)
@@ -295,9 +273,6 @@ def use_feature(
     error = service.use_spender(db, character, spender)
     view = refreshed_sheet_view(db, user, character)
     return page.refresh_sheet(request, view, {"uses": error} if error else None)
-
-
-# --- Rests --------------------------------------------------------------------------------
 
 
 @router.get("/characters/{character_id}/sheet/short-rest", response_class=HTMLResponse)
@@ -349,14 +324,10 @@ def take_long_rest(request: Request, db: DbSession, user: CurrentUser, character
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
-# --- Copying spells into the spellbook ----------------------------------------------------
-
-
 @router.get("/characters/{character_id}/sheet/spellbook/copy", response_class=HTMLResponse)
 def open_copy_panel(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, q: str = ""
 ):
-    """The copy panel's search step; `q` refills it when coming back from the confirm step."""
     return page.refresh_sheet(
         request, refreshed_sheet_view(db, user, character, copying=CopyPanel(query=q))
     )

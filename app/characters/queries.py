@@ -1,6 +1,3 @@
-"""View models for the character list, the new-character form and the Build page, loaded
-from the database. Rendering them is app/characters/page.py's job."""
-
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -25,8 +22,6 @@ from app.spells.queries import spellbook
 
 
 def pending_choices(groups: list[FeatureGroup]) -> list[ChoiceView]:
-    """Choices still to make on the Build page. In-play choices are optional and made on the
-    Play sheet, so they're never pending."""
     return [
         cv
         for g in groups
@@ -37,8 +32,6 @@ def pending_choices(groups: list[FeatureGroup]) -> list[ChoiceView]:
 
 
 def needs_building(db: Session, character: Character) -> bool:
-    """Whether the Build page has anything left to do: ability scores, a background, or a
-    pending choice. Characters that don't open on the Play sheet."""
     if character.ability_method is None or character.background_id is None:
         return True
     return bool(pending_choices(feature_groups(db, character)))
@@ -48,7 +41,7 @@ def needs_building(db: Session, character: Character) -> bool:
 class CharacterListView:
     user: User
     characters: list[Character]
-    links: dict[int, str]  # character id -> the page it opens on
+    links: dict[int, str]
 
 
 def character_list_view(db: Session, user: User) -> CharacterListView:
@@ -59,7 +52,6 @@ def character_list_view(db: Session, user: User) -> CharacterListView:
             .order_by(Character.created_at.desc())
         )
     )
-    # Open each on the Play sheet once it's built, on the Build page while it has choices left.
     links = {
         c.id: f"/characters/{c.id}" if needs_building(db, c) else f"/characters/{c.id}/sheet"
         for c in characters
@@ -84,9 +76,6 @@ def new_character_view(db: Session, user: User) -> NewCharacterView:
 
 @dataclass(frozen=True)
 class BuildPageView:
-    """The Build page. `read_only` is the shared view: the same page with every control left
-    out, its tabs linking within `base_url` (/shared/<token>)."""
-
     user: User | None
     character: Character
     read_only: bool
@@ -97,8 +86,8 @@ class BuildPageView:
     pending: list[ChoiceView]
     skills: list[CharacterSkill]
     expertise: set[int]
-    copied_under: int | None  # the feature whose section lists copied spells
-    copied: list[tuple[SpellbookEntry, list[str]]]  # copied spells, with their rule markers
+    copied_under: int | None
+    copied: list[tuple[SpellbookEntry, list[str]]]
 
 
 def build_page_view(
@@ -122,7 +111,6 @@ def build_page_view(
         pending=pending_choices(groups),
         skills=character_skills(db, character.id),
         expertise=expertise_skill_ids(db, character.id),
-        # The first feature with spellbook choices (Spellcasting).
         copied_under=next(
             (
                 fv.feature.id
@@ -156,8 +144,6 @@ class OriginFormView:
 def origin_form_view(
     db: Session, character: Character, origin: Origin, selected: str | None = None
 ) -> OriginFormView:
-    """The species or background picker. `selected` keeps what was submitted; by default it's
-    the character's current pick."""
     if selected is None:
         selected = str(getattr(character, origin.column) or "")
     return OriginFormView(

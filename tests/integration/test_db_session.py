@@ -1,6 +1,3 @@
-"""get_db's transaction per request, on real sessions: these commit to the test database, so
-they clean up after themselves."""
-
 import pytest
 from sqlalchemy import delete, select
 from starlette.testclient import TestClient
@@ -9,7 +6,7 @@ from app.auth.models import User
 from app.auth.security import hash_password
 from app.characters.models import Character
 from app.classes.models import CharacterClass
-from app.core.db import SessionLocal, get_db
+from app.core.db import SessionLocal, engine, get_db, release_connection
 from app.main import app
 from app.species.models import Species
 
@@ -26,8 +23,17 @@ def _user_id() -> int | None:
 def cleanup():
     yield
     with SessionLocal() as db:
-        db.execute(delete(User).where(User.username == USERNAME))  # cascades to characters
+        db.execute(delete(User).where(User.username == USERNAME))
         db.commit()
+
+
+def test_release_connection_returns_it_to_the_pool(database):
+    before = engine.pool.checkedout()
+    with SessionLocal() as db:
+        db.scalar(select(User.id).limit(1))
+        assert engine.pool.checkedout() == before + 1
+        release_connection(db)
+        assert engine.pool.checkedout() == before
 
 
 def test_route_returning_commits(database, cleanup):
@@ -43,14 +49,13 @@ def test_route_raising_saves_nothing(database, cleanup):
     request = get_db()
     db = next(request)
     db.add(User(username=USERNAME, password_hash="x"))
-    db.flush()  # sent to the database, but not committed
+    db.flush()
     with pytest.raises(RuntimeError):
         request.throw(RuntimeError("the route failed partway"))
     assert _user_id() is None
 
 
 def test_app_saves_route_changes(database, cleanup):
-    """Through the real app: creating a character saves it, though the route never commits."""
     with SessionLocal() as db:
         db.add(User(username=USERNAME, password_hash=hash_password(PASSWORD)))
         db.commit()

@@ -54,7 +54,7 @@ from app.spells.queries import character_spells, pickable_spells, spellbook
 
 @dataclass
 class HpView:
-    base: int  # from level history and Constitution
+    base: int
     effects: list[CharacterHpEffect]
     current: int
     temp: int
@@ -75,7 +75,6 @@ def hp_effects(db: Session, character: Character) -> list[CharacterHpEffect]:
 
 
 def max_hp(db: Session, character: Character) -> int | None:
-    """Base max HP plus active effects, or None until ability scores are set."""
     base = hit_points(db, character)
     if base is None:
         return None
@@ -99,29 +98,21 @@ def hp_view(db: Session, character: Character) -> HpView | None:
     return view
 
 
-# --- Abilities, saving throws and Armor Class ---------------------------------------------
-
-
 @dataclass(frozen=True)
 class AbilityRow:
     ability: AbilityView
-    save: int  # saving throw bonus
+    save: int
     proficient: bool
-    # Where the save proficiency comes from, e.g. ("Wizard",) or ("Transmuter's Stone",).
     sources: tuple[str, ...] = ()
 
 
 def _grant_label(db: Session, feature: Feature) -> str:
-    """Where a benefit comes from, as the sheet names it: the feature ("Transmuter's Stone"),
-    or for a magic item the item itself, not its "While attuned" feature."""
     return db.get(Item, feature.item_id).name if feature.item_id else feature.name
 
 
 def _grant_sources(
     db: Session, character: Character, groups: list[FeatureGroup] | None = None
 ) -> list[tuple[str, dict]]:
-    """(source name, grants) for everything giving the character attributes: features they
-    have, and picked options (only while picked, like the Transmuter's Stone benefit)."""
     found = [
         (_grant_label(db, fv.feature), fv.feature.grants)
         for group in (feature_groups(db, character) if groups is None else groups)
@@ -141,8 +132,6 @@ def _grant_sources(
 
 
 def _by_source(sources: dict[str, list[str]], order: list[str]) -> list[tuple[list[str], str]]:
-    """{item: [sources]} regrouped as ([items], "source, source"), in `order`, so the sheet
-    can say "Intelligence, Wisdom · Wizard"."""
     groups: dict[str, list[str]] = {}
     for item in order:
         if item in sources:
@@ -152,15 +141,13 @@ def _by_source(sources: dict[str, list[str]], order: list[str]) -> list[tuple[li
 
 @dataclass(frozen=True)
 class Attributes:
-    """Passive character data for the Play sheet, each part with where it comes from."""
-
-    saves: dict[str, list[str]]  # ability abbreviation -> sources
-    speed: int  # walking speed in feet
-    speed_parts: list[str]  # ["35 Goliath", "+10 Transmuter's Stone"]
-    darkvision: int  # range in feet; 0 without Darkvision
+    saves: dict[str, list[str]]
+    speed: int
+    speed_parts: list[str]
+    darkvision: int
     darkvision_sources: list[str]
-    resistances: dict[str, list[str]]  # damage type -> sources
-    tools: dict[str, list[str]]  # tool name -> sources
+    resistances: dict[str, list[str]]
+    tools: dict[str, list[str]]
 
     @property
     def save_groups(self) -> list[tuple[list[str], str]]:
@@ -182,36 +169,24 @@ class Attributes:
         return _by_source(self.tools, sorted(self.tools))
 
 
-# --- Features and placed traits ------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class FeatureEntry:
-    """A feature or picked option to read on the Play sheet: in Features, or in a row of
-    Attributes."""
-
     name: str
-    source: str  # "Warlock", "Tiefling", or the choice it was picked in ("Eldritch Invocations")
+    source: str
     summary: str
-    description: str = ""  # a feature's full rules text, where the pack has it
+    description: str = ""
 
 
 @dataclass(frozen=True)
 class FeatureRow:
-    """One row of the Features section: a feature with uses to track (pips), an ability that
-    spends those uses (`spender`, with `uses` its pool: a magic item's charges), a choice made
-    in play (the Transmuter's Stone benefit), or a feature or picked option to read."""
-
     uses: FeatureUses | None = None
     spender: Feature | None = None
     choice: PlayChoice | None = None
     entry: FeatureEntry | None = None
-    source: str = ""  # for uses and spender rows: "Warlock", "Tome of Bal'vir"
+    source: str = ""
 
     @property
     def name(self) -> str:
-        """A tracked feature's name without its source repeated: a homebrew item's "Tome of
-        Bal'vir charges" is "Charges", next to "· Tome of Bal'vir"."""
         if self.spender:
             return self.spender.name
         name = self.uses.feature.name
@@ -233,12 +208,11 @@ class FeatureRow:
 
 @dataclass(frozen=True)
 class SheetFeatures:
-    groups: list[tuple[str, list[FeatureRow]]]  # ("Bonus Actions", rows), in turn order
-    traits: dict[str, list[FeatureEntry]]  # passive ones by Attributes row: "senses", "saves"...
+    groups: list[tuple[str, list[FeatureRow]]]
+    traits: dict[str, list[FeatureEntry]]
 
     @property
     def digest(self) -> str:
-        """The collapsed section's summary: every row's name, with uses left on tracked ones."""
         return " · ".join(row.digest for _, rows in self.groups for row in rows)
 
 
@@ -252,28 +226,21 @@ FEATURE_GROUPS = [
 
 
 def _shown_elsewhere(feature: Feature) -> bool:
-    """Not a row of its own: slot recovery (the Short rest panel), spending another feature's
-    uses (listed under that feature), or a magic item's ability without uses (Inventory)."""
     return bool(feature.slot_recovery or feature.spends_feature_id or feature.item_id)
 
 
 def _action_group(action: str | None, when: str | None) -> str | None:
-    """Its group: what using it takes, "triggered" with only a `when`, else None."""
     return action or ("triggered" if when else None)
 
 
 def _uses_group(uses: FeatureUses) -> str | None:
-    """A tracked feature's group: its own action or `when`; else its picked option's (Giant
-    Ancestry's Stone's Endurance is a Reaction); else the casting time of the spell its uses
-    cast for free (Infernal Legacy's Hellish Rebuke). A pool other abilities spend, anything
-    longer, or nothing, is Other."""
     feature = uses.feature
     if group := _action_group(feature.action, feature.when):
         return group
     for option in uses.options:
         if group := _action_group(option.action, option.when):
             return group
-    if uses.spenders:  # a pool other abilities spend (an item's charges): each has its own row
+    if uses.spenders:
         return None
     units = {fs.spell.casting_unit for fs in feature.spells if fs.free_cast}
     unit = units.pop() if len(units) == 1 else None
@@ -287,12 +254,6 @@ def sheet_features(
     uses: list[FeatureUses],
     play_choices: list[PlayChoice],
 ) -> SheetFeatures:
-    """The Play sheet's Features section, grouped by what using each row takes, and the
-    passive features placed in Attributes rows (Devil's Sight with Senses). Rows are features
-    with uses, choices made in play, and features or picked options whose content gives an
-    `action` or a `when` (Pact of the Blade, Dark One's Blessing). Untagged ones, like a
-    Tiefling's Size, are for the Build page. Picked options of a feature with uses show in its
-    row."""
     tracked = {u.feature.id: u for u in uses if not u.rest_only}
     in_play = {pc.choice.id: pc for pc in play_choices if pc.picked}
     found: list[tuple[str | None, FeatureRow]] = []
@@ -310,7 +271,6 @@ def sheet_features(
             if pool := tracked.get(feature.id):
                 source = source_name(db, feature)
                 found.append((_uses_group(pool), FeatureRow(uses=pool, source=source)))
-                # Abilities spending these uses go by what using them takes (Bonus Actions…).
                 for f in pool.spenders:
                     row = FeatureRow(uses=pool, spender=f, source=source_name(db, f))
                     found.append((_action_group(f.action, f.when), row))
@@ -343,9 +303,6 @@ def sheet_features(
 def attributes(
     db: Session, character: Character, groups: list[FeatureGroup] | None = None
 ) -> Attributes:
-    """Saves (the starting class's, by 2024 multiclassing rules, plus granted ones), speed
-    (the species' plus bonuses), Darkvision (the best range plus bonuses) and resistances.
-    Pass `groups` if they're already worked out."""
     saves: dict[str, list[str]] = {}
     starting = next((cc for cc in character.classes if cc.is_starting_class), None)
     if starting:
@@ -382,8 +339,6 @@ def attributes(
 def ability_rows(
     db: Session, character: Character, attrs: Attributes | None = None
 ) -> list[AbilityRow] | None:
-    """Each ability with its saving throw, or None until scores are set. Pass `attrs` if
-    they're already worked out."""
     abilities = ability_views(db, character)
     if abilities is None:
         return None
@@ -406,11 +361,10 @@ class SkillRow:
     bonus: int
     proficient: bool
     expertise: bool
-    expertise_source: str = ""  # the feature that gave it, e.g. "Scholar"
+    expertise_source: str = ""
 
 
 def skill_rows(db: Session, character: Character) -> list[SkillRow] | None:
-    """Every skill with the character's bonus, or None until ability scores are set."""
     abilities = ability_views(db, character)
     if abilities is None:
         return None
@@ -448,12 +402,10 @@ def skill_rows(db: Session, character: Character) -> list[SkillRow] | None:
 
 @dataclass(frozen=True)
 class ArmorClassView:
-    base: int  # 10 unarmored, or the highest base effect (Mage Armor 13)
-    base_label: str  # "No armor", or the base effect's name ("Mage Armor")
+    base: int
+    base_label: str
     dex: int
     effects: list[CharacterAcEffect]
-    # Always-on bonuses from features and items, like a magic item's +1: (value, source). Not
-    # effects, so they aren't ended from the AC card; they go when the item is unattuned.
     granted: list[tuple[int, str]] = field(default_factory=list)
 
     @property
@@ -462,7 +414,6 @@ class ArmorClassView:
 
     @property
     def minimum(self) -> CharacterAcEffect | None:
-        """The highest "AC can't be lower than" effect (Barkskin 17)."""
         return max(
             (e for e in self.effects if e.kind == "minimum"), key=lambda e: e.value, default=None
         )
@@ -486,8 +437,6 @@ class ArmorClassView:
 
     @property
     def breakdown(self) -> str:
-        """How the total is reached: "No armor 10 + 2 DEX", "Mage Armor 13 + 2 DEX + 2 Shield
-        of Faith", or "Barkskin 17 (minimum)" when a minimum beats the calculation."""
         if self.minimum_wins:
             return f"{self.minimum.label} {self.minimum.value} (minimum)"
         parts = [(self.dex, "DEX"), *self.granted, *((e.value, e.label) for e in self.bonuses)]
@@ -499,10 +448,6 @@ class ArmorClassView:
 def armor_class(
     db: Session, character: Character, groups: list[FeatureGroup] | None = None
 ) -> ArmorClassView | None:
-    """AC = base (10, or the highest base effect) + DEX modifier + bonus effects and granted
-    bonuses (a magic item's +1), raised to the highest minimum effect. None until ability
-    scores are set. Worn armor will join this once the sheet does armor. Pass `groups` if
-    they're already worked out."""
     abilities = ability_views(db, character)
     if abilities is None:
         return None
@@ -526,12 +471,9 @@ def armor_class(
 
 @dataclass(frozen=True)
 class AcSpell:
-    """A prepared spell that changes AC (its content declares `ac_effect`), offered on the AC
-    card to cast on yourself."""
-
     spell: Spell
-    slots: list[SlotLevel]  # the slot levels it can be cast with right now
-    at_will_from: str = ""  # the feature that casts it at will, without a slot
+    slots: list[SlotLevel]
+    at_will_from: str = ""
 
     @property
     def effect(self) -> dict:
@@ -539,7 +481,6 @@ class AcSpell:
 
 
 def active_ac_spell_ids(db: Session, character: Character) -> set[int]:
-    """Spells whose AC effect is on right now (Mage Armor cast, or read from a scroll)."""
     return set(
         db.scalars(
             select(CharacterAcEffect.spell_id).where(
@@ -556,10 +497,6 @@ def ac_spells(
     castable: list[CastableSpell] | None = None,
     slots: dict[int, SlotLevel] | None = None,
 ) -> list[AcSpell]:
-    """Spells with an AC effect the character can cast on themselves: prepared ones, with
-    their usable slot levels, and ones a feature casts at will (Armor of Shadows), once each.
-    Spells whose effect is already active are left out: it's listed with an End button
-    instead. Pass `castable` and `slots` if they're already worked out."""
     if castable is None:
         castable = castable_spells(db, character)
     if slots is None:
@@ -581,14 +518,7 @@ def ac_spells(
     return list(found.values())
 
 
-# --- Spells -------------------------------------------------------------------------------
-
-
 def _spellcasting_class(character: Character):
-    """The character's spellcasting class row (CharacterClassLevel), or None.
-
-    Only one spellcasting class until multiclassing.
-    """
     for cc in character.classes:
         if cc.character_class.spellcasting and cc.level >= 1:
             return cc
@@ -596,14 +526,11 @@ def _spellcasting_class(character: Character):
 
 
 def _spellcasting(character: Character) -> tuple[int, dict] | None:
-    """(class level, spellcasting rules) of the character's spellcasting class, or None."""
     cc = _spellcasting_class(character)
     return (cc.level, cc.character_class.spellcasting) if cc else None
 
 
 def prepared_limit(character: Character) -> int | None:
-    """How many spells the character can prepare from their spellbook, from their spellcasting
-    class's table; None for a class without one (its spells are picked on level up)."""
     found = _spellcasting(character)
     table = found[1].get("prepared") if found else None
     return table[found[0] - 1] if table else None
@@ -616,17 +543,13 @@ RITUALS_GROUP = "Rituals · no slot, +10 minutes"
 class CastableSpell:
     spell: Spell
     prepared: bool = False
-    # Listed under Rituals: cast as a ritual (10 minutes longer, no slot), never with a slot.
     in_ritual_section: bool = False
-    # The feature that keeps it always prepared (Wondrous Alteration), and whether one cast
-    # can spend a use of that feature instead of a slot.
     granted_by: Feature | None = None
     free_cast: bool = False
-    charge_cost: int = 1  # uses of `granted_by` a free cast spends
-    # Cast only by spending the feature's uses, never with slots (a magic item's spell).
+    charge_cost: int = 1
     charge_only: bool = False
-    item_name: str = ""  # granted by a magic item: tagged with its name ("Tome of Bal'vir")
-    note: str = ""  # from the granting feature, e.g. what Wondrous Alteration adds
+    item_name: str = ""
+    note: str = ""
 
     @property
     def group(self) -> str:
@@ -640,14 +563,10 @@ class CastableSpell:
 
     @property
     def at_will(self) -> bool:
-        """Cast free with no limit: the granting feature has no uses to spend (Armor of
-        Shadows' Mage Armor)."""
         return self.free_cast and self.granted_by is not None and self.granted_by.uses is None
 
     @property
     def free_label(self) -> str:
-        """The free-cast option: "Free · Wondrous Alteration", or for a magic item's charges
-        "2 charges · Embercleave Charm"."""
         feature = self.granted_by
         if feature.item_id:
             cost = f"{self.charge_cost} charge{'s' if self.charge_cost != 1 else ''}"
@@ -656,7 +575,6 @@ class CastableSpell:
 
     @property
     def order(self) -> tuple:
-        """Cantrips, then Rituals, then Level 1-9; by name within each."""
         if self.in_ritual_section:
             section = 1
         else:
@@ -667,11 +585,6 @@ class CastableSpell:
 def castable_spells(
     db: Session, character: Character, groups: list[FeatureGroup] | None = None
 ) -> list[CastableSpell]:
-    """Everything the character can cast right now: cantrips; every spell castable as a
-    ritual (prepared rituals, plus for a Wizard's Ritual Adept the other rituals in the
-    spellbook); and prepared spells by level (from the spellbook, or picked on level up), cast
-    with slots. A prepared ritual is listed
-    twice, since it can be cast either way. Pass `groups` if they're already worked out."""
     prepared = prepared_spell_ids(db, character)
     found = _spellcasting(character)
     rituals_from_book = bool(found) and found[1].get("ritual_casting") == "spellbook"
@@ -684,15 +597,14 @@ def castable_spells(
         if cs.spell.level == 0:
             rows.append(CastableSpell(cs.spell))
         elif not (cs.spell_id in granted and granted[cs.spell_id][0].always_prepared):
-            # Spells picked on level up (a Warlock's) are its prepared list.
             rows.append(CastableSpell(cs.spell, prepared=True))
             if cs.spell.ritual:
                 rows.append(CastableSpell(cs.spell, prepared=True, in_ritual_section=True))
     for entry in spellbook(db, character.id):
         if entry.spell_id in granted and granted[entry.spell_id][0].always_prepared:
-            continue  # listed below as always prepared
+            continue
         if entry.spell_id in picked:
-            continue  # already listed as picked (Magic Initiate's pick also in the book)
+            continue
         is_prepared = entry.spell_id in prepared
         if is_prepared:
             rows.append(CastableSpell(entry.spell, prepared=True))
@@ -720,9 +632,6 @@ def castable_spells(
 def granted_spells(
     db: Session, character: Character, groups: list[FeatureGroup] | None = None
 ) -> dict[int, tuple[FeatureSpell, Feature]]:
-    """{spell id: (its FeatureSpell, the feature)} for spells the character's features give:
-    always prepared ones (which don't count toward the prepare limit), and ones cast only by
-    spending a feature's uses (`always_prepared` off)."""
     return {
         fs.spell_id: (fs, fv.feature)
         for group in (feature_groups(db, character) if groups is None else groups)
@@ -732,15 +641,12 @@ def granted_spells(
     }
 
 
-# --- Spell slots --------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class SlotLevel:
     level: int
     maximum: int
     expended: int
-    kind: str = "spellcasting"  # or "pact": Pact Magic, back on a short rest
+    kind: str = "spellcasting"
 
     @property
     def remaining(self) -> int:
@@ -748,7 +654,6 @@ class SlotLevel:
 
 
 def spell_slots(db: Session, character: Character) -> dict[int, SlotLevel]:
-    """{slot level: SlotLevel} for the character's spellcasting class; empty if none."""
     found = _spellcasting(character)
     if not found:
         return {}
@@ -777,7 +682,6 @@ def prepared_spell_ids(db: Session, character: Character) -> set[int]:
 
 
 def ability_modifier(db: Session, character: Character, abbr: str) -> int:
-    """Final modifier for an ability (base + bonuses); 0 if scores aren't set."""
     abilities = ability_views(db, character) or []
     found = next((a for a in abilities if a.abbr == abbr), None)
     return modifier(found.total) if found else 0
@@ -793,9 +697,6 @@ def _rule_warnings(cc, highest_slot: int, spell: Spell) -> list[str]:
 
 
 def spell_warnings(db: Session, character: Character) -> dict[int, list[str]]:
-    """{spell id: warnings} for spellbook spells that break the usual rules. Any spell can be
-    copied into a spellbook, but these get a marker. Calculated, never stored, so they clear
-    on their own (e.g. a high-level spell once the character gains the slots)."""
     return {
         spell.id: found
         for spell, found in copy_warnings(
@@ -806,7 +707,6 @@ def spell_warnings(db: Session, character: Character) -> dict[int, list[str]]:
 
 
 def copy_warnings(db: Session, character: Character, spells: list[Spell]) -> dict:
-    """{spell: warnings} the spells would get in this character's spellbook."""
     cc = _spellcasting_class(character)
     if cc is None:
         return {spell: [] for spell in spells}
@@ -815,9 +715,6 @@ def copy_warnings(db: Session, character: Character, spells: list[Spell]) -> dic
 
 
 def spellbook_notes(db: Session, character: Character) -> dict[int, str]:
-    """{spell id: note} for spellbook spells that didn't come from a level up: copied ones
-    ("Copied to spellbook · scroll from the crypt") and ones a feature added ("From Evocation
-    Savant")."""
     notes = {}
     for entry in spellbook(db, character.id):
         if entry.acquired_via == "copied":
@@ -829,12 +726,11 @@ def spellbook_notes(db: Session, character: Character) -> dict[int, str]:
     return notes
 
 
-COPY_SEARCH_MIN = 2  # characters typed before searching
+COPY_SEARCH_MIN = 2
 COPY_SEARCH_LIMIT = 8
 
 
 def _copyable_spells(user_id: int) -> Select[tuple[Spell]]:
-    # Cantrips aren't written in spellbooks.
     return pickable_spells(user_id).where(Spell.level >= 1)
 
 
@@ -853,19 +749,13 @@ def search_copyable(db: Session, query: str, user_id: int) -> list[Spell]:
     )
 
 
-# --- Limited-use features -----------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class FeatureUses:
     feature: Feature
     maximum: int
     expended: int
-    class_level: int  # the owning class's level (character level for species features)
-    # The options the character picked for this feature's choices (e.g. Stone's Endurance for
-    # Giant Ancestry), which say what a use actually does and when.
+    class_level: int
     options: tuple[ChoiceOption, ...] = ()
-    # Features that spend these uses when used, like a magic item's Stonecunning (its charges).
     spenders: tuple[Feature, ...] = ()
 
     @property
@@ -878,15 +768,12 @@ class FeatureUses:
 
     @property
     def rest_only(self) -> bool:
-        """Used only during a rest (like Arcane Recovery), so it lives in the rest panel."""
         return self.feature.slot_recovery is not None
 
 
 def feature_uses(
     db: Session, character: Character, groups: list[FeatureGroup] | None = None
 ) -> list[FeatureUses]:
-    """Every limited-use feature the character has (respecting level, class, subclass and
-    species, exactly like the character page). Pass `groups` if they're already worked out."""
     spent = {
         row.feature_id: row.expended
         for row in db.scalars(
@@ -934,7 +821,7 @@ def feature_uses(
 
 @dataclass(frozen=True)
 class Spender:
-    uses: FeatureUses  # the pool it spends, like the item's charges
+    uses: FeatureUses
     feature: Feature
 
 
@@ -950,13 +837,10 @@ def spender(db: Session, character: Character, feature_id: int) -> Spender | Non
     return None
 
 
-# --- Hit dice -----------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class HitDice:
     character_class: CharacterClass
-    total: int  # one per class level
+    total: int
     spent: int
 
     @property
@@ -980,21 +864,12 @@ def hit_dice(db: Session, character: Character) -> list[HitDice]:
     ]
 
 
-# --- Slot recovery (Arcane Recovery) ------------------------------------------------------
-
-
 def recovery_budget(uses: FeatureUses) -> int:
-    """Total slot levels the feature can recover: half the class level, rounded up."""
     return math.ceil(uses.class_level / 2)
-
-
-# --- Damage reactions ---------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class DamageReaction:
-    """A picked option the character can use in reaction to taking damage right now."""
-
     uses: FeatureUses
     option: ChoiceOption
 
@@ -1016,7 +891,6 @@ class DamageReaction:
 
 
 def damage_reactions(uses: list[FeatureUses]) -> list[DamageReaction]:
-    """Damage reactions with a use left, offered before damage is applied."""
     return [
         DamageReaction(u, option)
         for u in uses
@@ -1026,16 +900,12 @@ def damage_reactions(uses: list[FeatureUses]) -> list[DamageReaction]:
     ]
 
 
-# --- Copying spells into the spellbook ----------------------------------------------------
-
-
 @dataclass(frozen=True)
 class CopyPanel:
     query: str = ""
 
 
 def _copy_cost(spell: Spell) -> str:
-    """2024 rules: 2 hours and 50 GP per spell level."""
     return f"{2 * spell.level} hours and {50 * spell.level} GP"
 
 
@@ -1043,7 +913,7 @@ def _copy_cost(spell: Spell) -> str:
 class CopySearchView:
     query: str
     min_length: int
-    results: list[tuple[Spell, str, list[str]]]  # spell, why it can't be copied, rule markers
+    results: list[tuple[Spell, str, list[str]]]
 
 
 def copy_search(db: Session, character: Character, query: str) -> CopySearchView:
@@ -1084,9 +954,6 @@ def copyable(db: Session, key: str, user_id: int) -> Spell | None:
     return picked_row(db, Spell, _copyable_spells(user_id), key)
 
 
-# --- The prepared editor ------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class PreparedEditorView:
     character: Character
@@ -1113,7 +980,6 @@ def prepared_editor_view(
             KINDS["spell"].view(entry.spell),
             warnings=tuple(warnings.get(entry.spell_id, [])),
             note=notes.get(entry.spell_id, ""),
-            # Only copied spells: level-up and feature spells change through their choice.
             removable=entry.acquired_via == "copied",
         )
         for entry in book
@@ -1136,14 +1002,8 @@ def refreshed_prepared_editor_view(
     return prepared_editor_view(db, character, selected)
 
 
-# --- The Play sheet -----------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class SheetView:
-    """`read_only` is the shared view: the same sheet with every control left out, its links
-    within `base_url` (/shared/<token>)."""
-
     user: User | None
     character: Character
     hp: HpView | None
@@ -1152,7 +1012,7 @@ class SheetView:
     skills: list[SkillRow] | None
     ac: ArmorClassView | None
     ac_spells: list[AcSpell]
-    free_uses: dict[int, FeatureUses]  # rest-only ones (Arcane Recovery) are in the rest panel
+    free_uses: dict[int, FeatureUses]
     play_choices: list[PlayChoice]
     sheet_features: SheetFeatures
     castable: list[CastableSpell]
@@ -1160,7 +1020,7 @@ class SheetView:
     prepared_count: int
     prepared_limit: int | None
     has_spellbook: bool
-    resting: bool  # the Short rest panel: hit dice and slot recovery stay off the main sheet
+    resting: bool
     items: list[CharacterItem]
     item_features: dict[int, list[Feature]]
     coin_summary: str
@@ -1170,12 +1030,12 @@ class SheetView:
     read_only: bool
     base_url: str
     share: CharacterShare | None
-    pending_damage: int | None  # waiting on "use a reaction or take it all"
+    pending_damage: int | None
     spell_warnings: dict[int, list[str]]
     spell_notes: dict[int, str]
     copying: CopyPanel | None
     copy: CopySearchView | None
-    reactions: list[tuple[DamageReaction, int]]  # with the ability modifier each roll adds
+    reactions: list[tuple[DamageReaction, int]]
     hit_dice: list[HitDice]
     recoveries: list[tuple[FeatureUses, int]]
 
@@ -1191,8 +1051,6 @@ def sheet_view(
     read_only: bool = False,
     base_url: str | None = None,
 ) -> SheetView:
-    # Every section needs the character's features; looking them up once keeps the sheet
-    # within its query budget (tests/integration/test_sheet_queries.py).
     groups = feature_groups(db, character)
     uses = feature_uses(db, character, groups)
     choices = play_choices(db, character, groups)
@@ -1214,7 +1072,6 @@ def sheet_view(
         sheet_features=sheet_features(db, character, groups, uses, choices),
         castable=castable,
         slots=slots,
-        # Always-prepared spells don't count, even if also picked from the book before.
         prepared_count=len(
             prepared_spell_ids(db, character) - always_prepared_spells(db, character, groups).keys()
         ),

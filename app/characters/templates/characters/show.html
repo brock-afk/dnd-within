@@ -13,8 +13,6 @@
 {% endif %}
 {% endmacro %}
 
-{#- One feature: closed, its name and what was picked for it; open, its summary, full text and
-    Change buttons. -#}
 {% macro feature_item(fv) %}
 {% set picks = fv.choices | selectattr("done") | rejectattr("choice.kind", "in", ["spell", "spellbook"])
                | map(attribute="picked") | sum(start=[]) | map(attribute="name") | list %}
@@ -53,7 +51,6 @@
         {% if cv.picked | length == 1 %}
         <span class="muted feature-choice-summary">{{ cv.picked[0].summary }}</span>
         {% else %}
-        {#- Several picks (invocations): each with what it does. -#}
         <ul class="feature-choice-picks">
           {% for o in cv.picked %}<li><strong>{{ o.name }}</strong> <span class="muted">· {{ o.summary }}</span></li>{% endfor %}
         </ul>
@@ -61,7 +58,6 @@
         {% endif %}
       </div>
       {% endfor %}
-      {#- Spells by the level they were chosen at: how the character was built. -#}
       {% set spell_choices = fv.choices | selectattr("done") | selectattr("choice.kind", "in", ["spell", "spellbook"]) | list %}
       {% set has_book = fv.feature.id == copied_under %}
       {% if spell_choices or (has_book and copied) %}
@@ -188,16 +184,12 @@
 {% endcall %}
 {% endif %}
 
-{#- Each source (species, background, class, subclass) collapses, and so does each feature. A
-    background's origin feat is a titled section inside the background's group. -#}
 {% call section("features", "Traits & features", feature_groups | map(attribute="name") | join(" · ")) %}
   {% for group in feature_groups %}
   <details class="feature-group" data-collapse="group-{{ group.name | lower | replace(" ", "-") }}" open>
     <summary>
       <span class="feature-group-name">{{ group.name }}</span>
       <span class="muted">{{ group.kind }} · {{ group.features | length }} feature{{ "s" if group.features | length != 1 }}</span>
-      {#- In the summary so it's there while the group is collapsed; data-summary-action makes
-          clicking it open the group (to show the form) instead of toggling it. -#}
       {% if group.change_url and not read_only %}
       <button type="button" class="link-button" data-summary-action
               hx-get="{{ group.change_url }}" hx-target="#group-slot-{{ loop.index }}">Change</button>

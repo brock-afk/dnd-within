@@ -37,7 +37,6 @@ def refresh_sheet(
     errors: dict[str, str] | None = None,
     notices: dict[str, str] | None = None,
 ) -> HTMLResponse:
-    # Morphing keeps the scroll position and focus, unlike a full page load.
     return morph_in_place(sheet(request, view, errors, notices), SHEET_SELECTOR)
 
 

@@ -1,11 +1,3 @@
-"""Choice kinds: where a choice's options come from and where a character's picks are saved.
-
-Most kinds work the same way: options are rows of some `target` table, and each pick is a
-row in a `pick` table holding (character_id, choice_id, <target>_id). The subclass kind is
-the exception: its pick is stored on the character's class row. Adding a new kind of choice
-(languages, tools, feats, ...) means adding a subclass here and to KINDS.
-"""
-
 from dataclasses import dataclass, replace
 
 from sqlalchemy import Select, delete, select
@@ -28,8 +20,6 @@ from app.spells.queries import pickable_spells
 
 
 def owner_feature(db: Session, feature: Feature) -> Feature:
-    """The feature a picked option's feature hangs under (its option's choice's feature),
-    else the feature itself. It decides which level the feature and its choices go by."""
     while feature.option_id is not None:
         option = db.get(ChoiceOption, feature.option_id)
         feature = db.get(Choice, option.choice_id).feature
@@ -37,8 +27,6 @@ def owner_feature(db: Session, feature: Feature) -> Feature:
 
 
 def owner_level(db: Session, character: Character, feature: Feature) -> int:
-    """The level a feature's uses and choices go by: its class's level for a class or subclass
-    feature (an invocation's too), else the character level."""
     feature = owner_feature(db, feature)
     if feature.class_id is not None:
         return character.class_level(feature.class_id)
@@ -50,7 +38,6 @@ def owner_level(db: Session, character: Character, feature: Feature) -> int:
 
 
 def owner_level_name(db: Session, feature: Feature) -> str:
-    """What those levels are called: the class ("Warlock") or "Level"."""
     feature = owner_feature(db, feature)
     class_id = feature.class_id
     if class_id is None and feature.subclass_id is not None:
@@ -59,24 +46,18 @@ def owner_level_name(db: Session, feature: Feature) -> str:
 
 
 def choice_count(choice: Choice, level: int) -> int:
-    """How many to pick at this (owner) level: a growing choice's count for the level."""
     return choice.count_by_level[level - 1] if choice.count_by_level else choice.count
 
 
 def current_count(db: Session, character: Character, choice: Choice) -> int:
-    """How many to pick now; a growing choice (invocations) counts by the owner's level."""
     return choice_count(choice, owner_level(db, character, choice.feature))
 
 
 def _ids(keys: list[str]) -> list[int]:
-    """The row ids among submitted keys; a key that isn't one matches no option."""
     return [i for i in map(parse_id, keys) if i is not None]
 
 
 def source_name(db: Session, feature: Feature) -> str:
-    """What a feature belongs to, as the player knows it: "Wizard", "Goliath", "Familiar
-    Trainer", "Transmuter" or "Familiar Friend". A picked option's feature belongs to whatever
-    offers the choice (a Fiendish Legacy's spells to "Tiefling")."""
     feature = owner_feature(db, feature)
     for model, parent_id in [
         (CharacterClass, feature.class_id),
@@ -93,34 +74,29 @@ def source_name(db: Session, feature: Feature) -> str:
 
 @dataclass(frozen=True)
 class OptionView:
-    key: str  # the row's id: what forms submit, since slugs are only unique within a source
+    key: str
     name: str
     summary: str = ""
     detail: str = ""
-    group: str = ""  # options with groups are shown in collapsible sections, e.g. spell levels
-    school: str = ""  # spells only: enables the school/ritual/name filters
+    group: str = ""
+    school: str = ""
     ritual: bool = False
-    warnings: tuple[str, ...] = ()  # rule markers, e.g. "Not on the Wizard list"
-    note: str = ""  # e.g. "Copied to spellbook · scroll from the crypt"
-    removable: bool = False  # shows a Remove link when the grid is given `removal`
+    warnings: tuple[str, ...] = ()
+    note: str = ""
+    removable: bool = False
 
 
 class ChoiceKind:
-    target: type  # table the options come from
-    pick: type  # table a character's picks are saved in
-    target_fk: str  # column on `pick` pointing at `target`
-    # Shown on options the character already has from somewhere else (they can't be picked):
-    # "<known_from> Wizard" when the pick came from a choice (and known_from is set), else
-    # known_label.
+    target: type
+    pick: type
+    target_fk: str
     known_label = "Already known"
     known_from: str | None = "Known from"
-    noun = ("option", "options")  # for counts like "31 spells"
-    editor = "choices"  # the path segment of the form that makes the choice
-    # A spell a feature keeps always prepared can't be picked: it would waste the pick.
+    noun = ("option", "options")
+    editor = "choices"
     blocks_always_prepared = False
 
     def pick_values(self, choice: Choice) -> dict:
-        """Extra columns to set on each new pick row."""
         return {}
 
     def options_query(self, choice: Choice, character: Character) -> Select:
@@ -143,9 +119,6 @@ class ChoiceKind:
         return [self.view(obj) for obj in db.scalars(query)]
 
     def save(self, db: Session, choice: Choice, character_id: int, keys: list[str]) -> str | None:
-        """Replace this choice's picks. Returns an error message instead if they aren't valid.
-        Overrides finish every check before their first write: save_choice and save_increase
-        rely on an error meaning nothing changed."""
         ids = _ids(keys)
         query = self.options_query(choice, db.get(Character, character_id))
         targets = db.scalars(query.where(self.target.id.in_(ids))).all()
@@ -183,8 +156,6 @@ class ChoiceKind:
         return None
 
     def unavailable(self, db: Session, choice: Choice, character_id: int) -> dict[str, str]:
-        """{key: why} for options the character can't pick, shown on the choice form, naming
-        where they already have it from (e.g. "Proficient from Familiar Trainer")."""
         fk = getattr(self.pick, self.target_fk)
         rows = db.execute(
             select(self.target.id, self.pick.choice_id)
@@ -203,13 +174,10 @@ class ChoiceKind:
         return result
 
     def picked_choice_ids(self, db: Session, character_id: int) -> set[int]:
-        """Every choice of this kind the character has picks for."""
         query = select(self.pick.choice_id).where(self.pick.character_id == character_id)
         return {cid for cid in db.scalars(query) if cid is not None}
 
     def trim(self, db: Session, choice: Choice, character_id: int, count: int) -> bool:
-        """Drop the newest picks beyond `count`, when a growing choice shrinks (a level
-        lost). Returns whether any went."""
         ids = db.scalars(
             select(self.pick.id)
             .where(self.pick.character_id == character_id, self.pick.choice_id == choice.id)
@@ -220,7 +188,6 @@ class ChoiceKind:
         return bool(extra)
 
     def clear(self, db: Session, choice_ids: list[int], character_id: int) -> None:
-        """Remove the character's picks for these choices. Doesn't commit."""
         db.execute(
             delete(self.pick).where(
                 self.pick.character_id == character_id, self.pick.choice_id.in_(choice_ids)
@@ -229,8 +196,6 @@ class ChoiceKind:
 
 
 class OptionKind(ChoiceKind):
-    """Options listed on the choice itself (choice_options), e.g. Giant Ancestry."""
-
     target, pick, target_fk = ChoiceOption, CharacterChoicePick, "option_id"
 
     def options_query(self, choice, character):
@@ -244,7 +209,6 @@ class OptionKind(ChoiceKind):
         return OptionView(str(option.id), option.name, option.summary)
 
     def options(self, db, choice, character):
-        """Options with their prerequisites shown, e.g. "Needs Warlock 5 · Pact of the Blade"."""
         names = {o.slug: o.name for o in choice.options}
         level_name = owner_level_name(db, choice.feature)
         views = []
@@ -259,8 +223,6 @@ class OptionKind(ChoiceKind):
         return views
 
     def unavailable(self, db, choice, character_id):
-        """Also options whose level the character hasn't reached. One that needs another option
-        stays pickable, since both can be picked together."""
         result = super().unavailable(db, choice, character_id)
         level = owner_level(db, db.get(Character, character_id), choice.feature)
         level_name = owner_level_name(db, choice.feature)
@@ -280,9 +242,6 @@ class OptionKind(ChoiceKind):
         return super().save(db, choice, character_id, keys)
 
     def drop_unmet(self, db: Session, character: Character) -> bool:
-        """Delete picks whose prerequisites no longer hold (a level lost, or the option they
-        need unpicked). Returns whether any went; remove_inapplicable_picks repeats until none
-        do, since dropping one can break another."""
         dropped = False
         for choice_id in self.picked_choice_ids(db, character.id):
             choice = db.get(Choice, choice_id)
@@ -304,8 +263,6 @@ class OptionKind(ChoiceKind):
         return dropped
 
     def _problem(self, db, level: int, choice, option, keys: set[str]) -> str | None:
-        """Why `option` can't be picked together with `keys` (form keys) at the choice's owner
-        `level`, if it can't."""
         needs = option.requires or {}
         if needs.get("level", 0) > level:
             return f"{option.name} needs {owner_level_name(db, choice.feature)} {needs['level']}."
@@ -317,9 +274,6 @@ class OptionKind(ChoiceKind):
 
 
 class SkillKind(ChoiceKind):
-    """Skill proficiencies. criteria: {"skill_ids": [...]} resolved from slugs on import, or
-    {} for any skill (a background's free pick)."""
-
     target, pick, target_fk = Skill, CharacterSkill, "skill_id"
     known_label = "Already proficient"
     known_from = "Proficient from"
@@ -335,9 +289,6 @@ class SkillKind(ChoiceKind):
 
 
 class ExpertiseKind(SkillKind):
-    """Expertise in a skill the character is already proficient in (Scholar). criteria:
-    {"skill_ids": [...]} resolved from slugs on import, or {} for any skill."""
-
     pick = CharacterSkillExpertise
     known_label = "Already have Expertise"
     known_from = "Expertise from"
@@ -365,8 +316,6 @@ class ExpertiseKind(SkillKind):
         return super().save(db, choice, character_id, keys)
 
     def remove_unproficient(self, db: Session, character_id: int) -> None:
-        """Drop Expertise in skills the character is no longer proficient in, e.g. after
-        re-picking their class skills. Doesn't commit."""
         db.execute(
             delete(CharacterSkillExpertise).where(
                 CharacterSkillExpertise.character_id == character_id,
@@ -380,9 +329,6 @@ class ExpertiseKind(SkillKind):
 
 
 def class_slot_level(character: Character, class_id: int) -> int:
-    """The highest spell level this class's own slot table reaches at the character's level in
-    that class (a Warlock's Pact Magic slot level), never a multiclass combined table: 2024
-    multiclassing picks each class's spells by that class's level alone. 0 without slots."""
     cc = next((cc for cc in character.classes if cc.class_id == class_id), None)
     spellcasting = cc.character_class.spellcasting if cc else None
     if not spellcasting or cc.level < 1:
@@ -391,12 +337,6 @@ def class_slot_level(character: Character, class_id: int) -> int:
 
 
 class SpellKind(ChoiceKind):
-    """Spells from a class's list, like cantrips or a Warlock's prepared spells. criteria:
-    {"class_id": ...} plus either "level" (an exact spell level) or "max_level" (levels 1 up to
-    it, or "class_slots": up to `class_slot_level`, so a pick made at level 1 can later be
-    changed to a higher-level spell), and optionally "school" (Evocation Savant). The class is
-    resolved from its slug on import."""
-
     target, pick, target_fk = Spell, CharacterSpell, "spell_id"
     noun = ("spell", "spells")
     blocks_always_prepared = True
@@ -404,7 +344,7 @@ class SpellKind(ChoiceKind):
     def options_query(self, choice, character):
         criteria = choice.criteria
         query = pickable_spells(character.user_id)
-        if "class_id" in criteria:  # else any class's spells (Pact of the Tome)
+        if "class_id" in criteria:
             query = query.join(Spell.classes).where(CharacterClass.id == criteria["class_id"])
         if criteria.get("ritual"):
             query = query.where(Spell.ritual.is_(True))
@@ -420,8 +360,6 @@ class SpellKind(ChoiceKind):
         return query.order_by(Spell.level, Spell.name)
 
     def drop_above_slots(self, db: Session, character: Character) -> bool:
-        """Delete picks of `max_level: class_slots` choices above the slot level the class now
-        reaches (a level lost), which can't be cast or saved again. Returns whether any went."""
         dropped = False
         for choice_id in self.picked_choice_ids(db, character.id):
             choice = db.get(Choice, choice_id)
@@ -453,22 +391,15 @@ class SpellKind(ChoiceKind):
 
 
 class SpellbookKind(SpellKind):
-    """Spells written into a Wizard's spellbook on level up, or by a feature like Savant
-    (criteria "acquired_via": "feature"). Same options as SpellKind, but picks become spellbook
-    entries."""
-
     pick = SpellbookEntry
     known_label = "In your spellbook"
-    known_from = None  # always the Wizard's book; naming it adds nothing
+    known_from = None
 
     def pick_values(self, choice):
         return {"acquired_via": choice.criteria.get("acquired_via", "level_up")}
 
 
 class SubclassKind(ChoiceKind):
-    """A class's subclass. The pick is stored on the character's row for that class
-    (character_classes.subclass_id), so each class has its own subclass."""
-
     target = Subclass
 
     def options_query(self, choice, character):
@@ -507,7 +438,7 @@ class SubclassKind(ChoiceKind):
         return None
 
     def unavailable(self, db, choice, character_id):
-        return {}  # one subclass slot per class; nothing to mark
+        return {}
 
     def picked_choice_ids(self, db, character_id):
         query = (
@@ -530,21 +461,11 @@ class SubclassKind(ChoiceKind):
 
 
 class AbilityScoresKind(ChoiceKind):
-    """Ability score increases, as a background gives them (on any feature's choice): +2 to
-    one of criteria["from"] and +1 to another, or +1 to all three. A pick is one
-    character_ability_bonuses row per ability. Scores still can't go above 20; AbilityView
-    applies the cap.
-
-    It has its own editor (app/abilities/) rather than the option grid. For the
-    generic code, each way of splitting the increases is one option, keyed like "INT2.CON1"."""
-
     pick = CharacterAbilityBonus
     noun = ("split", "splits")
     editor = "ability-increases"
 
     def split(self, choice: Choice, plus2: str, plus1: str, even: bool) -> dict[str, int] | None:
-        """{ability: amount} for +2/+1 (or +1 to each with `even`), or None if that isn't a
-        valid split for this choice."""
         abilities = choice.criteria["from"]
         if even:
             return {a: 1 for a in abilities}
@@ -569,7 +490,6 @@ class AbilityScoresKind(ChoiceKind):
         return [self._view(split) for split in self._splits(choice)]
 
     def picked_amounts(self, db: Session, choice: Choice, character_id: int) -> dict[str, int]:
-        """{ability: amount} saved for this choice, the +2 first; empty if not picked."""
         rows = db.scalars(
             select(CharacterAbilityBonus).where(
                 CharacterAbilityBonus.character_id == character_id,
@@ -599,7 +519,7 @@ class AbilityScoresKind(ChoiceKind):
         return None
 
     def unavailable(self, db, choice, character_id):
-        return {}  # bonuses from other choices stack
+        return {}
 
 
 KINDS: dict[str, ChoiceKind] = {

@@ -10,7 +10,6 @@ from app.sheet.service import play_state
 
 
 def _up(db, character, method: str, roll: str = "") -> str | None:
-    """Level up from a page showing the current level."""
     return service.level_up(db, character, str(character.level), method, roll)
 
 
@@ -25,7 +24,7 @@ def test_levelling_up_raises_max_and_current_hp(db, character):
 
     assert character.level == 2
     hp = hp_view(db, character)
-    assert (hp.maximum, hp.current) == (14, 11)  # + d6 fixed 4 + 2 CON
+    assert (hp.maximum, hp.current) == (14, 11)
 
 
 def test_a_roll_sets_the_new_levels_hit_points(db, character):
@@ -74,7 +73,7 @@ def test_levelling_down_removes_the_levels_picks_and_hit_points(db, character, l
     increase = db.scalar(select(Choice).where(Choice.slug == "test-increase"))
     kind = KINDS["ability_scores"]
     assert kind.save(db, increase, character.id, ["CON2.STR1"]) is None
-    assert hp_view(db, character).maximum == 16  # CON 16: d6 + 3, then 4 + 3
+    assert hp_view(db, character).maximum == 16
 
     assert _down(db, character) is None
 
@@ -125,6 +124,6 @@ def test_level_up_and_down_through_the_app(client, db, character):
     assert response.status_code == 200
     assert character.level == 1
 
-    response = client.post(f"{url}/level-down", data={"level": "2"})  # from a stale page
+    response = client.post(f"{url}/level-down", data={"level": "2"})
     assert response.headers["HX-Retarget"] == "#character-page"
     assert character.level == 1

@@ -1,6 +1,3 @@
-{#- The custom item editor. Add spell / Add ability / Remove redraw it from the server with
-    what's typed kept (POST /homebrew/items/preview); Save validates and either shows problems
-    here or goes back to the library (or the character it was opened from). -#}
 {% macro field_error(key) %}{% if errors[key] %}<p class="error field-error">{{ errors[key] }}</p>{% endif %}{% endmacro %}
 {% set editor = 'hx-target="#item-editor" hx-swap="outerHTML"' %}
 <form id="item-editor" class="homebrew-form" novalidate data-unsaved-guard

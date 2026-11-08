@@ -1,12 +1,10 @@
-"""Ability score rules from the 2024 Player's Handbook."""
-
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class Ability:
-    column: str  # column on Character holding the base score
-    abbr: str  # "STR", also used in skills.ability and character_ability_bonuses.ability
+    column: str
+    abbr: str
     name: str
 
 
@@ -29,7 +27,7 @@ STANDARD_ARRAY = [15, 14, 13, 12, 10, 8]
 POINT_BUY_COSTS = {8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9}
 POINT_BUY_BUDGET = 27
 MANUAL_RANGE = (3, 18)
-MAX_SCORE = 20  # bonuses can't raise a score above this
+MAX_SCORE = 20
 
 
 def modifier(score: int) -> int:
@@ -41,12 +39,10 @@ def point_buy_cost(score: int | None) -> int:
 
 
 def point_buy_spent(scores: dict[str, int | None]) -> int:
-    """Points used so far, counting scores outside 8–15 as unpriced (they get their own error)."""
     return sum(point_buy_cost(s) for s in scores.values())
 
 
 def point_buy_step(scores: dict[str, int | None], column: str, delta: int) -> None:
-    """Move one score up or down by one, but only within 8–15 and the point budget."""
     current = scores.get(column) or 8
     new = current + delta
     if new not in POINT_BUY_COSTS:
@@ -57,7 +53,6 @@ def point_buy_step(scores: dict[str, int | None], column: str, delta: int) -> No
 
 
 def unassigned(pool: list[int], scores: dict[str, int | None]) -> list[int]:
-    """Pool values not yet given to an ability (a multiset difference, so duplicates count)."""
     left = list(pool)
     for score in scores.values():
         if score in left:
@@ -68,7 +63,6 @@ def unassigned(pool: list[int], scores: dict[str, int | None]) -> list[int]:
 def validate(
     method: str, scores: dict[str, int | None], rolls: list[int | None] | None = None
 ) -> dict[str, str]:
-    """Errors keyed by column, "rolls" for the manual pool, and "_form" for the set as a whole."""
     if method not in METHODS:
         return {"_form": "Choose how to set your scores."}
 
@@ -82,7 +76,6 @@ def validate(
             errors["_form"] = f"That costs {spent} points; you have {POINT_BUY_BUDGET}."
         return errors
 
-    # Standard array and manual both assign a pool of six values, each used once.
     if method == "standard_array":
         pool = STANDARD_ARRAY
     else:

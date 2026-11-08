@@ -18,7 +18,6 @@ def _picked(db, choice, character) -> dict[str, int]:
 
 
 def _manual(constitution: int) -> AbilityForm:
-    """Manual entry with every other score at 10."""
     rolls = [str(constitution)] + ["10"] * 5
     scores = dict.fromkeys(STANDARD, "10") | {"constitution": str(constitution)}
     return AbilityForm(method="manual", rolls=rolls, **scores)
@@ -36,11 +35,11 @@ def test_saving_a_standard_array(db, character):
 def test_a_constitution_change_moves_hit_points(db, character):
     play_state(db, character).current_hp = 5
 
-    assert service.save_scores(db, character, _manual(18)) == {}  # +2 CON modifier
+    assert service.save_scores(db, character, _manual(18)) == {}
     hp = hp_view(db, character)
     assert (hp.maximum, hp.current) == (10, 7)
 
-    assert service.save_scores(db, character, _manual(8)) == {}  # −1
+    assert service.save_scores(db, character, _manual(8)) == {}
     hp = hp_view(db, character)
     assert (hp.maximum, hp.current) == (5, 5)
 
@@ -65,8 +64,8 @@ def test_an_invalid_set_changes_nothing(db, character, form):
 @pytest.mark.parametrize(
     ("form", "amounts", "hp"),
     [
-        (IncreaseForm(plus2="CON", plus1="STR"), {"CON": 2, "STR": 1}, (9, 6)),  # CON 16
-        (IncreaseForm(split="even"), {"STR": 1, "DEX": 1, "CON": 1}, (8, 5)),  # CON 15
+        (IncreaseForm(plus2="CON", plus1="STR"), {"CON": 2, "STR": 1}, (9, 6)),
+        (IncreaseForm(split="even"), {"STR": 1, "DEX": 1, "CON": 1}, (8, 5)),
     ],
 )
 def test_saving_an_increase(db, character, increase, form, amounts, hp):
@@ -96,7 +95,7 @@ def test_someone_elses_character_is_not_found(client, theirs, increase):
 
 
 def test_only_the_characters_own_increases_are_found(client, db, character, wanderer):
-    skills = db.scalar(select(Choice).where(Choice.kind == "skill"))  # not an increase
+    skills = db.scalar(select(Choice).where(Choice.kind == "skill"))
     unchosen = db.scalar(select(Choice).join(Feature).where(Feature.background_id == wanderer.id))
     url = f"/characters/{character.id}/ability-increases"
 
@@ -124,7 +123,7 @@ def test_editing_scores_through_the_app(client, db, character):
 
 def test_an_increase_through_the_app(client, db, character, increase):
     url = f"/characters/{character.id}/ability-increases/{increase.id}"
-    assert f'hx-get="{url}"' in client.get(f"/characters/{character.id}").text  # its Choose button
+    assert f'hx-get="{url}"' in client.get(f"/characters/{character.id}").text
     response = client.get(url)
     assert response.status_code == 200 and f"increase-editor-{increase.id}" in response.text
 

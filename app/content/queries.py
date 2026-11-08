@@ -1,5 +1,3 @@
-"""Query helpers shared by everything that lists content."""
-
 from sqlalchemy import ColumnElement, Select, or_, select
 from sqlalchemy.orm import Session
 
@@ -8,17 +6,10 @@ from app.core.forms import parse_id
 
 
 def available(model) -> ColumnElement[bool]:
-    """Rows that can be newly picked: not retired from their pack. Characters keep rows they
-    already have, so only use this when offering options.
-
-    Visibility settings for homebrew will narrow this too, so every list of pickable content
-    should go through here."""
     return model.retired_at.is_(None)
 
 
 def visible(model, user_id: int) -> ColumnElement[bool]:
-    """Rows from published packs, plus this user's own homebrew. Other users' homebrew is
-    private."""
     sources = select(Source.id).where(
         or_(Source.owner_user_id.is_(None), Source.owner_user_id == user_id)
     )
@@ -26,7 +17,6 @@ def visible(model, user_id: int) -> ColumnElement[bool]:
 
 
 def available_row(db: Session, model, row_id: int | None, user_id: int | None = None):
-    """The row with this id if it can be picked, else None."""
     if row_id is None:
         return None
     where = [model.id == row_id, available(model)]
@@ -36,7 +26,6 @@ def available_row(db: Session, model, row_id: int | None, user_id: int | None = 
 
 
 def picked_row(db: Session, model, query: Select, key: str):
-    """`query` must be the one the list was built from: a form can post any id."""
     row_id = parse_id(key)
     if row_id is None:
         return None
@@ -44,5 +33,4 @@ def picked_row(db: Session, model, query: Select, key: str):
 
 
 def available_by_name(db: Session, model) -> list:
-    """Every available row of `model`, by name: the options for picking one."""
     return list(db.scalars(select(model).where(available(model)).order_by(model.name)))

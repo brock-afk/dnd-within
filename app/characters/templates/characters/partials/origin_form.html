@@ -1,7 +1,5 @@
 {% from "partials/refresh.html" import refresh_button %}
 {% from "partials/choices.html" import choice_grid %}
-{# Picking the character's species or background from `options` (OptionViews); `selected` is
-   the key shown as picked. #}
 <form hx-post="/characters/{{ character.id }}/{{ origin.name }}" hx-swap="outerHTML" novalidate
       class="choice-form{% if error %} has-error{% endif %}">
   <div class="choice-form-header">

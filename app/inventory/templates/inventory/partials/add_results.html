@@ -1,4 +1,3 @@
-{# Search results for the Add an item panel. `results` is [(item, detail)]. #}
 {% if query | trim | length < min_length %}
 {% if query %}<p class="muted">Keep typing…</p>{% endif %}
 {% elif not results %}

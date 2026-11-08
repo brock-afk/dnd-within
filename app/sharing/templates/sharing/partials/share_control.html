@@ -1,5 +1,3 @@
-{#- The owner's Share menu on the Play sheet: share the character read-only through a public
-    link, copy it, replace it (the old link stops working) or stop sharing. -#}
 {% set url = "/characters/%d/share" % character.id %}
 <details class="vital-menu share-menu" id="share-menu" data-popover data-popover-stays>
   <summary class="link-button">{{ "Shared" if share else "Share" }}</summary>

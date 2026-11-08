@@ -12,7 +12,6 @@ def test_modes_fill_only_their_own_parts(db, owner, stone_giant):
     assert view.copy is None
 
     assert sheet_view(db, owner, stone_giant, resting=True).hit_dice
-    # Stone's Endurance, offered before the damage lands.
     assert sheet_view(db, owner, stone_giant, pending_damage=5).reactions
 
 
@@ -36,7 +35,6 @@ def test_the_shared_view_links_within_the_share_and_hides_it(db, owner, characte
 
 def test_the_refreshed_view_shows_changes_made_since_loading(db, owner, character):
     sheet_view(db, owner, character)
-    # Changed in the database, not on the loaded object, like a relationship's row.
     db.execute(
         update(Character).where(Character.id == character.id).values(name="Renamed"),
         execution_options={"synchronize_session": False},
@@ -59,4 +57,4 @@ def test_the_sheet_through_the_app(client, character):
 
     response = client.post(f"{url}/hp", data={"action": "damage", "amount": "3"})
     assert response.headers["HX-Retarget"] == "#sheet-page"
-    assert "<strong>5</strong>" in response.text  # 8 max HP
+    assert "<strong>5</strong>" in response.text

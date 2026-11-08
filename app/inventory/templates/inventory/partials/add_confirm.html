@@ -1,5 +1,3 @@
-{# The confirm step for one item: how many, and for a scroll which spell. A pack lists what it
-   adds, since it's added as its contents. #}
 {% set base = "/characters/%d/sheet/inventory" % character.id %}
 <form hx-post="{{ base }}/add" hx-target="#add-step" novalidate class="copy-confirm">
   <input type="hidden" name="item_id" value="{{ item.id }}">

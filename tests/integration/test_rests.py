@@ -29,8 +29,6 @@ def test_long_rest_ends_max_hp_effects_and_restores_hp(db, character):
 
 @pytest.fixture
 def wand(db, charged_item):
-    """wand(character, regain, expended, attuned=True): 7 charges that regain `regain` dice at
-    dawn, `expended` of them spent."""
 
     def wand(character, regain, expended, attuned=True) -> Feature:
         uses = {"max": 7, "recharge": "dawn", "regain": regain}
@@ -53,18 +51,13 @@ def _expended_after_long_rest(db, character, charges) -> int | None:
 
 @pytest.mark.parametrize("attuned", [True, False])
 def test_long_rest_rolls_regain_attuned_or_not(db, character, wand, attuned):
-    # An item regains its charges at dawn whether or not it's attuned. 1d1+1 is always 2.
     charges = wand(character, "1d1+1", expended=6, attuned=attuned)
     assert _expended_after_long_rest(db, character, charges) == 4
 
 
 def test_long_rest_never_spends_charges(db, character, wand):
-    # 1d1-2 rolls -1: regains nothing rather than spending one.
     charges = wand(character, "1d1-2", expended=2)
     assert _expended_after_long_rest(db, character, charges) == 2
-
-
-# --- Hit dice -----------------------------------------------------------------------------
 
 
 def _hit_die(db, character) -> tuple[str, int]:
@@ -78,7 +71,7 @@ def test_a_hit_die_heals_by_the_roll_and_constitution(db, character):
 
     assert service.spend_hit_die(db, character, class_id, "3") is None
 
-    assert hp_view(db, character).current == 7  # 2 + 3 + CON 2
+    assert hp_view(db, character).current == 7
     assert _hit_die(db, character) == (class_id, 0)
     error = service.spend_hit_die(db, character, class_id, "3")
     assert error == "You have no hit dice left. They come back on a long rest."
@@ -96,15 +89,11 @@ def test_a_bad_hit_die_roll_changes_nothing(db, character, roll):
     assert _hit_die(db, character) == (class_id, 1)
 
 
-# --- Arcane Recovery ----------------------------------------------------------------------
-
-
 def _recovery(db, character):
     return next(u for u in feature_uses(db, character) if u.feature.slug == "arcane-recovery")
 
 
 def _state(db, character) -> tuple[int, int]:
-    """Level 1 slots left, and Arcane Recovery uses left."""
     return spell_slots(db, character)[1].remaining, _recovery(db, character).remaining
 
 
@@ -115,7 +104,6 @@ def test_arcane_recovery_recovers_a_slot(db, character):
     assert service.recover_slots(db, character, _recovery(db, character), form) is None
 
     assert _state(db, character) == (1, 0)
-    # Once it's used, that's the answer, whatever is asked for.
     form = RecoveryForm(level_1="2")
     error = service.recover_slots(db, character, _recovery(db, character), form)
     assert error == "Arcane Recovery is used. It comes back on a long rest."
@@ -138,9 +126,6 @@ def test_a_bad_recovery_changes_nothing(db, character, spent, count, error):
     assert service.recover_slots(db, character, _recovery(db, character), form) == error
 
     assert _state(db, character) == (2 - spent, 1)
-
-
-# --- Requests -----------------------------------------------------------------------------
 
 
 def test_someone_elses_rests_are_not_found(client, theirs):

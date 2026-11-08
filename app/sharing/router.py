@@ -35,8 +35,8 @@ def shared_build(
     return build_page(request, view)
 
 
-HEARTBEAT_SECONDS = 20  # keeps proxies from closing a quiet stream
-STREAM_SECONDS = 600  # then the browser reconnects (EventSource does it by itself)
+HEARTBEAT_SECONDS = 20
+STREAM_SECONDS = 600
 
 
 @router.get("/shared/{token}/events")

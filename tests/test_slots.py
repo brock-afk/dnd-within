@@ -1,6 +1,5 @@
 from app.sheet.slots import slot_kind, slot_maximums
 
-# 2024 Warlock table: Spell Slots and Slot Level at Warlock levels 1-20.
 PACT = [(1, 1), (2, 1), (2, 2), (2, 2), (2, 3), (2, 3), (2, 4), (2, 4), (2, 5), (2, 5)]
 PACT += [(3, 5)] * 6 + [(4, 5)] * 4
 

@@ -1,11 +1,3 @@
-"""Finding, parsing and validating content packs. Nothing here touches the database.
-
-A pack is a folder with a pack.yaml. Its files are parsed into the models in
-app/content/schema.py, then every reference (a spell's classes, a subclass's class, skill and
-spell choices) is checked against this pack and the packs it requires. Any problem makes the
-whole pack invalid, reported with the file it's in.
-"""
-
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -57,7 +49,6 @@ def content_dirs() -> list[Path]:
 
 
 def discover() -> list[Pack]:
-    """Every pack folder under the configured content paths, parsed and validated."""
     packs = []
     for root in content_dirs():
         if root.is_dir():
@@ -65,8 +56,6 @@ def discover() -> list[Pack]:
                 packs.append(_parse(pack_file.parent))
     by_slug = {p.slug: p for p in packs}
     for pack in packs:
-        # Check references even when some files failed to parse, so one run reports every
-        # problem instead of hiding broken references behind a typo elsewhere.
         if pack.meta is not None:
             _check_references(pack, by_slug)
     return packs
@@ -132,7 +121,6 @@ def _parse(folder: Path) -> Pack:
         row = _read(pack, file)
         if row is None or not (sub := _validate(pack, file, SubclassDef, row)):
             continue
-        # subclasses/<class>/x.yaml: the folder names the class, so a file can't be misfiled.
         class_slug = split_ref(sub.class_)[1]
         if file.parent.name != class_slug:
             pack.errors.append(
@@ -166,20 +154,12 @@ def _parse(folder: Path) -> Pack:
     return pack
 
 
-# --- References -----------------------------------------------------------------------------
-
-
 def split_ref(ref: str) -> tuple[str | None, str]:
-    """ "phb-2024/wizard" -> ("phb-2024", "wizard"); "wizard" -> (None, "wizard")."""
     pack, _, slug = ref.rpartition("/")
     return (pack or None), slug
 
 
 def resolve(ref: str, kind: str, pack: Pack, by_slug: dict[str, Pack]) -> str | None:
-    """The slug of the pack a reference points into, or None if it doesn't exist.
-
-    A plain slug is looked up in this pack first, then in the packs it requires, in order.
-    """
     pack_slug, slug = split_ref(ref)
     candidates = [pack_slug] if pack_slug else [pack.slug, *pack.meta.requires]
     for candidate in candidates:
@@ -246,10 +226,6 @@ def _check_references(pack: Pack, by_slug: dict[str, Pack]) -> None:
 
 
 def build_page_only(pack: Pack) -> list[str]:
-    """Features and options that will show only on the Build page, never on the Play sheet,
-    because nothing about them has a place there (see app/sheet/service.py:sheet_features):
-    no uses, picks, spells or grants, and no `action`, `when` or `sheet`. Usually a missing
-    tag; `sheet: none` marks the deliberate ones. A magic item's show in the Inventory."""
     shown_by = ("uses", "slot_recovery", "spends", "choices", "spells", "grants", "action", "when")
     option_shown_by = ("action", "when", "grants", "features", "damage_reaction")
     found = []
@@ -279,7 +255,6 @@ def build_page_only(pack: Pack) -> list[str]:
 
 
 def import_order(packs: list[Pack]) -> list[Pack]:
-    """Packs sorted so every pack comes after the packs it requires."""
     by_slug = {p.slug: p for p in packs}
     ordered, seen = [], set()
 

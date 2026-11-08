@@ -10,7 +10,7 @@ from app.features.service import remove_inapplicable_picks
 from app.inventory.form import CoinChangeForm, CoinForm
 from app.inventory.models import CharacterItem, Item
 from app.inventory.queries import HealingUse, coin_values, inventory, scroll_spells_query
-from app.inventory.rules import COINS, MAX_ATTUNED, MAX_COINS, gain, spend
+from app.inventory.rules import MAX_ATTUNED, MAX_COINS, Coin, CoinChange, ItemCategory, gain, spend
 from app.sheet import rules as sheet_rules
 from app.sheet.queries import active_ac_spell_ids, max_hp
 from app.sheet.service import apply_ac_spell, play_state
@@ -40,7 +40,7 @@ def _stack(db: Session, character: Character, item_id: int, quantity: int, spell
 def add_item(
     db: Session, character: Character, item: Item, quantity: int, spell: Spell | None = None
 ) -> str | None:
-    if item.category == "scroll":
+    if item.category == ItemCategory.SCROLL:
         if spell is None:
             return "Choose the spell on the scroll."
         if spell.level != item.spell_level:
@@ -157,30 +157,29 @@ def set_coins(db: Session, character: Character, values: dict[str, int]) -> None
 
 
 def change_coins(db: Session, character: Character, form: CoinChangeForm) -> str | None:
-    labels = dict(COINS)
-    if form.coin not in labels or form.action not in ("gain", "spend"):
+    if form.coin not in Coin or form.action not in CoinChange:
         return "Choose a coin, then Add or Spend."
     amount = form.count()
     if amount is None:
         return "Enter how many coins, e.g. 15."
-    coin, name = form.coin, labels[form.coin].lower()
+    coin = Coin(form.coin)
     current = coin_values(db, character)
-    if form.action == "gain":
+    if form.action == CoinChange.ADD:
         new = gain(current, coin, amount)
         if new[coin] > MAX_COINS:
-            return f"That's more than {MAX_COINS:,} {name}."
+            return f"That's more than {MAX_COINS:,} {coin.noun}."
     else:
         new = spend(current, coin, amount)
         if new is None:
-            return f"You don't have {amount:,} {name}, even breaking larger coins."
+            return f"You don't have {amount:,} {coin.noun}, even breaking larger coins."
     set_coins(db, character, new)
     return None
 
 
 def save_coins(db: Session, character: Character, form: CoinForm) -> str | None:
     values = form.values()
-    for column, label in COINS:
-        if values[column] is None:
-            return f"{label} is a whole number from 0 to {MAX_COINS:,}."
+    for coin in Coin:
+        if values[coin] is None:
+            return f"{coin.label} is a whole number from 0 to {MAX_COINS:,}."
     set_coins(db, character, values)
     return None

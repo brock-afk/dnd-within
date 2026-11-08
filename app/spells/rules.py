@@ -1,5 +1,6 @@
 from enum import StrEnum
 
+from app.core.enums import LabeledEnum
 from app.features.rules import Action
 
 
@@ -15,7 +16,7 @@ class CastingUnit(StrEnum):
         return Action(self) if self in Action else None
 
 
-class School(StrEnum):
+class School(LabeledEnum):
     ABJURATION = "abjuration"
     CONJURATION = "conjuration"
     DIVINATION = "divination"
@@ -24,10 +25,6 @@ class School(StrEnum):
     ILLUSION = "illusion"
     NECROMANCY = "necromancy"
     TRANSMUTATION = "transmutation"
-
-    @property
-    def label(self) -> str:
-        return self.name.title()
 
 
 class DurationKind(StrEnum):
@@ -44,17 +41,13 @@ class DurationUnit(StrEnum):
     DAY = "day"
 
 
-class RangeKind(StrEnum):
+class RangeKind(LabeledEnum):
     SELF = "self"
     TOUCH = "touch"
     DISTANCE = "distance"
     SIGHT = "sight"
     UNLIMITED = "unlimited"
     SPECIAL = "special"
-
-    @property
-    def label(self) -> str:
-        return self.name.title()
 
 
 class AreaShape(StrEnum):

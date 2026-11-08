@@ -147,7 +147,9 @@ def feature_groups(db: Session, character: Character) -> list[FeatureGroup]:
         features = by_character_level(Feature.item_id, item_id)
         if features:
             item = db.get(Item, item_id)
-            groups.append(FeatureGroup(item.name, "Magic item", [FeatureSection("", features)]))
+            groups.append(
+                FeatureGroup(item.name, item.category.label, [FeatureSection("", features)])
+            )
 
     for cc in character.classes:
         class_features = db.scalars(

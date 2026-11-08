@@ -9,20 +9,16 @@ from app.content.queries import picked_row
 from app.content.schema import DICE, ItemDef
 from app.core.forms import parse_amount, parse_id
 from app.features.rules import Action
-from app.inventory.rules import TOOLS
+from app.inventory.rules import TOOLS, ItemCategory, Rarity
 from app.spells.models import Spell
 from app.spells.queries import pickable_spells
 
-CATEGORIES = {"magic": "Magic item", "gear": "Gear", "consumable": "Consumable", "tool": "Tool"}
-RARITIES = {
-    "": "No rarity",
-    "common": "Common",
-    "uncommon": "Uncommon",
-    "rare": "Rare",
-    "very_rare": "Very rare",
-    "legendary": "Legendary",
-    "artifact": "Artifact",
-}
+HOMEBREW_CATEGORIES = (
+    ItemCategory.MAGIC_ITEM,
+    ItemCategory.GEAR,
+    ItemCategory.CONSUMABLE,
+    ItemCategory.TOOL,
+)
 RECHARGES = {"dawn": "At dawn", "long_rest": "On a long rest", "short_rest": "On a short rest"}
 PREPARED = {"no": "No: charges only", "yes": "Yes: also cast with spell slots"}
 TOOL_MODES = {"none": "None", "fixed": "A set tool", "choice": "Chosen on the Play sheet"}
@@ -55,7 +51,7 @@ _ACTION_WORDS = (
 
 class ItemForm(BaseModel):
     name: str = ""
-    category: str = "magic"
+    category: str = ItemCategory.MAGIC_ITEM
     rarity: str = ""
     attunement: str = ""
     summary: str = ""
@@ -177,9 +173,9 @@ def build_item_def(
     summary = form.summary.strip()
     if not summary or len(summary) > 255:
         errors["summary"] = "Describe it in a sentence (up to 255 characters); it's shown in lists."
-    if form.category not in CATEGORIES:
+    if form.category not in HOMEBREW_CATEGORIES:
         errors["category"] = "Choose a type."
-    if form.rarity not in RARITIES:
+    if form.rarity and form.rarity not in Rarity:
         errors["rarity"] = "Choose a rarity."
     if form.healing.strip() and not DICE.match(form.healing):
         errors["healing"] = "Healing is dice like 2d4+2, or a number (up to 999)."

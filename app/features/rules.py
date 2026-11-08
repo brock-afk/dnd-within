@@ -1,11 +1,7 @@
-from enum import StrEnum
+from app.core.enums import LabeledEnum
 
 
-class Action(StrEnum):
+class Action(LabeledEnum):
     ACTION = "action"
     BONUS_ACTION = "bonus_action"
     REACTION = "reaction"
-
-    @property
-    def label(self) -> str:
-        return self.name.replace("_", " ").title()

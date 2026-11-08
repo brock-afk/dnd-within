@@ -1,5 +1,5 @@
 {% set base = "/characters/%d/sheet/inventory" % character.id %}
-{% set choice = coin_choice | default("gp") %}
+{% set choice = coin_choice | default(Coin.GOLD) %}
 <div id="coins" class="coins">
   <span class="coins-total{% if not coin_summary %} muted{% endif %}">{{ coin_summary or "No coins" }}</span>
 {% if not read_only %}
@@ -7,14 +7,14 @@
     <input type="text" name="amount" inputmode="numeric" maxlength="7" autocomplete="off"
            value="{{ coin_amount | default('') }}" placeholder="0" aria-label="How many coins">
     <select name="coin" aria-label="Coin">
-      {% for column, label in coin_labels %}
-      <option value="{{ column }}" {% if column == choice %}selected{% endif %}>{{ label }}</option>
+      {% for coin in Coin %}
+      <option value="{{ coin }}" {% if coin == choice %}selected{% endif %}>{{ coin.label }}</option>
       {% endfor %}
     </select>
-    {% for action, label in [("gain", "Add"), ("spend", "Spend")] %}
+    {% for change in CoinChange %}
     <button type="button" class="secondary-button small-button" hx-post="{{ base }}/coins/change"
-            hx-include="closest .coin-change" hx-vals='{"action": "{{ action }}"}'
-            hx-target="#coins" hx-swap="outerHTML">{{ label }}</button>
+            hx-include="closest .coin-change" hx-vals='{"action": "{{ change }}"}'
+            hx-target="#coins" hx-swap="outerHTML">{{ change.label }}</button>
     {% endfor %}
   </div>
 {% endif %}

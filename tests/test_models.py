@@ -34,6 +34,16 @@ def test_nullable_json_columns_store_sql_null():
             " CHECK (action IN ('action', 'bonus_action', 'reaction'))",
         ),
         (
+            "items",
+            "ck_items_category_values"
+            " CHECK (category IN ('gear', 'consumable', 'pack', 'scroll', 'tool', 'magic'))",
+        ),
+        (
+            "items",
+            "ck_items_rarity_values CHECK (rarity IN"
+            " ('common', 'uncommon', 'rare', 'very_rare', 'legendary', 'artifact'))",
+        ),
+        (
             "spells",
             "ck_spells_casting_unit_values"
             " CHECK (casting_unit IN ('action', 'bonus_action', 'reaction', 'minute', 'hour'))",

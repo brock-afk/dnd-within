@@ -8,7 +8,7 @@ from app.content.queries import available, available_row, visible
 from app.core.forms import parse_id
 from app.features.models import Feature
 from app.inventory.models import CharacterItem, Item
-from app.inventory.rules import COINS
+from app.inventory.rules import Coin, ItemCategory
 from app.sheet.models import CharacterPlayState
 from app.spells.models import Spell
 from app.spells.queries import pickable_spells
@@ -68,14 +68,12 @@ SEARCH_LIMIT = 20
 def price(cost_cp: int | None) -> str:
     if cost_cp is None:
         return ""
-    for coin, value in [("gold", 100), ("silver", 10)]:
-        if cost_cp % value == 0:
-            return f"{cost_cp // value} {coin}"
-    return f"{cost_cp} copper"
+    coin = next(c for c in (Coin.GOLD, Coin.SILVER, Coin.COPPER) if cost_cp % c.copper == 0)
+    return f"{cost_cp // coin.copper} {coin.noun}"
 
 
 def item_detail(item: Item) -> str:
-    rarity = (item.rarity or "").replace("_", " ").capitalize()
+    rarity = item.rarity.label if item.rarity else ""
     return " · ".join(part for part in [rarity, price(item.cost_cp)] if part)
 
 
@@ -151,7 +149,9 @@ def add_confirmation(
         item=item,
         detail=item_detail(item),
         contents=pack_contents(db, item),
-        spells=scroll_spells(db, item, character.user_id) if item.category == "scroll" else [],
+        spells=scroll_spells(db, item, character.user_id)
+        if item.category == ItemCategory.SCROLL
+        else [],
         query=query,
         quantity=quantity,
         spell_id=spell_id,
@@ -163,14 +163,12 @@ def coins(db: Session, character: Character) -> CharacterPlayState | None:
 
 
 def coin_summary(values: dict[str, int]) -> str:
-    return ", ".join(
-        f"{values[column]:,} {label.lower()}" for column, label in COINS if values[column]
-    )
+    return ", ".join(f"{values[coin]:,} {coin.noun}" for coin in Coin if values[coin])
 
 
 def coin_values(db: Session, character: Character) -> dict[str, int]:
     state = coins(db, character)
-    return {column: getattr(state, column) if state else 0 for column, _ in COINS}
+    return {coin: getattr(state, coin) if state else 0 for coin in Coin}
 
 
 def digest(db: Session, character: Character, rows: list[CharacterItem]) -> str:
@@ -187,7 +185,7 @@ class CoinsBlockView:
 
 
 def coins_block_view(
-    db: Session, character: Character, amount: str = "", coin: str = "gp"
+    db: Session, character: Character, amount: str = "", coin: str = Coin.GOLD
 ) -> CoinsBlockView:
     return CoinsBlockView(coin_summary(coin_values(db, character)), amount, coin)
 

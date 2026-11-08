@@ -5,7 +5,6 @@ from app.characters.models import Character
 from app.core.templates import templates, view_context
 from app.inventory.models import CharacterItem
 from app.inventory.queries import AddConfirmView, CoinsBlockView, CoinsFormView, ItemSearchView
-from app.inventory.rules import COINS
 
 
 def _partial(request: Request, name: str, context: dict, error: str | None = None) -> HTMLResponse:
@@ -36,12 +35,12 @@ def remove_confirm(request: Request, character: Character, row: CharacterItem) -
 def coins_block(
     request: Request, character: Character, view: CoinsBlockView, error: str | None = None
 ) -> HTMLResponse:
-    context = view_context(view, character=character, coin_labels=COINS, coin_error=error)
+    context = view_context(view, character=character, coin_error=error)
     return _partial(request, "coins_block", context, error)
 
 
 def coins_form(
     request: Request, character: Character, view: CoinsFormView, error: str | None = None
 ) -> HTMLResponse:
-    context = view_context(view, character=character, coin_labels=COINS, error=error)
+    context = view_context(view, character=character, error=error)
     return _partial(request, "coins_form", context, error)

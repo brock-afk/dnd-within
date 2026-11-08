@@ -24,11 +24,14 @@ def visible(model, user_id: int) -> ColumnElement[bool]:
     return model.source_id.in_(sources)
 
 
-def available_row(db: Session, model, row_id: int | None):
+def available_row(db: Session, model, row_id: int | None, user_id: int | None = None):
     """The row with this id if it can be picked, else None."""
     if row_id is None:
         return None
-    return db.scalar(select(model).where(model.id == row_id, available(model)))
+    where = [model.id == row_id, available(model)]
+    if user_id is not None:
+        where.append(visible(model, user_id))
+    return db.scalar(select(model).where(*where))
 
 
 def available_by_name(db: Session, model) -> list:

@@ -26,3 +26,10 @@ def test_parse_amount_rejects_anything_else(raw):
 @pytest.mark.parametrize("raw, expected", [("100", 100), ("-1", -1), ("x", None), ("12345", None)])
 def test_parse_int_checks_only_the_form(raw, expected):
     assert parse_int(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw, expected", [("1000000", 1_000_000), ("0005", 5), ("10000000", None), ("²", None)]
+)
+def test_parse_amount_allows_the_digits_its_bounds_need(raw, expected):
+    assert parse_amount(raw, 0, 1_000_000) == expected

@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.content.models import Source
 from app.content.schema import DICE, ItemDef
-from app.core.forms import parse_id
+from app.core.forms import parse_amount, parse_id
 from app.inventory.rules import TOOLS
 from app.spells.models import Spell
 
@@ -146,8 +146,9 @@ class ItemForm(BaseModel):
         """Apply Add spell / Add ability / Remove from the editor's buttons."""
         kind, _, index = self.remove_row.partition(":")
         rows = {"spell": self.spell_rows(), "ability": self.ability_rows()}
-        if kind in rows and index.isdigit() and int(index) < len(rows[kind]):
-            del rows[kind][int(index)]
+        position = parse_id(index)
+        if kind in rows and position is not None and position < len(rows[kind]):
+            del rows[kind][position]
         if self.add_row == "spell":
             rows["spell"].append(["", "1", "no", ""])
         elif self.add_row == "ability":
@@ -172,13 +173,12 @@ def slugify(text: str) -> str:
 
 
 def _number(raw: str, low: int, high: int, label: str, errors: dict, key: str) -> int | None:
-    raw = raw.strip()
-    if not raw:
+    if not raw.strip():
         return None
-    if not raw.isdigit() or not low <= int(raw) <= high:
+    value = parse_amount(raw, low, high)
+    if value is None:
         errors[key] = f"{label} is a whole number from {low} to {high}."
-        return None
-    return int(raw)
+    return value
 
 
 def _regain_text(form: ItemForm) -> str:

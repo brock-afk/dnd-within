@@ -1,7 +1,13 @@
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
-from app.spells.models import CharacterSpell, SpellbookEntry
+from app.content.queries import available, visible
+from app.spells.models import CharacterSpell, Spell, SpellbookEntry
+
+
+def pickable_spells(user_id: int) -> Select[tuple[Spell]]:
+    """Homebrew is private, so the user is always needed."""
+    return select(Spell).where(available(Spell), visible(Spell, user_id))
 
 
 def character_spells(db: Session, character_id: int) -> list[CharacterSpell]:

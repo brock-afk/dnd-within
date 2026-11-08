@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 
 from app.characters.models import Character
 from app.core.templates import morph_in_place, templates, view_context
-from app.inventory.queries import COINS, MAX_ATTUNED
+from app.inventory.rules import COINS, MAX_ATTUNED
 from app.sheet.queries import CopyConfirmView, CopySearchView, PreparedEditorView, SheetView
 
 SHEET_SELECTOR = "#sheet-page"

@@ -41,6 +41,7 @@ from app.sheet.queries import (
 )
 from app.spells.models import Spell, SpellbookEntry
 from app.spells.queries import spellbook
+from app.spells.rules import AcquiredVia, DurationKind, DurationUnit, SlotKind
 
 
 def play_state(db: Session, character: Character) -> CharacterPlayState:
@@ -66,10 +67,10 @@ def tracking_max_hp(db: Session, character: Character, heal: bool) -> Iterator[N
 
 def _ends_on_long_rest(spell: Spell) -> bool:
     duration = spell.details.get("duration", {})
-    if duration.get("kind") != "timed":
+    if duration.get("kind") != DurationKind.TIMED:
         return False
-    return duration["unit"] in ("round", "minute") or (
-        duration["unit"] == "hour" and duration["amount"] <= 8
+    return duration["unit"] in (DurationUnit.ROUND, DurationUnit.MINUTE) or (
+        duration["unit"] == DurationUnit.HOUR and duration["amount"] <= 8
     )
 
 
@@ -259,7 +260,7 @@ def save_prepared(db: Session, character: Character, picks: list[str]) -> str | 
 
 def remove_copied_spell(db: Session, character: Character, key: str) -> str | None:
     entry = next((e for e in spellbook(db, character.id) if str(e.spell_id) == key), None)
-    if entry is None or entry.acquired_via != "copied":
+    if entry is None or entry.acquired_via != AcquiredVia.COPIED:
         return "Only copied spells can be removed here. Change level-up spells on the Build page."
     db.delete(entry)
     db.flush()
@@ -304,7 +305,7 @@ def copy_spell(db: Session, character: Character, spell: str, note: str) -> str 
         SpellbookEntry(
             character_id=character.id,
             spell_id=found.id,
-            acquired_via="copied",
+            acquired_via=AcquiredVia.COPIED,
             source_note=note.strip()[:120] or None,
         )
     )
@@ -388,7 +389,8 @@ def recover_slots(
 def finish_short_rest(db: Session, character: Character) -> None:
     db.execute(
         delete(CharacterSpellSlot).where(
-            CharacterSpellSlot.character_id == character.id, CharacterSpellSlot.kind == "pact"
+            CharacterSpellSlot.character_id == character.id,
+            CharacterSpellSlot.kind == SlotKind.PACT,
         )
     )
     for uses in feature_uses(db, character):

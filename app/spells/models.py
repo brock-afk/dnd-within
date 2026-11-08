@@ -14,8 +14,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.classes.models import CharacterClass
 from app.content.models import ContentMixin
-from app.core.db import Base
-from app.features.rules import Action
+from app.core.db import Base, enum_column
+from app.spells.rules import AcquiredVia, CastingUnit, RangeKind, School
 
 class_spells = Table(
     "class_spells",
@@ -30,18 +30,16 @@ class Spell(ContentMixin, Base):
     __table_args__ = (
         UniqueConstraint("source_id", "slug"),
         CheckConstraint("level BETWEEN 0 AND 9", name="level_range"),
-        CheckConstraint(
-            "casting_unit IN ('action', 'bonus_action', 'reaction', 'minute', 'hour')",
-            name="casting_unit_values",
-        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     slug: Mapped[str] = mapped_column(String(80))
     name: Mapped[str] = mapped_column(String(80))
     level: Mapped[int]
-    school: Mapped[str] = mapped_column(String(20))
-    casting_unit: Mapped[str] = mapped_column(String(20))
+    school: Mapped[School] = mapped_column(enum_column(School, 20, check="school_values"))
+    casting_unit: Mapped[CastingUnit] = mapped_column(
+        enum_column(CastingUnit, 20, check="casting_unit_values")
+    )
     concentration: Mapped[bool] = mapped_column(default=False)
     ritual: Mapped[bool] = mapped_column(default=False)
     summary: Mapped[str] = mapped_column(String(255))
@@ -52,7 +50,8 @@ class Spell(ContentMixin, Base):
 
     @property
     def stat_line(self) -> str:
-        parts = [self.school.title(), _casting_label(self.details.get("casting_time", {}))]
+        amount = self.details.get("casting_time", {}).get("amount", 1)
+        parts = [self.school.label, _casting_label(self.casting_unit, amount)]
         parts.append(_range_label(self.details.get("range", {}), self.details.get("area")))
         return " · ".join(p for p in parts if p)
 
@@ -66,20 +65,19 @@ class Spell(ContentMixin, Base):
         return " · ".join(parts)
 
 
-def _casting_label(casting: dict) -> str:
-    unit, amount = casting.get("unit"), casting.get("amount", 1)
-    if unit in ("minute", "hour"):
-        return f"{amount} {unit}{'s' if amount != 1 else ''}"
-    return Action(unit).label if unit in Action else ""
+def _casting_label(unit: CastingUnit, amount: int) -> str:
+    if action := unit.action:
+        return action.label
+    return f"{amount} {unit}{'s' if amount != 1 else ''}"
 
 
 def _range_label(rng: dict, area: dict | None) -> str:
     kind = rng.get("kind")
-    if kind == "distance":
+    if kind == RangeKind.DISTANCE:
         label = f"{rng['feet']} ft" if rng.get("feet") else f"{rng.get('miles')} miles"
     else:
-        label = (kind or "").title()
-    if area and kind == "self":
+        label = RangeKind(kind).label if kind in RangeKind else ""
+    if area and kind == RangeKind.SELF:
         label += f" ({area['feet']}-ft {area['shape']})"
     return label
 
@@ -98,17 +96,14 @@ class CharacterSpell(Base):
 
 class SpellbookEntry(Base):
     __tablename__ = "spellbook_entries"
-    __table_args__ = (
-        UniqueConstraint("character_id", "spell_id"),
-        CheckConstraint(
-            "acquired_via IN ('level_up', 'feature', 'copied')", name="acquired_via_values"
-        ),
-    )
+    __table_args__ = (UniqueConstraint("character_id", "spell_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     character_id: Mapped[int] = mapped_column(ForeignKey("characters.id", ondelete="CASCADE"))
     spell_id: Mapped[int] = mapped_column(ForeignKey("spells.id"))
-    acquired_via: Mapped[str] = mapped_column(String(20))
+    acquired_via: Mapped[AcquiredVia] = mapped_column(
+        enum_column(AcquiredVia, 20, check="acquired_via_values")
+    )
     choice_id: Mapped[int | None] = mapped_column(ForeignKey("choices.id"))
     source_note: Mapped[str | None] = mapped_column(String(120))
 

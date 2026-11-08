@@ -3,8 +3,8 @@ from enum import StrEnum
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import JSON, Enum, MetaData, create_engine
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy import JSON, Enum, MetaData, create_engine, event
+from sqlalchemy.orm import DeclarativeBase, Mapper, Session, sessionmaker
 
 from app.core.config import settings
 
@@ -47,6 +47,22 @@ def enum_column(values: type[StrEnum], length: int, check: str) -> Enum:
         values_callable=lambda members: [member.value for member in members],
         validate_strings=True,
     )
+
+
+@event.listens_for(Mapper, "mapper_configured")
+def _enum_attributes_hold_members(mapper: Mapper, cls: type) -> None:
+    for prop in mapper.column_attrs:
+        column_type = prop.columns[0].type
+        if isinstance(column_type, Enum) and column_type.enum_class is not None:
+            to_member = _member_of(column_type.enum_class)
+            event.listen(getattr(cls, prop.key), "set", to_member, retval=True)
+
+
+def _member_of(enum_class: type[StrEnum]):
+    def to_member(target, value, oldvalue, initiator):
+        return value if value is None else enum_class(value)
+
+    return to_member
 
 
 def release_connection(db: Session) -> None:

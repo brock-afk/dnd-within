@@ -17,6 +17,7 @@ from app.features.kinds import (
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.inventory.models import CharacterItem, Item
 from app.spells.models import Spell
+from app.spells.rules import School
 
 
 @dataclass
@@ -283,7 +284,7 @@ class ChoiceFormView:
     level_label: str
     count: int
     options: list[OptionView]
-    filter_schools: list[str]
+    filter_schools: list[School]
     known: dict[str, str]
     noun: tuple[str, str]
     selected: list[str]

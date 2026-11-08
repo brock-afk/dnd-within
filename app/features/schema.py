@@ -1,10 +1,11 @@
 import re
-from typing import Annotated, Any, Literal, get_args
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.abilities.rules import Ability
 from app.features.rules import Action
+from app.spells.rules import AcquiredVia, School
 
 DICE = re.compile(r"^\d{1,3}d\d{1,3}$")
 DICE_BONUS = re.compile(r"^\s*\d{1,3}d\d{1,3}(\s*[+-]\s*\d{1,3})?\s*$")
@@ -34,17 +35,7 @@ DamageType = Literal[
     "thunder",
 ]
 
-School = Literal[
-    "abjuration",
-    "conjuration",
-    "divination",
-    "enchantment",
-    "evocation",
-    "illusion",
-    "necromancy",
-    "transmutation",
-]
-
+SPELLBOOK_PICK_SOURCES = (AcquiredVia.LEVEL_UP, AcquiredVia.FEATURE)
 SPELL_CRITERIA = {"class", "level", "max_level", "school", "ritual", "acquired_via"}
 
 
@@ -216,13 +207,12 @@ class ChoiceDef(BaseModel):
             if max_level == "class_slots" and self.kind == "spellbook":
                 raise ValueError(f"{self.slug}: 'class_slots' is for spell choices only")
             school = self.criteria.get("school")
-            if school is not None and school not in get_args(School):
+            if school is not None and school not in School:
                 raise ValueError(f"{self.slug}: unknown school {school!r}")
             via = self.criteria.get("acquired_via")
-            if via is not None and (self.kind != "spellbook" or via not in ("level_up", "feature")):
-                raise ValueError(
-                    f"{self.slug}: 'acquired_via' is for spellbook choices: level_up or feature"
-                )
+            if via is not None and (self.kind != "spellbook" or via not in SPELLBOOK_PICK_SOURCES):
+                allowed = " or ".join(SPELLBOOK_PICK_SOURCES)
+                raise ValueError(f"{self.slug}: 'acquired_via' is for spellbook choices: {allowed}")
         return self
 
 

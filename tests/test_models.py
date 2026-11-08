@@ -33,6 +33,25 @@ def test_nullable_json_columns_store_sql_null():
             "ck_choice_options_action_values"
             " CHECK (action IN ('action', 'bonus_action', 'reaction'))",
         ),
+        (
+            "spells",
+            "ck_spells_casting_unit_values"
+            " CHECK (casting_unit IN ('action', 'bonus_action', 'reaction', 'minute', 'hour'))",
+        ),
+        (
+            "spells",
+            "ck_spells_school_values CHECK (school IN ('abjuration', 'conjuration', 'divination',"
+            " 'enchantment', 'evocation', 'illusion', 'necromancy', 'transmutation'))",
+        ),
+        (
+            "character_spell_slots",
+            "ck_character_spell_slots_kind_values CHECK (kind IN ('spellcasting', 'pact'))",
+        ),
+        (
+            "spellbook_entries",
+            "ck_spellbook_entries_acquired_via_values"
+            " CHECK (acquired_via IN ('level_up', 'feature', 'copied'))",
+        ),
     ],
 )
 def test_enum_check_constraints_match_their_migrations(table, check):

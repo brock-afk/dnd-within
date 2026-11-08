@@ -7,13 +7,23 @@ from app.abilities.rules import Ability
 from app.features.schema import (
     DamageType,
     FeatureDef,
-    School,
     Slug,
     Text50,
     Text80,
     Text120,
     Text255,
     spends_errors,
+)
+from app.spells.rules import (
+    AreaShape,
+    AttackKind,
+    CastingUnit,
+    DurationKind,
+    DurationUnit,
+    RangeKind,
+    SaveOutcome,
+    School,
+    SlotProgression,
 )
 
 DICE = re.compile(r"^\s*(\d{1,3}d\d{1,3}(\s*[+-]\s*\d{1,3})?|\d{1,3})\s*$")
@@ -55,7 +65,7 @@ class Spellcasting(Strict):
     ability: Ability
     prepared: Annotated[list[int], Field(min_length=20, max_length=20)] | None = None
     ritual_casting: Literal["prepared", "spellbook"] = "prepared"
-    slots: Literal["full", "pact"] = "full"
+    slots: SlotProgression = SlotProgression.FULL
 
 
 class ClassDef(Strict):
@@ -165,32 +175,32 @@ class ItemDef(Strict):
 
 
 class CastingTime(Strict):
-    unit: Literal["action", "bonus_action", "reaction", "minute", "hour"]
+    unit: CastingUnit
     amount: int = Field(default=1, ge=1)
     trigger: str | None = None
 
     @model_validator(mode="after")
     def check(self):
-        if (self.unit == "reaction") != (self.trigger is not None):
+        if (self.unit == CastingUnit.REACTION) != (self.trigger is not None):
             raise ValueError("reactions need a trigger, and only reactions have one")
         return self
 
 
 class Range(Strict):
-    kind: Literal["self", "touch", "distance", "sight", "unlimited", "special"]
+    kind: RangeKind
     feet: int | None = None
     miles: int | None = None
 
     @model_validator(mode="after")
     def check(self):
         has_distance = self.feet is not None or self.miles is not None
-        if (self.kind == "distance") != has_distance:
+        if (self.kind == RangeKind.DISTANCE) != has_distance:
             raise ValueError("a distance range needs feet or miles, and only it has them")
         return self
 
 
 class Area(Strict):
-    shape: Literal["cone", "cube", "cylinder", "emanation", "line", "sphere", "square"]
+    shape: AreaShape
     feet: int
     width_feet: int | None = None
     height_feet: int | None = None
@@ -209,25 +219,25 @@ class Components(Strict):
 
 
 class Duration(Strict):
-    kind: Literal["instantaneous", "timed", "until_dispelled", "special"]
+    kind: DurationKind
     amount: int | None = None
-    unit: Literal["round", "minute", "hour", "day"] | None = None
+    unit: DurationUnit | None = None
     note: str | None = None
 
     @model_validator(mode="after")
     def check(self):
-        if (self.kind == "timed") != (self.amount is not None and self.unit is not None):
+        if (self.kind == DurationKind.TIMED) != (self.amount is not None and self.unit is not None):
             raise ValueError("a timed duration needs amount and unit, and only it has them")
         return self
 
 
 class Save(Strict):
     ability: Ability
-    on_success: Literal["half", "none", "special"]
+    on_success: SaveOutcome
 
 
 class Attack(Strict):
-    kind: Literal["melee", "ranged"]
+    kind: AttackKind
 
 
 class Damage(Strict):
@@ -313,9 +323,12 @@ class SpellDef(Strict):
             raise ValueError("only cantrips have cantrip_scaling")
         if self.higher_slots and self.level == 0:
             raise ValueError("cantrips don't use higher_slots")
-        if self.concentration and self.duration.kind != "timed":
+        if self.concentration and self.duration.kind != DurationKind.TIMED:
             raise ValueError("concentration spells need a timed duration")
-        too_short = self.duration.kind == "instantaneous" or self.duration.unit == "round"
+        too_short = (
+            self.duration.kind == DurationKind.INSTANTANEOUS
+            or self.duration.unit == DurationUnit.ROUND
+        )
         if self.ac_effect and too_short:
             raise ValueError("ac_effect is for spells lasting a minute or more")
         return self

@@ -8,7 +8,7 @@
   <li class="copy-result{% if known %} known{% endif %}">
     <div>
       <span class="choice-name">{{ spell.name }}</span>
-      <span class="muted">Level {{ spell.level }} · {{ spell.school | title }}</span>
+      <span class="muted">Level {{ spell.level }} · {{ spell.school.label }}</span>
       {% for w in warnings %}<span class="spell-tag warning">{{ w }}</span>{% endfor %}
     </div>
     {% if known %}

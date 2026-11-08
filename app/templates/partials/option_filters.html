@@ -6,7 +6,7 @@
          autocomplete="off">
   <select data-filter="school" aria-label="School" autocomplete="off">
     <option value="">All schools</option>
-    {% for school in schools %}<option value="{{ school }}">{{ school | title }}</option>{% endfor %}
+    {% for school in schools %}<option value="{{ school }}">{{ school.label }}</option>{% endfor %}
   </select>
   <select data-filter="ritual" aria-label="Rituals" autocomplete="off">
     <option value="">All, rituals included</option>

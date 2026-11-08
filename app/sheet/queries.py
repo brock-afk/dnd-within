@@ -48,10 +48,10 @@ from app.sheet.models import (
     CharacterSpellSlot,
 )
 from app.sheet.rules import current_hp, proficiency_bonus, skill_bonus, uses_maximum
-from app.sheet.slots import slot_kind, slot_maximums
 from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.spells.models import Spell
 from app.spells.queries import character_spells, pickable_spells, spellbook
+from app.spells.rules import AcquiredVia, School, SlotKind, SlotProgression, slot_maximums
 
 
 @dataclass
@@ -247,7 +247,7 @@ def _uses_group(uses: FeatureUses) -> Action | str | None:
         return None
     units = {fs.spell.casting_unit for fs in feature.spells if fs.free_cast}
     unit = units.pop() if len(units) == 1 else None
-    return Action(unit) if unit in Action else None
+    return unit.action if unit else None
 
 
 def sheet_features(
@@ -653,7 +653,7 @@ class SlotLevel:
     level: int
     maximum: int
     expended: int
-    kind: str = "spellcasting"
+    kind: SlotKind = SlotKind.SPELLCASTING
 
     @property
     def remaining(self) -> int:
@@ -665,8 +665,8 @@ def spell_slots(db: Session, character: Character) -> dict[int, SlotLevel]:
     if not found:
         return {}
     class_level, spellcasting = found
-    progression = spellcasting.get("slots", "full")
-    kind = slot_kind(progression)
+    progression = SlotProgression(spellcasting.get("slots", SlotProgression.FULL))
+    kind = progression.slot_kind
     used = {
         row.slot_level: row.expended
         for row in db.scalars(
@@ -724,11 +724,11 @@ def copy_warnings(db: Session, character: Character, spells: list[Spell]) -> dic
 def spellbook_notes(db: Session, character: Character) -> dict[int, str]:
     notes = {}
     for entry in spellbook(db, character.id):
-        if entry.acquired_via == "copied":
+        if entry.acquired_via == AcquiredVia.COPIED:
             notes[entry.spell_id] = " · ".join(
                 filter(None, ["Copied to spellbook", entry.source_note])
             )
-        elif entry.acquired_via == "feature" and entry.choice_id is not None:
+        elif entry.acquired_via == AcquiredVia.FEATURE and entry.choice_id is not None:
             notes[entry.spell_id] = f"From {db.get(Choice, entry.choice_id).feature.name}"
     return notes
 
@@ -968,7 +968,7 @@ class PreparedEditorView:
     selected: list[str]
     known: dict[str, str]
     limit: int | None
-    filter_schools: list[str]
+    filter_schools: list[School]
     asking: str
 
 
@@ -987,7 +987,7 @@ def prepared_editor_view(
             KINDS["spell"].view(entry.spell),
             warnings=tuple(warnings.get(entry.spell_id, [])),
             note=notes.get(entry.spell_id, ""),
-            removable=entry.acquired_via == "copied",
+            removable=entry.acquired_via == AcquiredVia.COPIED,
         )
         for entry in book
     ]

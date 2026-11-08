@@ -19,6 +19,7 @@ from app.skills.queries import character_skills, expertise_skill_ids
 from app.species.models import Species
 from app.spells.models import SpellbookEntry
 from app.spells.queries import spellbook
+from app.spells.rules import AcquiredVia
 
 
 def pending_choices(groups: list[FeatureGroup]) -> list[ChoiceView]:
@@ -123,7 +124,7 @@ def build_page_view(
         copied=[
             (entry, warnings.get(entry.spell_id, []))
             for entry in spellbook(db, character.id)
-            if entry.acquired_via == "copied"
+            if entry.acquired_via == AcquiredVia.COPIED
         ],
     )
 

@@ -5,6 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.testclient import TestClient
 
+from app.auth.dependencies import get_limiter
+from app.auth.limits import AttemptLimiter, auth_attempts
 from app.auth.models import User
 from app.auth.security import hash_password
 from app.backgrounds.models import Background
@@ -143,6 +145,14 @@ def stone_giant(db, character) -> Character:
     )
     db.flush()
     return character
+
+
+@pytest.fixture(autouse=True)
+def fresh_attempt_limiter():
+    limiter = AttemptLimiter(auth_attempts.limit, auth_attempts.window)
+    app.dependency_overrides[get_limiter] = lambda: limiter
+    yield
+    app.dependency_overrides.pop(get_limiter, None)
 
 
 @pytest.fixture

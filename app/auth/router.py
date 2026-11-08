@@ -8,16 +8,17 @@ from app.auth.dependencies import ClientThrottle, OptionalUser, end_session, sta
 from app.auth.form import LoginForm, RegisterForm
 from app.auth.models import User
 from app.auth.queries import register_view
+from app.auth.service import Refusal
 from app.core.db import DbSession
 from app.core.templates import hx_redirect
 
 router = APIRouter(tags=["auth"])
 
 
-def _signed_in(request: Request, user: User | None, error: str | None) -> Response:
-    if error:
-        return page.refused(request, error)
-    start_session(request, user)
+def _signed_in(request: Request, outcome: User | Refusal | str) -> Response:
+    if not isinstance(outcome, User):
+        return page.refused(request, outcome)
+    start_session(request, outcome)
     return hx_redirect("/")
 
 
@@ -35,7 +36,7 @@ def login(
     throttle: ClientThrottle,
     form: Annotated[LoginForm, Form()],
 ):
-    return _signed_in(request, *service.log_in(db, form, throttle))
+    return _signed_in(request, service.log_in(db, form, throttle))
 
 
 @router.get("/register", response_class=HTMLResponse)
@@ -52,7 +53,7 @@ def register(
     throttle: ClientThrottle,
     form: Annotated[RegisterForm, Form()],
 ):
-    return _signed_in(request, *service.register(db, form, throttle))
+    return _signed_in(request, service.register(db, form, throttle))
 
 
 @router.post("/logout")

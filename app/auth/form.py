@@ -9,6 +9,11 @@ class LoginForm(BaseModel):
     username: Stripped = ""
     password: str = ""
 
+    def problem(self) -> str | None:
+        if not self.username or not self.password:
+            return "Enter your username and password."
+        return None
+
 
 class RegisterForm(BaseModel):
     username: Stripped = ""

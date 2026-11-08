@@ -3,11 +3,11 @@
       hx-target="#coins" novalidate>
   {% if error %}<p class="error field-error" role="alert">{{ error }}</p>{% endif %}
   <div class="coin-fields">
-    {% for column, label in coin_labels %}
+    {% for coin in Coin %}
     <div class="coin-field">
-      <label for="coin-{{ column }}">{{ label }}</label>
-      <input id="coin-{{ column }}" name="{{ column }}" type="text" inputmode="numeric" maxlength="7"
-             value="{{ coins[column] }}" autocomplete="off" {% if column == "gp" %}autofocus{% endif %}>
+      <label for="coin-{{ coin }}">{{ coin.label }}</label>
+      <input id="coin-{{ coin }}" name="{{ coin }}" type="text" inputmode="numeric" maxlength="7"
+             value="{{ coins[coin] }}" autocomplete="off" {% if coin == Coin.GOLD %}autofocus{% endif %}>
     </div>
     {% endfor %}
   </div>

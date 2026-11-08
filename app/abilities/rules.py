@@ -1,7 +1,7 @@
-from enum import StrEnum
+from app.core.enums import LabeledEnum
 
 
-class Ability(StrEnum):
+class Ability(LabeledEnum):
     STRENGTH = "STR"
     DEXTERITY = "DEX"
     CONSTITUTION = "CON"
@@ -12,10 +12,6 @@ class Ability(StrEnum):
     @property
     def column(self) -> str:
         return self.name.lower()
-
-    @property
-    def label(self) -> str:
-        return self.name.title()
 
 
 METHODS = {

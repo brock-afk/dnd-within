@@ -17,10 +17,11 @@ from app.characters.router import router as characters_router
 from app.core.config import settings
 from app.core.csrf import is_cross_origin
 from app.core.db import DbSession
-from app.core.templates import APP_DIR
+from app.core.templates import APP_DIR, templates
 from app.features.router import router as features_router
 from app.homebrew.router import router as homebrew_router
 from app.inventory.router import router as inventory_router
+from app.inventory.rules import Coin, CoinChange
 from app.leveling.router import router as leveling_router
 from app.sharing.live import publish, publish_all
 from app.sharing.router import router as sharing_router
@@ -28,6 +29,7 @@ from app.sheet.router import router as sheet_router
 from app.species.router import router as species_router
 
 app = FastAPI()
+templates.env.globals.update(Coin=Coin, CoinChange=CoinChange)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.secret_key,

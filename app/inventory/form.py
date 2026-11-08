@@ -1,14 +1,14 @@
 from pydantic import BaseModel, ConfigDict
 
 from app.core.forms import parse_amount
-from app.inventory.rules import COINS, MAX_COINS
+from app.inventory.rules import MAX_COINS, Coin
 
 
 class CoinChangeForm(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     amount: str = ""
-    coin: str = "gp"
+    coin: str = Coin.GOLD
     action: str = ""
 
     def count(self) -> int | None:
@@ -25,6 +25,4 @@ class CoinForm(BaseModel):
     cp: str = ""
 
     def values(self) -> dict[str, int | None]:
-        return {
-            column: parse_amount(getattr(self, column) or "0", 0, MAX_COINS) for column, _ in COINS
-        }
+        return {coin: parse_amount(getattr(self, coin) or "0", 0, MAX_COINS) for coin in Coin}

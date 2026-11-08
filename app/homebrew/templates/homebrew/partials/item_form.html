@@ -18,13 +18,13 @@
       <div class="hb-field">
         <label for="hb-category">Type</label>
         <select id="hb-category" name="category">
-          {% for key, label in categories.items() %}<option value="{{ key }}" {% if form.category == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          {% for category in categories %}<option value="{{ category }}" {% if form.category == category %}selected{% endif %}>{{ category.label }}</option>{% endfor %}
         </select>
       </div>
       <div class="hb-field">
         <label for="hb-rarity">Rarity</label>
         <select id="hb-rarity" name="rarity">
-          {% for key, label in rarities.items() %}<option value="{{ key }}" {% if form.rarity == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          <option value="" {% if not form.rarity %}selected{% endif %}>No rarity</option>{% for rarity in rarities %}<option value="{{ rarity }}" {% if form.rarity == rarity %}selected{% endif %}>{{ rarity.label }}</option>{% endfor %}
         </select>
       </div>
       <label class="hb-check"><input type="checkbox" name="attunement" value="1" {% if form.attunement %}checked{% endif %}> Requires attunement</label>

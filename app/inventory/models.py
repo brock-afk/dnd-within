@@ -17,11 +17,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.content.models import ContentMixin
-from app.core.db import Base, NullableJSON
+from app.core.db import Base, NullableJSON, enum_column
+from app.inventory.rules import ItemCategory, Rarity
 from app.spells.models import Spell
-
-CATEGORIES = ("gear", "consumable", "pack", "scroll", "tool", "magic")
-RARITIES = ("common", "uncommon", "rare", "very_rare", "legendary", "artifact")
 
 
 class Item(ContentMixin, Base):
@@ -29,15 +27,8 @@ class Item(ContentMixin, Base):
     __table_args__ = (
         UniqueConstraint("source_id", "slug"),
         CheckConstraint(
-            "category IN (" + ", ".join(f"'{c}'" for c in CATEGORIES) + ")",
-            name="category_values",
-        ),
-        CheckConstraint(
-            "rarity IS NULL OR rarity IN (" + ", ".join(f"'{r}'" for r in RARITIES) + ")",
-            name="rarity_values",
-        ),
-        CheckConstraint(
-            "(category = 'scroll') = (spell_level IS NOT NULL)", name="scrolls_have_spell_level"
+            f"(category = '{ItemCategory.SCROLL}') = (spell_level IS NOT NULL)",
+            name="scrolls_have_spell_level",
         ),
         CheckConstraint("spell_level BETWEEN 0 AND 9", name="spell_level_range"),
     )
@@ -45,8 +36,10 @@ class Item(ContentMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     slug: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(80))
-    category: Mapped[str] = mapped_column(String(20))
-    rarity: Mapped[str | None] = mapped_column(String(20))
+    category: Mapped[ItemCategory] = mapped_column(
+        enum_column(ItemCategory, 20, check="category_values")
+    )
+    rarity: Mapped[Rarity | None] = mapped_column(enum_column(Rarity, 20, check="rarity_values"))
     cost_cp: Mapped[int | None] = mapped_column()
     weight_lb: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
     summary: Mapped[str] = mapped_column(String(255))

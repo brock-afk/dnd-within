@@ -5,20 +5,19 @@ from app.abilities.rules import Ability
 from app.core.templates import templates, view_context
 from app.features.rules import Action
 from app.homebrew.form import (
-    CATEGORIES,
     DAMAGE_TYPES,
+    HOMEBREW_CATEGORIES,
     PREPARED,
-    RARITIES,
     RECHARGES,
     TOOL_MODES,
 )
 from app.homebrew.queries import EditorView, LibraryView
 from app.inventory.models import Item
-from app.inventory.rules import TOOLS
+from app.inventory.rules import TOOLS, Rarity
 
 EDITOR_OPTIONS = {
-    "categories": CATEGORIES,
-    "rarities": RARITIES,
+    "categories": HOMEBREW_CATEGORIES,
+    "rarities": list(Rarity),
     "recharges": RECHARGES,
     "prepared": PREPARED,
     "actions": list(Action),

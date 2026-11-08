@@ -14,6 +14,7 @@ from app.features.schema import (
     Text255,
     spends_errors,
 )
+from app.inventory.rules import Coin, ItemCategory, Rarity
 from app.spells.rules import (
     AreaShape,
     AttackKind,
@@ -113,8 +114,7 @@ class BackgroundDef(Strict):
         return self
 
 
-COST = re.compile(r"^\s*(\d+)\s*(CP|SP|EP|GP|PP)\s*$", re.IGNORECASE)
-COPPER = {"CP": 1, "SP": 10, "EP": 50, "GP": 100, "PP": 1000}
+COST = re.compile(rf"^\s*(\d+)\s*({'|'.join(Coin)})\s*$", re.IGNORECASE)
 
 
 class PackItem(Strict):
@@ -125,10 +125,8 @@ class PackItem(Strict):
 class ItemDef(Strict):
     slug: Slug
     name: Text80
-    category: Literal["gear", "consumable", "pack", "scroll", "tool", "magic"]
-    rarity: Literal["common", "uncommon", "rare", "very_rare", "legendary", "artifact"] | None = (
-        None
-    )
+    category: ItemCategory
+    rarity: Rarity | None = None
     cost: str | None = None
     weight: float | None = Field(default=None, ge=0)
     summary: Text255
@@ -154,15 +152,15 @@ class ItemDef(Strict):
 
     @model_validator(mode="after")
     def check(self):
-        if (self.category == "scroll") != (self.spell_level is not None):
+        if (self.category == ItemCategory.SCROLL) != (self.spell_level is not None):
             raise ValueError("spell scrolls need spell_level, and only they have one")
-        if (self.category == "pack") != bool(self.contents):
+        if (self.category == ItemCategory.PACK) != bool(self.contents):
             raise ValueError("packs list their contents, and only packs have contents")
-        if self.features and self.category in ("pack", "scroll"):
+        if self.features and self.category in (ItemCategory.PACK, ItemCategory.SCROLL):
             raise ValueError("packs and scrolls can't have features")
         if problems := spends_errors(self.features):
             raise ValueError("; ".join(problems))
-        if self.category in ("consumable", "scroll"):
+        if self.category in (ItemCategory.CONSUMABLE, ItemCategory.SCROLL):
             self.consumable = True
         return self
 
@@ -171,7 +169,7 @@ class ItemDef(Strict):
         if self.cost is None:
             return None
         amount, coin = COST.match(self.cost).groups()
-        return int(amount) * COPPER[coin.upper()]
+        return int(amount) * Coin(coin.lower()).copper
 
 
 class CastingTime(Strict):

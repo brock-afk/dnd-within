@@ -77,8 +77,6 @@ scripts/restore-drill.sh              # server: restore the newest blob into a s
 - `rules.py`: pure 2024 PHB rule math and constants with no DB access; anything may import it
 - `templates/<domain>/`: Jinja templates, referenced as `"<domain>/x.html"`
 
-`auth` keeps its older layout (routes with their own logic) by choice.
-
 `app/core/` (config, db, templates) must never import from domains. `app/models.py` imports every domain's models so `Base.metadata` is complete. Alembic and the app both rely on it, so **any new models module must be added there**.
 
 ### Data-driven content

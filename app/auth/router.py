@@ -1,123 +1,61 @@
-import secrets
-from contextlib import contextmanager
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
-from app.auth.dependencies import OptionalUser
-from app.auth.limits import auth_attempts, client_key
+from app.auth import page, service
+from app.auth.dependencies import ClientThrottle, OptionalUser, end_session, start_session
+from app.auth.form import LoginForm, RegisterForm
 from app.auth.models import User
-from app.auth.security import HashingBusy, hash_password, verify_password
-from app.core.config import settings
-from app.core.db import DbSession, release_connection
-from app.core.templates import form_error, hx_redirect, templates
+from app.auth.queries import register_view
+from app.core.db import DbSession
+from app.core.templates import hx_redirect
 
 router = APIRouter(tags=["auth"])
 
 
-TOO_MANY = "Too many attempts. Try again in a few minutes."
-
-
-def _client(request: Request) -> str:
-    return client_key(request.client.host if request.client else "")
-
-
-@contextmanager
-def _refund_if_busy(key: str):
-    try:
-        yield
-    except HashingBusy:
-        auth_attempts.refund(key)
-        raise
-
-
-def _log_in(request: Request, user: User) -> None:
-    request.session.clear()
-    request.session["user_id"] = user.id
+def _signed_in(request: Request, user: User | None, error: str | None) -> Response:
+    if error:
+        return page.refused(request, error)
+    start_session(request, user)
+    return hx_redirect("/")
 
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, user: OptionalUser):
     if user:
         return RedirectResponse("/", status_code=303)
-    return templates.TemplateResponse(request, "auth/login.html")
+    return page.login(request)
 
 
 @router.post("/login")
 def login(
     request: Request,
     db: DbSession,
-    username: Annotated[str, Form()],
-    password: Annotated[str, Form()],
+    throttle: ClientThrottle,
+    form: Annotated[LoginForm, Form()],
 ):
-    key = _client(request)
-    if not auth_attempts.attempt(key):
-        return form_error(request, TOO_MANY, status_code=429)
-    user = db.scalar(select(User).where(User.username == username.strip()))
-    release_connection(db)
-    with _refund_if_busy(key):
-        valid = verify_password(user.password_hash if user else None, password)
-    if not valid:
-        return form_error(request, "Invalid username or password.", status_code=401)
-    auth_attempts.refund(key)
-    _log_in(request, user)
-    return hx_redirect("/")
+    return _signed_in(request, *service.log_in(db, form, throttle))
 
 
 @router.get("/register", response_class=HTMLResponse)
 def register_page(request: Request, user: OptionalUser):
     if user:
         return RedirectResponse("/", status_code=303)
-    return templates.TemplateResponse(
-        request, "auth/register.html", {"invite_required": bool(settings.invite_code)}
-    )
+    return page.register(request, register_view())
 
 
 @router.post("/register")
 def register(
     request: Request,
     db: DbSession,
-    username: Annotated[str, Form()],
-    password: Annotated[str, Form()],
-    confirm_password: Annotated[str, Form()],
-    invite_code: Annotated[str, Form()] = "",
+    throttle: ClientThrottle,
+    form: Annotated[RegisterForm, Form()],
 ):
-    username = username.strip()
-    if not 3 <= len(username) <= 50:
-        return form_error(request, "Username must be 3–50 characters.")
-    if len(password) < 8:
-        return form_error(request, "Password must be at least 8 characters.")
-    if password != confirm_password:
-        return form_error(request, "Passwords do not match.")
-    key = _client(request)
-    if not auth_attempts.attempt(key):
-        return form_error(request, TOO_MANY, status_code=429)
-    if settings.invite_code and not secrets.compare_digest(
-        invite_code.strip().encode(), settings.invite_code.encode()
-    ):
-        return form_error(request, "That invite code isn't right.", status_code=403)
-    taken = db.scalar(select(User.id).where(User.username == username))
-    release_connection(db)
-    if taken:
-        return form_error(request, "That username is taken.", status_code=409)
-
-    with _refund_if_busy(key):
-        user = User(username=username, password_hash=hash_password(password))
-    db.add(user)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        return form_error(request, "That username is taken.", status_code=409)
-    auth_attempts.refund(key)
-    _log_in(request, user)
-    return hx_redirect("/")
+    return _signed_in(request, *service.register(db, form, throttle))
 
 
 @router.post("/logout")
 def logout(request: Request):
-    request.session.clear()
+    end_session(request)
     return hx_redirect("/login")

@@ -3,6 +3,7 @@ import threading
 import time
 from collections import deque
 from collections.abc import Callable
+from dataclasses import dataclass
 
 SWEEP_SECONDS = 60
 MAX_KEYS = 50_000
@@ -56,6 +57,18 @@ class AttemptLimiter:
             for key, times in self._attempts.items()
             if times and times[-1] > now - self.window
         }
+
+
+@dataclass(frozen=True)
+class Throttle:
+    limiter: AttemptLimiter
+    key: str
+
+    def attempt(self) -> bool:
+        return self.limiter.attempt(self.key)
+
+    def refund(self) -> None:
+        self.limiter.refund(self.key)
 
 
 auth_attempts = AttemptLimiter(limit=10, window=15 * 60)

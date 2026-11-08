@@ -8,6 +8,7 @@ from app.content.models import Source
 from app.content.queries import picked_row
 from app.content.schema import DICE, ItemDef
 from app.core.forms import parse_amount, parse_id
+from app.features.rules import Action
 from app.inventory.rules import TOOLS
 from app.spells.models import Spell
 from app.spells.queries import pickable_spells
@@ -24,7 +25,6 @@ RARITIES = {
 }
 RECHARGES = {"dawn": "At dawn", "long_rest": "On a long rest", "short_rest": "On a short rest"}
 PREPARED = {"no": "No: charges only", "yes": "Yes: also cast with spell slots"}
-ACTIONS = {"": "None", "action": "Action", "bonus_action": "Bonus Action", "reaction": "Reaction"}
 TOOL_MODES = {"none": "None", "fixed": "A set tool", "choice": "Chosen on the Play sheet"}
 DAMAGE_TYPES = [
     "acid",
@@ -103,11 +103,11 @@ class ItemForm(BaseModel):
             for when in self.ability_when:
                 text = when.lower()
                 action = (
-                    "bonus_action"
+                    Action.BONUS_ACTION
                     if "bonus" in text
-                    else "reaction"
+                    else Action.REACTION
                     if "reaction" in text
-                    else "action"
+                    else Action.ACTION
                     if "action" in text
                     else ""
                 )
@@ -253,7 +253,7 @@ def build_item_def(
                 "Each ability needs a name (up to 80 characters) and what it does (up to 500)."
             )
             continue
-        if action not in ACTIONS:
+        if action and action not in Action:
             errors["abilities"] = "Choose what each ability takes to use."
             continue
         cost = _number(ability_charges, 1, 20, "An ability's charges", errors, "abilities")

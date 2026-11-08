@@ -3,8 +3,8 @@ from fastapi.responses import HTMLResponse
 
 from app.abilities.rules import Ability
 from app.core.templates import templates, view_context
+from app.features.rules import Action
 from app.homebrew.form import (
-    ACTIONS,
     CATEGORIES,
     DAMAGE_TYPES,
     PREPARED,
@@ -21,7 +21,7 @@ EDITOR_OPTIONS = {
     "rarities": RARITIES,
     "recharges": RECHARGES,
     "prepared": PREPARED,
-    "actions": ACTIONS,
+    "actions": list(Action),
     "tool_modes": TOOL_MODES,
     "tools": TOOLS,
     "abilities": list(Ability),

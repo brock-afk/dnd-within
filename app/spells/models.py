@@ -15,6 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.classes.models import CharacterClass
 from app.content.models import ContentMixin
 from app.core.db import Base
+from app.features.rules import Action
 
 class_spells = Table(
     "class_spells",
@@ -69,9 +70,7 @@ def _casting_label(casting: dict) -> str:
     unit, amount = casting.get("unit"), casting.get("amount", 1)
     if unit in ("minute", "hour"):
         return f"{amount} {unit}{'s' if amount != 1 else ''}"
-    return {"action": "Action", "bonus_action": "Bonus Action", "reaction": "Reaction"}.get(
-        unit, ""
-    )
+    return Action(unit).label if unit in Action else ""
 
 
 def _range_label(rng: dict, area: dict | None) -> str:

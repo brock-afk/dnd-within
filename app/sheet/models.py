@@ -12,7 +12,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base
+from app.core.db import Base, enum_column
+from app.spells.rules import SlotKind
 
 
 class CharacterPlayState(Base):
@@ -90,14 +91,16 @@ class CharacterSpellSlot(Base):
     __table_args__ = (
         CheckConstraint("slot_level BETWEEN 1 AND 9", name="slot_level_range"),
         CheckConstraint("expended >= 0", name="expended_non_negative"),
-        CheckConstraint("kind IN ('spellcasting', 'pact')", name="kind_values"),
     )
 
     character_id: Mapped[int] = mapped_column(
         ForeignKey("characters.id", ondelete="CASCADE"), primary_key=True
     )
-    kind: Mapped[str] = mapped_column(
-        String(20), primary_key=True, default="spellcasting", server_default="spellcasting"
+    kind: Mapped[SlotKind] = mapped_column(
+        enum_column(SlotKind, 20, check="kind_values"),
+        primary_key=True,
+        default=SlotKind.SPELLCASTING,
+        server_default=SlotKind.SPELLCASTING.value,
     )
     slot_level: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     expended: Mapped[int] = mapped_column(SmallInteger, default=0)

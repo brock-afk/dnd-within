@@ -12,11 +12,11 @@ from app.core.forms import parse_id
 from app.feats.models import Feat
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.inventory.models import Item
-from app.sheet.slots import slot_maximums
 from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.species.models import Species
 from app.spells.models import CharacterSpell, Spell, SpellbookEntry
 from app.spells.queries import pickable_spells
+from app.spells.rules import AcquiredVia, School, SlotProgression, slot_maximums
 
 
 def owner_feature(db: Session, feature: Feature) -> Feature:
@@ -79,7 +79,7 @@ class OptionView:
     summary: str = ""
     detail: str = ""
     group: str = ""
-    school: str = ""
+    school: School | None = None
     ritual: bool = False
     warnings: tuple[str, ...] = ()
     note: str = ""
@@ -333,7 +333,8 @@ def class_slot_level(character: Character, class_id: int) -> int:
     spellcasting = cc.character_class.spellcasting if cc else None
     if not spellcasting or cc.level < 1:
         return 0
-    return max(slot_maximums(spellcasting.get("slots", "full"), cc.level))
+    progression = SlotProgression(spellcasting.get("slots", SlotProgression.FULL))
+    return max(slot_maximums(progression, cc.level))
 
 
 class SpellKind(ChoiceKind):
@@ -396,7 +397,7 @@ class SpellbookKind(SpellKind):
     known_from = None
 
     def pick_values(self, choice):
-        return {"acquired_via": choice.criteria.get("acquired_via", "level_up")}
+        return {"acquired_via": choice.criteria.get("acquired_via", AcquiredVia.LEVEL_UP)}
 
 
 class SubclassKind(ChoiceKind):

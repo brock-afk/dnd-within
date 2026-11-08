@@ -4,16 +4,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.characters.models import Character
-from app.content.queries import available, visible
+from app.content.queries import available, available_row, visible
+from app.core.forms import parse_id
 from app.features.models import Feature
 from app.inventory.models import CharacterItem, Item
+from app.inventory.rules import COINS
 from app.sheet.models import CharacterPlayState
 from app.spells.models import Spell
-
-MAX_ATTUNED = 3  # 2024 rules: at most three magic items at once
-# Coins by their full names (not GP, SP...), highest first.
-COINS = [("pp", "Platinum"), ("gp", "Gold"), ("ep", "Electrum"), ("sp", "Silver"), ("cp", "Copper")]
-MAX_COINS = 1_000_000
+from app.spells.queries import pickable_spells
 
 
 def inventory(db: Session, character: Character) -> list[CharacterItem]:
@@ -61,19 +59,13 @@ def healing_uses(rows: list[CharacterItem]) -> list[HealingUse]:
     return uses
 
 
+def is_ac_scroll(row: CharacterItem) -> bool:
+    return bool(row.spell and row.spell.details.get("ac_effect"))
+
+
 def ac_scrolls(rows: list[CharacterItem], active_spell_ids: set[int]) -> list[CharacterItem]:
-    """Carried scrolls of spells that change AC (Mage Armor), read from the AC card. Like the
-    prepared spell, a scroll isn't offered while its effect is already on."""
-    return [
-        row
-        for row in rows
-        if row.spell and row.spell.details.get("ac_effect") and row.spell_id not in active_spell_ids
-    ]
-
-
-def character_item(db: Session, character: Character, row_id: int) -> CharacterItem | None:
-    row = db.get(CharacterItem, row_id)
-    return row if row is not None and row.character_id == character.id else None
+    # Like the prepared spell, a scroll isn't offered while its effect is already on.
+    return [row for row in rows if is_ac_scroll(row) and row.spell_id not in active_spell_ids]
 
 
 SEARCH_MIN_LENGTH = 2
@@ -116,19 +108,63 @@ def search_items(db: Session, query: str, user_id: int) -> list[Item]:
     )
 
 
+def catalog_item(db: Session, key: str, user_id: int) -> Item | None:
+    return available_row(db, Item, parse_id(key), user_id=user_id)
+
+
+@dataclass(frozen=True)
+class ItemSearchView:
+    query: str
+    min_length: int
+    results: list[tuple[Item, str]]
+
+
+def item_search(db: Session, character: Character, query: str) -> ItemSearchView:
+    return ItemSearchView(
+        query=query,
+        min_length=SEARCH_MIN_LENGTH,
+        results=[(item, item_detail(item)) for item in search_items(db, query, character.user_id)],
+    )
+
+
 def pack_contents(db: Session, item: Item) -> list[tuple[Item, int]]:
     """(item, quantity) a pack adds."""
     return [(db.get(Item, c["item_id"]), c["quantity"]) for c in item.contents or []]
 
 
-def scroll_spells(db: Session, item: Item) -> list[Spell]:
-    """Spells a scroll of this level can hold: any spell of that level."""
-    return list(
-        db.scalars(
-            select(Spell)
-            .where(Spell.level == item.spell_level, available(Spell))
-            .order_by(Spell.name)
-        )
+def scroll_spells(db: Session, item: Item, user_id: int) -> list[Spell]:
+    """A Spell Scroll holds any spell of its level, whatever the class."""
+    query = pickable_spells(user_id).where(Spell.level == item.spell_level)
+    return list(db.scalars(query.order_by(Spell.name)))
+
+
+@dataclass(frozen=True)
+class AddConfirmView:
+    item: Item
+    detail: str
+    contents: list[tuple[Item, int]]
+    spells: list[Spell]
+    query: str
+    quantity: str
+    spell_id: str
+
+
+def add_confirmation(
+    db: Session,
+    character: Character,
+    item: Item,
+    query: str,
+    quantity: str = "1",
+    spell_id: str = "",
+) -> AddConfirmView:
+    return AddConfirmView(
+        item=item,
+        detail=item_detail(item),
+        contents=pack_contents(db, item),
+        spells=scroll_spells(db, item, character.user_id) if item.category == "scroll" else [],
+        query=query,
+        quantity=quantity,
+        spell_id=spell_id,
     )
 
 
@@ -154,3 +190,27 @@ def digest(db: Session, character: Character, rows: list[CharacterItem]) -> str:
     money = coin_summary(coin_values(db, character))
     count = f"{len(rows)} item{'s' if len(rows) != 1 else ''}" if rows else ""
     return " · ".join(part for part in [money, count] if part)
+
+
+@dataclass(frozen=True)
+class CoinsBlockView:
+    coin_summary: str
+    coin_amount: str
+    coin_choice: str
+
+
+def coins_block_view(
+    db: Session, character: Character, amount: str = "", coin: str = "gp"
+) -> CoinsBlockView:
+    return CoinsBlockView(coin_summary(coin_values(db, character)), amount, coin)
+
+
+@dataclass(frozen=True)
+class CoinsFormView:
+    coins: dict[str, int | str]
+
+
+def coins_form_view(
+    db: Session, character: Character, typed: dict[str, str] | None = None
+) -> CoinsFormView:
+    return CoinsFormView(coins=typed if typed is not None else coin_values(db, character))

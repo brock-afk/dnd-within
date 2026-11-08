@@ -1,13 +1,22 @@
 """What a character carries: adding (packs expand, scrolls hold a spell), quantities, using
 consumables, attunement and coins. Changes are flushed but not committed; routes commit."""
 
+from typing import NamedTuple
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.characters.models import Character
+from app.content.queries import available_row
+from app.core.forms import parse_amount, parse_id
+from app.features.service import remove_inapplicable_picks
+from app.inventory.form import CoinChangeForm, CoinForm
 from app.inventory.models import CharacterItem, Item
-from app.inventory.queries import MAX_ATTUNED, inventory
-from app.sheet.service import play_state
+from app.inventory.queries import HealingUse, coin_values, inventory
+from app.inventory.rules import COINS, MAX_ATTUNED, MAX_COINS, gain, spend
+from app.sheet import rules as sheet_rules
+from app.sheet.queries import active_ac_spell_ids, max_hp
+from app.sheet.service import apply_ac_spell, play_state
 from app.spells.models import Spell
 
 
@@ -52,11 +61,31 @@ def add_item(
     return None
 
 
-def change_quantity(db: Session, row: CharacterItem, delta: int) -> None:
+def add_from_catalog(
+    db: Session, character: Character, item: Item, quantity: str, spell_id: str
+) -> str | None:
+    amount = parse_amount(quantity, 1, 999)
+    if amount is None:
+        return "Quantity is 1 to 999."
+    spell = available_row(db, Spell, parse_id(spell_id), user_id=character.user_id)
+    return add_item(db, character, item, amount, spell)
+
+
+def change_quantity(db: Session, row: CharacterItem, delta: str) -> str | None:
     """Add or take away, but never below 1: getting rid of an item is Remove (which asks
     first), so a stray click can't lose the only backpack."""
-    row.quantity = max(1, row.quantity + delta)
+    if delta not in ("1", "-1"):
+        return "Use − or + to change the quantity."
+    row.quantity = max(1, row.quantity + int(delta))
     db.flush()
+    return None
+
+
+def use_item(db: Session, row: CharacterItem) -> str | None:
+    if not row.item.consumable:
+        return f"{row.name} isn't used up."
+    use_one(db, row)
+    return None
 
 
 def use_one(db: Session, row: CharacterItem) -> None:
@@ -67,16 +96,67 @@ def use_one(db: Session, row: CharacterItem) -> None:
     db.flush()
 
 
-def set_attuned(db: Session, character: Character, row: CharacterItem, attuned: bool) -> str | None:
+class HealOutcome(NamedTuple):
+    error: str | None
+    notice: str | None
+
+
+def heal_with(db: Session, character: Character, use: HealingUse) -> HealOutcome:
+    maximum = max_hp(db, character)
+    if maximum is None:
+        return HealOutcome("Set ability scores first: healing needs your max HP.", None)
+    row, name = use.row, use.row.name
+    amount, rolled = sheet_rules.roll_detail(use.dice)
+    state = play_state(db, character)
+    if use.temporary:
+        if amount > state.temp_hp:
+            sheet_rules.set_temp_hp(state, amount, row.spell.name)
+            notice = f"{name}: {amount} temporary hit points ({rolled})."
+        else:
+            notice = f"{name}: rolled {amount} ({rolled}); you kept your {state.temp_hp} temp HP."
+    else:
+        before = sheet_rules.current_hp(state, maximum)
+        sheet_rules.heal(state, amount, maximum)
+        gained = sheet_rules.current_hp(state, maximum) - before
+        notice = f"{name}: healed {gained} ({rolled})" + (
+            f", {amount - gained} over your max." if gained < amount else "."
+        )
+    use_one(db, row)
+    return HealOutcome(None, notice)
+
+
+def cast_ac_scroll(db: Session, character: Character, row: CharacterItem) -> str | None:
+    if row.spell_id in active_ac_spell_ids(db, character):
+        return f"{row.spell.name} is already on."
+    apply_ac_spell(db, character, row.spell)
+    use_one(db, row)
+    return None
+
+
+def attune(db: Session, character: Character, row: CharacterItem, attuned: str) -> str | None:
     if not row.item.requires_attunement:
         return f"{row.name} doesn't need attunement."
-    if attuned and not row.attuned:
+    wanted = attuned == "1"
+    if wanted and not row.attuned:
         count = sum(1 for r in inventory(db, character) if r.attuned)
         if count >= MAX_ATTUNED:
             return f"You can be attuned to at most {MAX_ATTUNED} items. End one first."
-    row.attuned = attuned
+    row.attuned = wanted
     db.flush()
+    # Ending attunement ends the item's benefits, and picks made for them (its tool).
+    remove_inapplicable_picks(db, character)
     return None
+
+
+def set_notes(db: Session, row: CharacterItem, notes: str) -> None:
+    row.notes = notes.strip()[:255] or None
+    db.flush()
+
+
+def remove_item(db: Session, character: Character, row: CharacterItem) -> None:
+    db.delete(row)
+    db.flush()
+    remove_inapplicable_picks(db, character)
 
 
 def set_coins(db: Session, character: Character, values: dict[str, int]) -> None:
@@ -84,3 +164,33 @@ def set_coins(db: Session, character: Character, values: dict[str, int]) -> None
     for column, amount in values.items():
         setattr(state, column, amount)
     db.flush()
+
+
+def change_coins(db: Session, character: Character, form: CoinChangeForm) -> str | None:
+    labels = dict(COINS)
+    if form.coin not in labels or form.action not in ("gain", "spend"):
+        return "Choose a coin, then Add or Spend."
+    amount = form.count()
+    if amount is None:
+        return "Enter how many coins, e.g. 15."
+    coin, name = form.coin, labels[form.coin].lower()
+    current = coin_values(db, character)
+    if form.action == "gain":
+        new = gain(current, coin, amount)
+        if new[coin] > MAX_COINS:
+            return f"That's more than {MAX_COINS:,} {name}."
+    else:
+        new = spend(current, coin, amount)
+        if new is None:
+            return f"You don't have {amount:,} {name}, even breaking larger coins."
+    set_coins(db, character, new)
+    return None
+
+
+def save_coins(db: Session, character: Character, form: CoinForm) -> str | None:
+    values = form.values()
+    for column, label in COINS:
+        if values[column] is None:
+            return f"{label} is a whole number from 0 to {MAX_COINS:,}."
+    set_coins(db, character, values)
+    return None

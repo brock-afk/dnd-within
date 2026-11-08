@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import select
 
 from app.homebrew.form import ItemForm
@@ -29,6 +30,22 @@ def test_an_invalid_form_saves_nothing(db, owner, character):
     assert (
         db.scalar(select(CharacterItem).where(CharacterItem.character_id == character.id)) is None
     )
+
+
+@pytest.mark.parametrize("charges", ["²", "0", "100"])
+def test_a_bad_number_is_a_field_error(db, owner, charges):
+    errors = save_from_form(db, owner, _ring(charges=charges), None, None)
+
+    assert errors == {"charges": "Charges is a whole number from 1 to 99."}
+    assert library_view(db, owner).items == []
+
+
+def test_removing_a_row_ignores_a_bad_index():
+    form = _ring(ability_name=["Glow"], ability_text=["It glows."], remove_row="ability:²")
+
+    form.edit_rows()
+
+    assert form.ability_rows()[0][0] == "Glow"
 
 
 def test_editing_keeps_the_same_item(db, owner):

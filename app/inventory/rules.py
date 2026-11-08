@@ -1,6 +1,11 @@
 """Coin math from the 2024 Player's Handbook: 1 platinum = 10 gold, and 1 gold = 2 electrum =
 10 silver = 100 copper. Columns use the short names (pp, gp, ep, sp, cp)."""
 
+MAX_ATTUNED = 3  # 2024 rules: at most three magic items at once
+# Coins by their full names (not GP, SP...), highest first.
+COINS = [("pp", "Platinum"), ("gp", "Gold"), ("ep", "Electrum"), ("sp", "Silver"), ("cp", "Copper")]
+MAX_COINS = 1_000_000
+
 # Each coin's worth in copper pieces, highest first.
 COIN_VALUES = {"pp": 1000, "gp": 100, "ep": 50, "sp": 10, "cp": 1}
 

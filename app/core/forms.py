@@ -9,14 +9,17 @@ def parse_id(raw: str) -> int | None:
     return int(raw) if raw.isascii() and raw.isdigit() and len(raw) <= 18 else None
 
 
+def _parse_digits(raw: str, digits: int) -> int | None:
+    raw = raw.strip().replace("−", "-")
+    return int(raw) if re.fullmatch(rf"[+-]?[0-9]{{1,{digits}}}", raw) else None
+
+
 def parse_int(raw: str) -> int | None:
     """A whole number of up to four digits, or None. Accepts a leading "+", and "−" (the minus
     sign shown in placeholders) as well as "-". ASCII digits only, like parse_id."""
-    raw = raw.strip().replace("−", "-")
-    return int(raw) if re.fullmatch(r"[+-]?[0-9]{1,4}", raw) else None
+    return _parse_digits(raw, 4)
 
 
 def parse_amount(raw: str, low: int, high: int) -> int | None:
-    """parse_int, within [low, high]."""
-    value = parse_int(raw)
+    value = _parse_digits(raw, 18)
     return value if value is not None and low <= value <= high else None

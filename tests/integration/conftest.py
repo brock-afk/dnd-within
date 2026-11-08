@@ -17,8 +17,10 @@ from app.characters.origins import BACKGROUND
 from app.characters.service import choose_origin
 from app.classes.models import CharacterClass, CharacterClassLevel
 from app.content.importer import import_packs
+from app.content.models import Source
 from app.core.db import SessionLocal, engine, get_db
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
+from app.inventory.models import CharacterItem, Item
 from app.leveling.models import CharacterLevel
 from app.main import app
 from app.sheet.models import CharacterPreparedSpell
@@ -221,3 +223,30 @@ def level_up(db):
         db.flush()
 
     return level_up
+
+
+@pytest.fixture
+def charged_item(db):
+    """charged_item(character, uses, attuned=True): a carried magic item needing attunement,
+    with a charges feature that has these `uses`. Returns the charges feature."""
+
+    def charged_item(character: Character, uses: dict, attuned: bool = True) -> Feature:
+        source = db.scalar(select(Source).where(Source.slug == "test-core"))
+        item = Item(
+            source_id=source.id,
+            slug="test-wand",
+            name="Test Wand",
+            category="magic",
+            rarity="uncommon",
+            summary="",
+            requires_attunement=True,
+        )
+        db.add(item)
+        db.flush()
+        charges = Feature(item_id=item.id, slug="charges", name="Charges", summary="", uses=uses)
+        carried = CharacterItem(character_id=character.id, item_id=item.id, attuned=attuned)
+        db.add_all([charges, carried])
+        db.flush()
+        return charges
+
+    return charged_item

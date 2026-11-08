@@ -1,34 +1,31 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
 
-from app.abilities.queries import constitution_modifier
 from app.auth.dependencies import CurrentUser
 from app.characters.dependencies import OwnedCharacter
 from app.core.db import DbSession
-from app.core.forms import parse_amount
 from app.features.dependencies import InPlayChoice
 from app.sheet import page, service
-from app.sheet.dependencies import CopyableSpell, OwnedAcEffect, OwnedHpEffect
-from app.sheet.form import AcEffectForm
+from app.sheet.dependencies import (
+    CopyableSpell,
+    OwnedAcEffect,
+    OwnedHpEffect,
+    RecoveryUses,
+    TrackedUses,
+    UsesSpender,
+)
+from app.sheet.form import AcEffectForm, RecoveryForm
 from app.sheet.queries import (
     CopyPanel,
     copy_confirmation,
     copy_search,
-    feature_uses,
-    hit_dice,
-    max_hp,
     prepared_editor_view,
-    recovery_budget,
     refreshed_prepared_editor_view,
     refreshed_sheet_view,
     sheet_view,
-    spell_slots,
 )
-from app.sheet.rests import finish_short_rest, long_rest, spend_hit_die
-from app.sheet.rules import heal, hit_die_healing
 
 router = APIRouter(tags=["sheet"])
 
@@ -277,41 +274,27 @@ def set_uses(
     db: DbSession,
     user: CurrentUser,
     character: OwnedCharacter,
-    feature_id: int,
+    uses: TrackedUses,
     remaining: Annotated[str, Form()] = "",
 ):
-    uses = next((u for u in feature_uses(db, character) if u.feature.id == feature_id), None)
-    if uses is None or uses.rest_only:
-        raise HTTPException(status_code=404)
-    value = parse_amount(remaining, 0, uses.maximum)
-    if value is None:
-        errors = {"uses": "That isn't a valid number of uses."}
-        return page.refresh_sheet(request, refreshed_sheet_view(db, user, character), errors)
-    service.set_uses_remaining(db, character, uses, value)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    error = service.change_uses(db, character, uses, remaining)
+    view = refreshed_sheet_view(db, user, character)
+    return page.refresh_sheet(request, view, {"uses": error} if error else None)
 
 
 @router.post(
     "/characters/{character_id}/sheet/features/{feature_id}/use", response_class=HTMLResponse
 )
 def use_feature(
-    request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter, feature_id: int
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+    character: OwnedCharacter,
+    spender: UsesSpender,
 ):
-    """Use something that spends another feature's uses, like a magic item's Stonecunning
-    spending its charges."""
-    uses, feature = next(
-        ((u, f) for u in feature_uses(db, character) for f in u.spenders if f.id == feature_id),
-        (None, None),
-    )
-    if uses is None:
-        raise HTTPException(status_code=404)
-    if uses.remaining < feature.spends_amount:
-        error = f"{feature.name} takes {feature.spends_amount}; {uses.remaining} left."
-        return page.refresh_sheet(
-            request, refreshed_sheet_view(db, user, character), {"uses": error}
-        )
-    service.set_uses_remaining(db, character, uses, uses.remaining - feature.spends_amount)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
+    error = service.use_spender(db, character, spender)
+    view = refreshed_sheet_view(db, user, character)
+    return page.refresh_sheet(request, view, {"uses": error} if error else None)
 
 
 # --- Rests --------------------------------------------------------------------------------
@@ -331,39 +314,9 @@ def short_rest_hit_die(
     class_id: Annotated[str, Form()] = "",
     roll: Annotated[str, Form()] = "",
 ):
-    dice = next((d for d in hit_dice(db, character) if str(d.character_class.id) == class_id), None)
-    maximum = max_hp(db, character)
-    con_mod = constitution_modifier(db, character)
-
-    error = None
-    if dice is None or maximum is None or con_mod is None:
-        error = "Set ability scores first: hit dice heal using Constitution."
-    elif dice.available == 0:
-        error = "You have no hit dice left. They come back on a long rest."
-    elif parse_amount(roll, 1, dice.die) is None:
-        error = f"Enter your d{dice.die} roll, from 1 to {dice.die}."
-    if error:
-        return page.refresh_sheet(
-            request, refreshed_sheet_view(db, user, character, resting=True), {"hit_die": error}
-        )
-
-    spend_hit_die(db, character, dice.character_class.id)
-    heal(service.play_state(db, character), hit_die_healing(int(roll), con_mod), maximum)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character, resting=True))
-
-
-class RecoveryForm(BaseModel):
-    """How many slots of each level to recover; blank means none."""
-
-    level_1: str = ""
-    level_2: str = ""
-    level_3: str = ""
-    level_4: str = ""
-    level_5: str = ""
-    level_6: str = ""
-    level_7: str = ""
-    level_8: str = ""
-    level_9: str = ""
+    error = service.spend_hit_die(db, character, class_id, roll)
+    view = refreshed_sheet_view(db, user, character, resting=True)
+    return page.refresh_sheet(request, view, {"hit_die": error} if error else None)
 
 
 @router.post(
@@ -374,59 +327,25 @@ def short_rest_recover(
     db: DbSession,
     user: CurrentUser,
     character: OwnedCharacter,
-    feature_id: int,
+    uses: RecoveryUses,
     form: Annotated[RecoveryForm, Form()],
 ):
-    """Recover expended spell slots with a feature like Arcane Recovery."""
-    uses = next((u for u in feature_uses(db, character) if u.feature.id == feature_id), None)
-    if uses is None or uses.feature.slot_recovery is None:
-        raise HTTPException(status_code=404)
-    slots = spell_slots(db, character)
-    budget = recovery_budget(uses)
-    max_level = uses.feature.slot_recovery["max_slot_level"]
-
-    counts, error = {}, None
-    for level, slot in slots.items():
-        raw = getattr(form, f"level_{level}").strip() or "0"
-        count = parse_amount(raw, 0, 99)
-        if count is None:
-            error = "Enter how many slots of each level to recover."
-            break
-        if count:
-            counts[level] = count
-            if level > max_level:
-                error = f"{uses.feature.name} can't recover slots above level {max_level}."
-            elif count > slot.maximum - slot.remaining:
-                error = f"You only have {slot.maximum - slot.remaining} level {level} slots spent."
-    if error is None:
-        if uses.remaining == 0:
-            error = f"{uses.feature.name} is used. It comes back on a long rest."
-        elif not counts:
-            error = "Choose at least one slot to recover."
-        elif sum(level * n for level, n in counts.items()) > budget:
-            error = f"{uses.feature.name} recovers at most {budget} total slot levels."
-    if error:
-        return page.refresh_sheet(
-            request, refreshed_sheet_view(db, user, character, resting=True), {"recovery": error}
-        )
-
-    for level, n in counts.items():
-        service.set_slots_remaining(db, character, level, slots[level].remaining + n)
-    service.set_uses_remaining(db, character, uses, uses.remaining - 1)
-    return page.refresh_sheet(request, refreshed_sheet_view(db, user, character, resting=True))
+    error = service.recover_slots(db, character, uses, form)
+    view = refreshed_sheet_view(db, user, character, resting=True)
+    return page.refresh_sheet(request, view, {"recovery": error} if error else None)
 
 
 @router.post("/characters/{character_id}/sheet/short-rest/finish", response_class=HTMLResponse)
 def short_rest_finish(
     request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter
 ):
-    finish_short_rest(db, character)
+    service.finish_short_rest(db, character)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 
 @router.post("/characters/{character_id}/sheet/long-rest", response_class=HTMLResponse)
 def take_long_rest(request: Request, db: DbSession, user: CurrentUser, character: OwnedCharacter):
-    long_rest(db, character)
+    service.long_rest(db, character)
     return page.refresh_sheet(request, refreshed_sheet_view(db, user, character))
 
 

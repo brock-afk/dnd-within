@@ -1,13 +1,11 @@
 import pytest
-from sqlalchemy import select
 
-from app.content.models import Source
 from app.features.models import Feature
-from app.inventory.models import CharacterItem, Item
+from app.sheet import service
+from app.sheet.form import RecoveryForm
 from app.sheet.models import CharacterFeatureUse, CharacterHpEffect
-from app.sheet.queries import hp_view
-from app.sheet.rests import long_rest
-from app.sheet.service import play_state
+from app.sheet.queries import feature_uses, hit_dice, hp_view, spell_slots
+from app.sheet.service import long_rest, play_state
 
 
 def test_long_rest_ends_max_hp_effects_and_restores_hp(db, character):
@@ -29,33 +27,21 @@ def test_long_rest_ends_max_hp_effects_and_restores_hp(db, character):
     assert (hp.current, hp.maximum) == (8, 8)
 
 
-def _wand(db, character, regain, expended, attuned=True) -> Feature:
-    """A magic item with charges that regain `regain` dice at dawn, `expended` of them spent."""
-    source = db.scalar(select(Source).where(Source.slug == "test-core"))
-    wand = Item(
-        source_id=source.id,
-        slug="test-wand",
-        name="Test Wand",
-        category="magic",
-        rarity="uncommon",
-        summary="",
-        requires_attunement=True,
-    )
-    db.add(wand)
-    db.flush()
-    charges = Feature(
-        item_id=wand.id,
-        slug="charges",
-        name="Charges",
-        summary="",
-        uses={"max": 7, "recharge": "dawn", "regain": regain},
-    )
-    carried = CharacterItem(character_id=character.id, item_id=wand.id, attuned=attuned)
-    db.add_all([charges, carried])
-    db.flush()
-    db.add(CharacterFeatureUse(character_id=character.id, feature_id=charges.id, expended=expended))
-    db.flush()
-    return charges
+@pytest.fixture
+def wand(db, charged_item):
+    """wand(character, regain, expended, attuned=True): 7 charges that regain `regain` dice at
+    dawn, `expended` of them spent."""
+
+    def wand(character, regain, expended, attuned=True) -> Feature:
+        uses = {"max": 7, "recharge": "dawn", "regain": regain}
+        charges = charged_item(character, uses, attuned)
+        db.add(
+            CharacterFeatureUse(character_id=character.id, feature_id=charges.id, expended=expended)
+        )
+        db.flush()
+        return charges
+
+    return wand
 
 
 def _expended_after_long_rest(db, character, charges) -> int | None:
@@ -66,13 +52,119 @@ def _expended_after_long_rest(db, character, charges) -> int | None:
 
 
 @pytest.mark.parametrize("attuned", [True, False])
-def test_long_rest_rolls_regain_attuned_or_not(db, character, attuned):
+def test_long_rest_rolls_regain_attuned_or_not(db, character, wand, attuned):
     # An item regains its charges at dawn whether or not it's attuned. 1d1+1 is always 2.
-    charges = _wand(db, character, "1d1+1", expended=6, attuned=attuned)
+    charges = wand(character, "1d1+1", expended=6, attuned=attuned)
     assert _expended_after_long_rest(db, character, charges) == 4
 
 
-def test_long_rest_never_spends_charges(db, character):
+def test_long_rest_never_spends_charges(db, character, wand):
     # 1d1-2 rolls -1: regains nothing rather than spending one.
-    charges = _wand(db, character, "1d1-2", expended=2)
+    charges = wand(character, "1d1-2", expended=2)
     assert _expended_after_long_rest(db, character, charges) == 2
+
+
+# --- Hit dice -----------------------------------------------------------------------------
+
+
+def _hit_die(db, character) -> tuple[str, int]:
+    [dice] = hit_dice(db, character)
+    return str(dice.character_class.id), dice.available
+
+
+def test_a_hit_die_heals_by_the_roll_and_constitution(db, character):
+    class_id, _ = _hit_die(db, character)
+    service.change_hp(db, character, "damage", "6", "")
+
+    assert service.spend_hit_die(db, character, class_id, "3") is None
+
+    assert hp_view(db, character).current == 7  # 2 + 3 + CON 2
+    assert _hit_die(db, character) == (class_id, 0)
+    error = service.spend_hit_die(db, character, class_id, "3")
+    assert error == "You have no hit dice left. They come back on a long rest."
+
+
+@pytest.mark.parametrize("roll", ["7", "x", ""])
+def test_a_bad_hit_die_roll_changes_nothing(db, character, roll):
+    class_id, _ = _hit_die(db, character)
+    service.change_hp(db, character, "damage", "6", "")
+
+    error = service.spend_hit_die(db, character, class_id, roll)
+
+    assert error == "Enter your d6 roll, from 1 to 6."
+    assert hp_view(db, character).current == 2
+    assert _hit_die(db, character) == (class_id, 1)
+
+
+# --- Arcane Recovery ----------------------------------------------------------------------
+
+
+def _recovery(db, character):
+    return next(u for u in feature_uses(db, character) if u.feature.slug == "arcane-recovery")
+
+
+def _state(db, character) -> tuple[int, int]:
+    """Level 1 slots left, and Arcane Recovery uses left."""
+    return spell_slots(db, character)[1].remaining, _recovery(db, character).remaining
+
+
+def test_arcane_recovery_recovers_a_slot(db, character):
+    assert service.change_slots(db, character, 1, "0") is None
+
+    form = RecoveryForm(level_1=" 1 ")
+    assert service.recover_slots(db, character, _recovery(db, character), form) is None
+
+    assert _state(db, character) == (1, 0)
+    # Once it's used, that's the answer, whatever is asked for.
+    form = RecoveryForm(level_1="2")
+    error = service.recover_slots(db, character, _recovery(db, character), form)
+    assert error == "Arcane Recovery is used. It comes back on a long rest."
+    assert _state(db, character) == (1, 0)
+
+
+@pytest.mark.parametrize(
+    ("spent", "count", "error"),
+    [
+        (2, "", "Choose at least one slot to recover."),
+        (2, "x", "Enter how many slots of each level to recover."),
+        (0, "1", "You only have 0 level 1 slots spent."),
+        (2, "2", "Arcane Recovery recovers at most 1 total slot levels."),
+    ],
+)
+def test_a_bad_recovery_changes_nothing(db, character, spent, count, error):
+    assert service.change_slots(db, character, 1, str(2 - spent)) is None
+
+    form = RecoveryForm(level_1=count)
+    assert service.recover_slots(db, character, _recovery(db, character), form) == error
+
+    assert _state(db, character) == (2 - spent, 1)
+
+
+# --- Requests -----------------------------------------------------------------------------
+
+
+def test_someone_elses_rests_are_not_found(client, theirs):
+    sheet = f"/characters/{theirs.id}/sheet"
+    assert client.get(f"{sheet}/short-rest").status_code == 404
+    for path in (
+        "uses/1",
+        "features/1/use",
+        "short-rest/hit-die",
+        "short-rest/recover/1",
+        "short-rest/finish",
+        "long-rest",
+    ):
+        assert client.post(f"{sheet}/{path}").status_code == 404
+
+
+def test_rests_through_the_app(client, db, character):
+    sheet = f"/characters/{character.id}/sheet"
+    class_id, _ = _hit_die(db, character)
+    assert "Spend a hit die" in client.get(f"{sheet}/short-rest").text
+
+    response = client.post(f"{sheet}/short-rest/hit-die", data={"class_id": class_id, "roll": "9"})
+    assert response.status_code == 400 and "Enter your d6 roll, from 1 to 6." in response.text
+
+    for path in ("short-rest/finish", "long-rest"):
+        response = client.post(f"{sheet}/{path}")
+        assert response.status_code == 200 and response.headers["HX-Retarget"] == "#sheet-page"

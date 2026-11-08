@@ -934,6 +934,24 @@ def feature_uses(
     return result
 
 
+@dataclass(frozen=True)
+class Spender:
+    uses: FeatureUses  # the pool it spends, like the item's charges
+    feature: Feature
+
+
+def uses_of(db: Session, character: Character, feature_id: int | None) -> FeatureUses | None:
+    return next((u for u in feature_uses(db, character) if u.feature.id == feature_id), None)
+
+
+def spender(db: Session, character: Character, feature_id: int) -> Spender | None:
+    for uses in feature_uses(db, character):
+        for feature in uses.spenders:
+            if feature.id == feature_id:
+                return Spender(uses, feature)
+    return None
+
+
 # --- Hit dice -----------------------------------------------------------------------------
 
 

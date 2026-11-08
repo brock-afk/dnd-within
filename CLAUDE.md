@@ -89,7 +89,7 @@ Adding a new content capability usually means changing these together: the YAML 
 
 ### Two character views
 - **Build** (`/characters/{id}`, `characters/page.py`): leveling, ability scores, and feature choices.
-- **Play** (`/characters/{id}/sheet`, `app/sheet/`): HP, temp HP, HP/AC effects, spell slots, prepared spells, feature uses, and short/long rests (`rests.py`).
+- **Play** (`/characters/{id}/sheet`, `app/sheet/`): HP, temp HP, HP/AC effects, spell slots, prepared spells, feature uses, and short/long rests.
 
 Stored vs. derived: max HP, AC, and slot maximums are calculated. Current HP is stored, with `NULL` meaning "at full". Max-HP changes must happen inside `sheet.service.tracking_max_hp` so current HP follows the PHB rules in `sheet.rules.apply_max_change`.
 

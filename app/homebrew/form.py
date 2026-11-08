@@ -18,10 +18,12 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from app.content.models import Source
+from app.content.queries import picked_row
 from app.content.schema import DICE, ItemDef
 from app.core.forms import parse_amount, parse_id
 from app.inventory.rules import TOOLS
 from app.spells.models import Spell
+from app.spells.queries import pickable_spells
 
 CATEGORIES = {"magic": "Magic item", "gear": "Gear", "consumable": "Consumable", "tool": "Tool"}
 RARITIES = {
@@ -195,7 +197,9 @@ def _regain_text(form: ItemForm) -> str:
     )
 
 
-def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[str, str]]:
+def build_item_def(
+    db: Session, form: ItemForm, user_id: int
+) -> tuple[ItemDef | None, dict[str, str]]:
     """The item the form describes, or (None, {field: problem})."""
     errors: dict[str, str] = {}
     name = form.name.strip()
@@ -221,8 +225,7 @@ def build_item_def(db: Session, form: ItemForm) -> tuple[ItemDef | None, dict[st
     for spell_key, spell_charges, prepared, note in form.spell_rows():
         if not spell_key:
             continue
-        spell_id = parse_id(spell_key)
-        spell = db.get(Spell, spell_id) if spell_id is not None else None
+        spell = picked_row(db, Spell, pickable_spells(user_id), spell_key)
         if spell is None:
             errors["spells"] = "Choose a spell from the list for each row."
             continue

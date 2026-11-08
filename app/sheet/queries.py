@@ -1,7 +1,7 @@
 import math
 from dataclasses import dataclass, field, replace
 
-from sqlalchemy import case, select
+from sqlalchemy import Select, case, select
 from sqlalchemy.orm import Session
 
 from app.abilities.queries import AbilityView, ability_views
@@ -9,9 +9,8 @@ from app.abilities.rules import ABILITIES, modifier
 from app.auth.models import User
 from app.characters.models import Character
 from app.classes.models import CharacterClass
-from app.content.queries import available, available_row
+from app.content.queries import available, picked_row
 from app.core.db import reload_all
-from app.core.forms import parse_id
 from app.features.kinds import KINDS, OptionView, owner_level, source_name
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature, FeatureSpell
 from app.features.queries import (
@@ -50,7 +49,7 @@ from app.sheet.rules import current_hp, proficiency_bonus, skill_bonus, uses_max
 from app.sheet.slots import slot_kind, slot_maximums
 from app.skills.models import CharacterSkill, CharacterSkillExpertise, Skill
 from app.spells.models import Spell
-from app.spells.queries import character_spells, spellbook
+from app.spells.queries import character_spells, pickable_spells, spellbook
 
 
 @dataclass
@@ -834,21 +833,20 @@ COPY_SEARCH_MIN = 2  # characters typed before searching
 COPY_SEARCH_LIMIT = 8
 
 
-def search_copyable(db: Session, query: str) -> list[Spell]:
-    """Level 1+ spells (cantrips aren't written in spellbooks) whose name contains `query`:
-    names starting with it first, then by name."""
+def _copyable_spells(user_id: int) -> Select[tuple[Spell]]:
+    # Cantrips aren't written in spellbooks.
+    return pickable_spells(user_id).where(Spell.level >= 1)
+
+
+def search_copyable(db: Session, query: str, user_id: int) -> list[Spell]:
     query = query.strip()
     if len(query) < COPY_SEARCH_MIN:
         return []
     starts = case((Spell.name.istartswith(query, autoescape=True), 0), else_=1)
     return list(
         db.scalars(
-            select(Spell)
-            .where(
-                Spell.level >= 1,
-                available(Spell),
-                Spell.name.icontains(query, autoescape=True),
-            )
+            _copyable_spells(user_id)
+            .where(Spell.name.icontains(query, autoescape=True))
             .order_by(starts, Spell.name)
             .limit(COPY_SEARCH_LIMIT)
         )
@@ -1049,7 +1047,7 @@ class CopySearchView:
 
 
 def copy_search(db: Session, character: Character, query: str) -> CopySearchView:
-    spells = search_copyable(db, query)
+    spells = search_copyable(db, query, character.user_id)
     known = always_prepared_reasons(db, character) | {
         str(entry.spell_id): "In your spellbook" for entry in spellbook(db, character.id)
     }
@@ -1082,10 +1080,8 @@ def copy_confirmation(
     )
 
 
-def copyable(db: Session, key: str) -> Spell | None:
-    found = available_row(db, Spell, parse_id(key))
-    # Cantrips aren't written in spellbooks.
-    return found if found is not None and found.level >= 1 else None
+def copyable(db: Session, key: str, user_id: int) -> Spell | None:
+    return picked_row(db, Spell, _copyable_spells(user_id), key)
 
 
 # --- The prepared editor ------------------------------------------------------------------

@@ -7,12 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.characters.models import Character
-from app.content.queries import available_row
-from app.core.forms import parse_amount, parse_id
+from app.content.queries import picked_row
+from app.core.forms import parse_amount
 from app.features.service import remove_inapplicable_picks
 from app.inventory.form import CoinChangeForm, CoinForm
 from app.inventory.models import CharacterItem, Item
-from app.inventory.queries import HealingUse, coin_values, inventory
+from app.inventory.queries import HealingUse, coin_values, inventory, scroll_spells_query
 from app.inventory.rules import COINS, MAX_ATTUNED, MAX_COINS, gain, spend
 from app.sheet import rules as sheet_rules
 from app.sheet.queries import active_ac_spell_ids, max_hp
@@ -67,7 +67,7 @@ def add_from_catalog(
     amount = parse_amount(quantity, 1, 999)
     if amount is None:
         return "Quantity is 1 to 999."
-    spell = available_row(db, Spell, parse_id(spell_id), user_id=character.user_id)
+    spell = picked_row(db, Spell, scroll_spells_query(item, character.user_id), spell_id)
     return add_item(db, character, item, amount, spell)
 
 

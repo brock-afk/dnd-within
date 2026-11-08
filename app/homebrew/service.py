@@ -97,7 +97,7 @@ def save_from_form(
     """Save the editor's item (a new one when `item` is None) and, when the editor was opened
     from `character`'s Add item, add one to their inventory. Returns {field: problem} instead,
     with nothing saved, when the form isn't valid."""
-    item_def, errors = build_item_def(db, form)
+    item_def, errors = build_item_def(db, form, user.id)
     if errors:
         return errors
     saved = save_item(db, user, item_def, form.definition(), item)

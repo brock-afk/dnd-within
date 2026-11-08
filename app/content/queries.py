@@ -1,9 +1,10 @@
 """Query helpers shared by everything that lists content."""
 
-from sqlalchemy import ColumnElement, or_, select
+from sqlalchemy import ColumnElement, Select, or_, select
 from sqlalchemy.orm import Session
 
 from app.content.models import Source
+from app.core.forms import parse_id
 
 
 def available(model) -> ColumnElement[bool]:
@@ -32,6 +33,14 @@ def available_row(db: Session, model, row_id: int | None, user_id: int | None = 
     if user_id is not None:
         where.append(visible(model, user_id))
     return db.scalar(select(model).where(*where))
+
+
+def picked_row(db: Session, model, query: Select, key: str):
+    """`query` must be the one the list was built from: a form can post any id."""
+    row_id = parse_id(key)
+    if row_id is None:
+        return None
+    return db.scalar(query.where(model.id == row_id))
 
 
 def available_by_name(db: Session, model) -> list:

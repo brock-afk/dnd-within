@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from app.characters.models import Character
@@ -132,10 +132,13 @@ def pack_contents(db: Session, item: Item) -> list[tuple[Item, int]]:
     return [(db.get(Item, c["item_id"]), c["quantity"]) for c in item.contents or []]
 
 
-def scroll_spells(db: Session, item: Item, user_id: int) -> list[Spell]:
+def scroll_spells_query(item: Item, user_id: int) -> Select[tuple[Spell]]:
     """A Spell Scroll holds any spell of its level, whatever the class."""
-    query = pickable_spells(user_id).where(Spell.level == item.spell_level)
-    return list(db.scalars(query.order_by(Spell.name)))
+    return pickable_spells(user_id).where(Spell.level == item.spell_level)
+
+
+def scroll_spells(db: Session, item: Item, user_id: int) -> list[Spell]:
+    return list(db.scalars(scroll_spells_query(item, user_id).order_by(Spell.name)))
 
 
 @dataclass(frozen=True)

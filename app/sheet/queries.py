@@ -35,7 +35,7 @@ from app.inventory.queries import (
 from app.inventory.queries import digest as inventory_digest
 from app.leveling.queries import hit_points
 from app.sharing.models import CharacterShare
-from app.sharing.service import public_share
+from app.sharing.queries import public_share
 from app.sheet.models import (
     CharacterAcEffect,
     CharacterFeatureUse,

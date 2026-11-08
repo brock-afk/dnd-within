@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.db import Base, NullableJSON, enum_column, values_check
+from app.core.db import Base, NullableJSON, enum_column
 from app.features.rules import Action
 
 SHEET_VALUES = "sheet IN ('senses', 'saves', 'speed', 'resistances', 'traits')"
@@ -39,7 +39,6 @@ class Feature(Base):
         UniqueConstraint("feat_id", "slug"),
         UniqueConstraint("item_id", "slug"),
         UniqueConstraint("option_id", "slug"),
-        values_check("action", Action, "action_values"),
         CheckConstraint(SHEET_VALUES, name="sheet_values"),
         CheckConstraint(
             "(spends_feature_id IS NULL) = (spends_amount IS NULL)", name="spends_together"
@@ -64,7 +63,7 @@ class Feature(Base):
     uses: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
     slot_recovery: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
     grants: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
-    action: Mapped[Action | None] = mapped_column(enum_column(Action, 20))
+    action: Mapped[Action | None] = mapped_column(enum_column(Action, 20, check="action_values"))
     when: Mapped[str | None] = mapped_column(String(120))
     sheet: Mapped[str | None] = mapped_column(String(20))
     spends_feature_id: Mapped[int | None] = mapped_column(ForeignKey("features.id"))
@@ -123,7 +122,6 @@ class ChoiceOption(Base):
     __tablename__ = "choice_options"
     __table_args__ = (
         UniqueConstraint("choice_id", "slug"),
-        values_check("action", Action, "action_values"),
         CheckConstraint(SHEET_VALUES, name="sheet_values"),
     )
 
@@ -133,7 +131,7 @@ class ChoiceOption(Base):
     name: Mapped[str] = mapped_column(String(80))
     summary: Mapped[str] = mapped_column(String(255))
     when: Mapped[str | None] = mapped_column(String(120))
-    action: Mapped[Action | None] = mapped_column(enum_column(Action, 20))
+    action: Mapped[Action | None] = mapped_column(enum_column(Action, 20, check="action_values"))
     sheet: Mapped[str | None] = mapped_column(String(20))
     damage_reaction: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)
     grants: Mapped[dict[str, Any] | None] = mapped_column(NullableJSON)

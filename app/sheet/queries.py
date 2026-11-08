@@ -220,7 +220,9 @@ class SheetFeatures:
 
 
 FEATURE_GROUPS = [
-    *((action, f"{action.label}s") for action in Action),
+    (Action.ACTION, "Actions"),
+    (Action.BONUS_ACTION, "Bonus Actions"),
+    (Action.REACTION, "Reactions"),
     ("triggered", "Triggered"),
     (None, "Other"),
 ]
@@ -230,11 +232,11 @@ def _shown_elsewhere(feature: Feature) -> bool:
     return bool(feature.slot_recovery or feature.spends_feature_id or feature.item_id)
 
 
-def _action_group(action: str | None, when: str | None) -> str | None:
+def _action_group(action: Action | None, when: str | None) -> Action | str | None:
     return action or ("triggered" if when else None)
 
 
-def _uses_group(uses: FeatureUses) -> str | None:
+def _uses_group(uses: FeatureUses) -> Action | str | None:
     feature = uses.feature
     if group := _action_group(feature.action, feature.when):
         return group
@@ -257,10 +259,10 @@ def sheet_features(
 ) -> SheetFeatures:
     tracked = {u.feature.id: u for u in uses if not u.rest_only}
     in_play = {pc.choice.id: pc for pc in play_choices if pc.picked}
-    found: list[tuple[str | None, FeatureRow]] = []
+    found: list[tuple[Action | str | None, FeatureRow]] = []
     traits: dict[str, list[FeatureEntry]] = {}
 
-    def place(action: str | None, when: str | None, sheet: str | None, entry: FeatureEntry):
+    def place(action: Action | None, when: str | None, sheet: str | None, entry: FeatureEntry):
         if group := _action_group(action, when):
             found.append((group, FeatureRow(entry=entry)))
         elif sheet:

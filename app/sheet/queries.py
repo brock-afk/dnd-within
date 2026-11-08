@@ -1,11 +1,12 @@
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 
 from sqlalchemy import Select, case, select
 from sqlalchemy.orm import Session
 
 from app.abilities.queries import AbilityView, ability_views
-from app.abilities.rules import ABILITIES, modifier
+from app.abilities.rules import Ability
 from app.auth.models import User
 from app.characters.models import Character
 from app.classes.models import CharacterClass
@@ -100,7 +101,7 @@ def hp_view(db: Session, character: Character) -> HpView | None:
 
 @dataclass(frozen=True)
 class AbilityRow:
-    ability: AbilityView
+    view: AbilityView
     save: int
     proficient: bool
     sources: tuple[str, ...] = ()
@@ -131,8 +132,10 @@ def _grant_sources(
     return found
 
 
-def _by_source(sources: dict[str, list[str]], order: list[str]) -> list[tuple[list[str], str]]:
-    groups: dict[str, list[str]] = {}
+def _by_source[T: str](
+    sources: dict[str, list[str]], order: Iterable[T]
+) -> list[tuple[list[T], str]]:
+    groups: dict[str, list[T]] = {}
     for item in order:
         if item in sources:
             groups.setdefault(", ".join(sources[item]), []).append(item)
@@ -151,10 +154,9 @@ class Attributes:
 
     @property
     def save_groups(self) -> list[tuple[list[str], str]]:
-        names = {a.abbr: a.name for a in ABILITIES}
         return [
-            ([names[abbr] for abbr in abbrs], label)
-            for abbrs, label in _by_source(self.saves, [a.abbr for a in ABILITIES])
+            ([ability.label for ability in abilities], label)
+            for abilities, label in _by_source(self.saves, Ability)
         ]
 
     @property
@@ -347,9 +349,9 @@ def ability_rows(
     return [
         AbilityRow(
             a,
-            a.mod + (pb if a.abbr in sources else 0),
-            a.abbr in sources,
-            tuple(sources.get(a.abbr, ())),
+            a.mod + (pb if a.ability in sources else 0),
+            a.ability in sources,
+            tuple(sources.get(a.ability, ())),
         )
         for a in abilities
     ]
@@ -368,7 +370,7 @@ def skill_rows(db: Session, character: Character) -> list[SkillRow] | None:
     abilities = ability_views(db, character)
     if abilities is None:
         return None
-    mods = {a.abbr: a.mod for a in abilities}
+    mods = {a.ability: a.mod for a in abilities}
     pb = proficiency_bonus(character.level)
     proficient = set(
         db.scalars(
@@ -439,7 +441,11 @@ class ArmorClassView:
     def breakdown(self) -> str:
         if self.minimum_wins:
             return f"{self.minimum.label} {self.minimum.value} (minimum)"
-        parts = [(self.dex, "DEX"), *self.granted, *((e.value, e.label) for e in self.bonuses)]
+        parts = [
+            (self.dex, Ability.DEXTERITY),
+            *self.granted,
+            *((e.value, e.label) for e in self.bonuses),
+        ]
         return f"{self.base_label} {self.base}" + "".join(
             f" {'+' if value >= 0 else '−'} {abs(value)} {label}" for value, label in parts
         )
@@ -451,7 +457,7 @@ def armor_class(
     abilities = ability_views(db, character)
     if abilities is None:
         return None
-    dex = next(a.mod for a in abilities if a.abbr == "DEX")
+    dex = next(a.mod for a in abilities if a.ability == Ability.DEXTERITY)
     effects = list(
         db.scalars(
             select(CharacterAcEffect)
@@ -683,8 +689,8 @@ def prepared_spell_ids(db: Session, character: Character) -> set[int]:
 
 def ability_modifier(db: Session, character: Character, abbr: str) -> int:
     abilities = ability_views(db, character) or []
-    found = next((a for a in abilities if a.abbr == abbr), None)
-    return modifier(found.total) if found else 0
+    found = next((a for a in abilities if a.ability == abbr), None)
+    return found.mod if found else 0
 
 
 def _rule_warnings(cc, highest_slot: int, spell: Spell) -> list[str]:

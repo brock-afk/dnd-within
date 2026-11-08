@@ -3,8 +3,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.abilities.rules import Ability
 from app.features.schema import (
-    Ability,
     DamageType,
     FeatureDef,
     School,

@@ -1,8 +1,9 @@
 from collections.abc import Iterator
+from enum import StrEnum
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import JSON, MetaData, create_engine
+from sqlalchemy import JSON, CheckConstraint, MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
@@ -34,6 +35,11 @@ def get_db() -> Iterator[Session]:
 
 
 DbSession = Annotated[Session, Depends(get_db, scope="function")]
+
+
+def values_check(column: str, values: type[StrEnum], name: str) -> CheckConstraint:
+    listed = ", ".join(f"'{value}'" for value in values)
+    return CheckConstraint(f"{column} IN ({listed})", name=name)
 
 
 def release_connection(db: Session) -> None:

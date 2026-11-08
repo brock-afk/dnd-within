@@ -1,9 +1,14 @@
 import pytest
 
 from app.abilities import rules
-from app.abilities.rules import ABILITIES
+from app.abilities.rules import Ability
 
-COLUMNS = [a.column for a in ABILITIES]
+COLUMNS = [a.column for a in Ability]
+
+
+def test_abilities_in_order_with_their_columns_and_labels():
+    assert list(Ability) == ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
+    assert (Ability("CON").column, Ability("CON").label) == ("constitution", "Constitution")
 
 
 def scores(*values):

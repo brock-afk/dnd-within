@@ -3,14 +3,14 @@ from datetime import datetime
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, SmallInteger, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.abilities.rules import ABILITIES
+from app.abilities.rules import Ability
 from app.backgrounds.models import Background
 from app.classes.models import CharacterClassLevel
 from app.core.db import Base
 from app.leveling.models import CharacterLevel
 from app.species.models import Species
 
-_SCORE_COLUMNS = [a.column for a in ABILITIES]
+_SCORE_COLUMNS = [a.column for a in Ability]
 
 
 class Character(Base):

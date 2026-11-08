@@ -154,7 +154,7 @@
 {% endif %}
 
 {% if abilities %}
-{% set ability_digest %}{% for a in abilities %}{{ a.abbr }} {{ a.total }}{{ " · " if not loop.last }}{% endfor %}{% endset %}
+{% set ability_digest %}{% for a in abilities %}{{ a.ability }} {{ a.total }}{{ " · " if not loop.last }}{% endfor %}{% endset %}
 {% call section("abilities", "Abilities & skills", ability_digest) %}
   {% if not read_only %}
   <div class="section-actions">
@@ -165,8 +165,8 @@
   <div id="ability-scores">
     <ul class="ability-grid">
       {% for a in abilities %}
-      <li class="card" title="{{ a.name }}: base {{ a.base }}{% if a.bonus %} + {{ a.bonus }} bonus{% endif %}">
-        <span class="ability-abbr">{{ a.abbr }}</span>
+      <li class="card" title="{{ a.ability.label }}: base {{ a.base }}{% if a.bonus %} + {{ a.bonus }} bonus{% endif %}">
+        <span class="ability-abbr">{{ a.ability }}</span>
         <span class="ability-mod">{{ a.modifier }}</span>
         <span class="ability-score">{{ a.total }}</span>
       </li>

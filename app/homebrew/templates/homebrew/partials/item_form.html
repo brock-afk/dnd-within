@@ -137,8 +137,8 @@
     <div class="hb-field">
       <span class="hb-label">Saving throw proficiencies</span>
       <div class="hb-checks">
-        {% for abbr, label in abilities.items() %}
-        <label class="hb-check"><input type="checkbox" name="saves" value="{{ abbr }}" {% if abbr in form.saves %}checked{% endif %}> {{ label }}</label>
+        {% for ability in abilities %}
+        <label class="hb-check"><input type="checkbox" name="saves" value="{{ ability }}" {% if ability in form.saves %}checked{% endif %}> {{ ability.label }}</label>
         {% endfor %}
       </div>
     </div>

@@ -3,6 +3,7 @@ import re
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
+from app.abilities.rules import Ability
 from app.content.models import Source
 from app.content.queries import picked_row
 from app.content.schema import DICE, ItemDef
@@ -25,14 +26,6 @@ RECHARGES = {"dawn": "At dawn", "long_rest": "On a long rest", "short_rest": "On
 PREPARED = {"no": "No: charges only", "yes": "Yes: also cast with spell slots"}
 ACTIONS = {"": "None", "action": "Action", "bonus_action": "Bonus Action", "reaction": "Reaction"}
 TOOL_MODES = {"none": "None", "fixed": "A set tool", "choice": "Chosen on the Play sheet"}
-ABILITIES = {
-    "STR": "Strength",
-    "DEX": "Dexterity",
-    "CON": "Constitution",
-    "INT": "Intelligence",
-    "WIS": "Wisdom",
-    "CHA": "Charisma",
-}
 DAMAGE_TYPES = [
     "acid",
     "bludgeoning",
@@ -240,7 +233,7 @@ def build_item_def(
         grants["speed_bonus"] = sp
     if resistances := [r for r in form.resistances if r in DAMAGE_TYPES]:
         grants["resistances"] = resistances
-    if saves := [a for a in form.saves if a in ABILITIES]:
+    if saves := [a for a in form.saves if a in Ability]:
         grants["save_proficiencies"] = saves
     if form.tool_mode not in TOOL_MODES:
         errors["tool"] = "Choose how the tool proficiency works."
@@ -380,7 +373,7 @@ def _benefits_text(grants: dict) -> str:
     if grants.get("save_proficiencies"):
         parts.append(
             "Proficiency in "
-            + ", ".join(ABILITIES[a] for a in grants["save_proficiencies"])
+            + ", ".join(Ability(a).label for a in grants["save_proficiencies"])
             + " saving throws"
         )
     if grants.get("tool_proficiencies"):

@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.abilities.form import IncreaseForm
 from app.abilities.models import CharacterAbilityBonus
 from app.abilities.rules import (
-    ABILITIES,
     MAX_SCORE,
     METHODS,
     POINT_BUY_BUDGET,
@@ -29,8 +28,7 @@ def _signed(mod: int) -> str:
 
 @dataclass(frozen=True)
 class AbilityView:
-    abbr: str
-    name: str
+    ability: Ability
     base: int
     bonus: int
 
@@ -65,17 +63,14 @@ def ability_views(
     if character.ability_method is None:
         return None
     bonuses = bonus_totals(db, character, except_choice_id)
-    return [
-        AbilityView(a.abbr, a.name, getattr(character, a.column), bonuses[a.abbr])
-        for a in ABILITIES
-    ]
+    return [AbilityView(a, getattr(character, a.column), bonuses[a]) for a in Ability]
 
 
 def constitution_modifier(db: Session, character: Character) -> int | None:
     abilities = ability_views(db, character)
     if abilities is None:
         return None
-    return next(a for a in abilities if a.abbr == "CON").mod
+    return next(a for a in abilities if a.ability == Ability.CONSTITUTION).mod
 
 
 @dataclass(frozen=True)
@@ -124,7 +119,7 @@ def ability_editor_view(
     remaining = POINT_BUY_BUDGET - point_buy_spent(scores)
     pool = STANDARD_ARRAY if method == "standard_array" else [r for r in rolls if r is not None]
     rows = []
-    for a in ABILITIES:
+    for a in Ability:
         score = scores[a.column]
         row = Row(a, score, errors.get(a.column))
         if method == "point_buy":
@@ -154,7 +149,7 @@ def ability_editor_view(
 def saved_editor_view(character: Character, method: str) -> AbilityEditorView:
     if method not in METHODS:
         method = character.ability_method or "standard_array"
-    saved = {a.column: getattr(character, a.column) for a in ABILITIES}
+    saved = {a.column: getattr(character, a.column) for a in Ability}
     has_saved = character.ability_method is not None
     if method == "point_buy":
         fits = has_saved and all(v in POINT_BUY_COSTS for v in saved.values())
@@ -171,8 +166,7 @@ def saved_editor_view(character: Character, method: str) -> AbilityEditorView:
 
 @dataclass(frozen=True)
 class IncreaseRow:
-    abbr: str
-    name: str
+    ability: Ability
     before: int | None
     amount: int
 
@@ -203,8 +197,7 @@ def increase_view(
     amounts = KINDS["ability_scores"].split(choice, form.plus2, form.plus1, even) or {}
     if not even:
         amounts = {form.plus1: 1, form.plus2: 2} | amounts
-    before = {a.abbr: a.total for a in ability_views(db, character, choice.id) or []}
-    names = {a.abbr: a.name for a in ABILITIES}
+    before = {a.ability: a.total for a in ability_views(db, character, choice.id) or []}
     return IncreaseView(
         character=character,
         choice=choice,
@@ -212,7 +205,7 @@ def increase_view(
         even=even,
         form=form,
         rows=[
-            IncreaseRow(abbr, names[abbr], before.get(abbr), amounts.get(abbr, 0))
+            IncreaseRow(Ability(abbr), before.get(abbr), amounts.get(abbr, 0))
             for abbr in choice.criteria["from"]
         ],
         max_score=MAX_SCORE,

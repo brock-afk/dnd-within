@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse, Response
 
-from app.auth.limits import Throttle, auth_attempts, client_key
+from app.auth.limits import AttemptLimiter, Throttle, auth_attempts, client_key
 from app.auth.models import User
 from app.auth.security import HashingBusy
 from app.core.db import DbSession
@@ -41,8 +41,14 @@ OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 CurrentUser = Annotated[User, Depends(require_user)]
 
 
-def get_throttle(request: Request) -> Throttle:
-    return Throttle(auth_attempts, client_key(request.client.host if request.client else ""))
+def get_limiter() -> AttemptLimiter:
+    return auth_attempts
+
+
+def get_throttle(
+    request: Request, limiter: Annotated[AttemptLimiter, Depends(get_limiter)]
+) -> Throttle:
+    return Throttle(limiter, client_key(request.client.host if request.client else ""))
 
 
 ClientThrottle = Annotated[Throttle, Depends(get_throttle)]

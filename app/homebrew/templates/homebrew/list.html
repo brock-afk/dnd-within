@@ -13,7 +13,7 @@
 <ul class="character-list">
   {% for item, detail in items %}
   <li class="card homebrew-item">
-    <div class="homebrew-item-text">
+    <div class="list-item-text">
       <a class="character-name" href="/homebrew/items/{{ item.id }}/edit">{{ item.name }}</a>
       <span class="muted">{{ detail }}{% if item.requires_attunement %}{{ " · " if detail }}Requires attunement{% endif %}</span>
       <p class="muted homebrew-item-summary">{{ item.summary }}</p>

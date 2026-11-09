@@ -646,7 +646,7 @@ details[open] > .section-summary .section-digest { display: none; }
 .add-custom { margin: 0.75rem 0 0; font-size: 0.9rem; }
 
 .homebrew-item { align-items: flex-start; flex-wrap: nowrap; }
-.homebrew-item-text { display: grid; gap: 0.15rem; min-width: 0; }
+.list-item-text { display: grid; gap: 0.15rem; min-width: 0; }
 .homebrew-item-summary { margin: 0.2rem 0 0; font-size: 0.9rem; }
 .homebrew-item-actions { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
 .homebrew-form { display: grid; gap: 1.5rem; max-width: 52rem; }
@@ -689,3 +689,11 @@ span.pip { display: inline-block; cursor: default; }
 span.pip:hover { background: none; }
 span.pip.filled:hover { background: var(--accent); }
 .page-header .share-menu { position: relative; }
+
+.invite-form { margin-bottom: 1rem; }
+.invite-form label { margin-top: 0; }
+.invite-form-row { grid-template-columns: 1fr auto; }
+.invite-form-row button { padding: 0.5rem 0.9rem; }
+.invite-created { display: grid; gap: 0.6rem; margin-bottom: 1rem; border-color: var(--accent); }
+.invite-list li { align-items: center; }
+.invite-list-error { margin: 0 0 0.75rem; }

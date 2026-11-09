@@ -24,6 +24,7 @@ from app.features.router import router as features_router
 from app.homebrew.router import router as homebrew_router
 from app.inventory.router import router as inventory_router
 from app.inventory.rules import Coin, CoinChange
+from app.invites.router import router as invites_router
 from app.leveling.router import router as leveling_router
 from app.sharing.live import publish, publish_all
 from app.sharing.router import router as sharing_router
@@ -87,3 +88,4 @@ app.include_router(sheet_router)
 app.include_router(inventory_router)
 app.include_router(homebrew_router)
 app.include_router(sharing_router)
+app.include_router(invites_router)

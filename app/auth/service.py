@@ -99,10 +99,10 @@ def create_admin(db: Session, form: RegisterForm) -> User | Refusal | str:
     return user
 
 
-def grant_admin(db: Session, username: str) -> bool:
+def set_admin(db: Session, username: str, is_admin: bool) -> str | None:
     user = user_named(db, username)
     if user is None:
-        return False
-    user.is_admin = True
+        return f"No user named {username}."
+    user.is_admin = is_admin
     db.flush()
-    return True
+    return None

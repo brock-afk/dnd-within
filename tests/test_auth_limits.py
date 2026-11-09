@@ -5,7 +5,10 @@ import pytest
 from app.auth import limits, security
 from app.auth.limits import AttemptLimiter
 
-KNOWN_HASH = security.hash_password("password")
+
+@pytest.fixture(scope="module")
+def known_hash():
+    return security.hash_password("password")
 
 
 class Clock:
@@ -95,9 +98,9 @@ def test_client_key_groups_ipv6_by_64(host, key):
 
 
 @pytest.mark.parametrize("known", [True, False], ids=["wrong password", "unknown user"])
-def test_hashing_turns_away_when_slots_are_full(busy_hasher, known):
+def test_hashing_turns_away_when_slots_are_full(known_hash, busy_hasher, known):
     with pytest.raises(security.HashingBusy):
-        security.verify_password(KNOWN_HASH if known else None, "wrong")
+        security.verify_password(known_hash if known else None, "wrong")
 
 
 def test_slot_is_released_after_verifying(monkeypatch):

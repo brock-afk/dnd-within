@@ -53,20 +53,20 @@ scripts/backup.sh                     # server: daily (systemd timer) and before
 scripts/restore-drill.sh              # server: restore the newest blob into a scratch DB and compare row counts
 ```
 
-`INVITE_CODE` gates registration. Keep the app a single process: live shared views notify in-process (`app/sharing/live.py`).
+Registration needs a one-time invite (`app/invites/`), created by an admin at `/admin/invites`; every route on that router is guarded by `auth/dependencies.py:get_admin`, which answers 404 to anyone who isn't one. `is_admin` changes only through `python -m app.auth grant-admin|revoke-admin <username>` (production: the Ops operations of the same names) or `create-admin`, and `get_admin` reads it from the database on every request, so revoking takes effect at once. Keep the app a single process: live shared views notify in-process (`app/sharing/live.py`).
 
 ## Workflow
 
 - New or changed rule logic comes with a test in `tests/`.
 - UI, template or htmx changes: check them in the running app (`/run`).
 - Before committing: `/simplify`, then `/code-review` on the diff (`high` for rules, importer, migrations).
-- Changes to `auth/`, `sharing/`, `homebrew/` or anything public-facing: `/security-review`.
+- Changes to `auth/`, `invites/`, `sharing/`, `homebrew/` or anything public-facing: `/security-review`.
 - No comments or docstrings, in any file, unless one is absolutely necessary. Code that seems to need a comment should be made clearer instead: a better name, a named constant, a smaller function, or a test that pins the behaviour. Lint directives (`# noqa`) and functional headers (`#!`, `# syntax=`, `#cloud-config`) are not comments.
 
 ## Architecture
 
 ### Domain packages
-`app/<domain>/` holds one area each (`auth`, `characters`, `abilities`, `classes`, `species`, `backgrounds`, `feats`, `skills`, `spells`, `features`, `leveling`, `sheet`, `inventory`, `homebrew`, `sharing`, `content`). A domain has some of these modules:
+`app/<domain>/` holds one area each (`auth`, `characters`, `abilities`, `classes`, `species`, `backgrounds`, `feats`, `skills`, `spells`, `features`, `leveling`, `sheet`, `inventory`, `homebrew`, `sharing`, `invites`, `content`). A domain has some of these modules:
 - `models.py`: SQLAlchemy tables
 - `router.py`: routes, registered in `app/main.py`. A route loads its rows through a dependency, runs one service operation, builds a view with a `queries.py` builder and renders it with a `page.py` function. Routers don't import SQLAlchemy, templates, `HTTPException` or Pydantic, and don't construct models.
 - `dependencies.py`: `Annotated` loaders such as `OwnedCharacter`, `OwnedItemRow` and `SharedCharacter`. A missing row, another user's row and a row of the wrong kind for the route all get a 404, so ids can't be probed. Child rows use `characters/dependencies.py:owned_child`.
@@ -74,7 +74,7 @@ scripts/restore-drill.sh              # server: restore the newest blob into a s
 - `queries.py`: read lookups, frozen view dataclasses (never raw dicts) and the builders that fill them. A builder does the reload after a change. A lookup by id uses the same query as the list the id came from (`content/queries.py:picked_row`). It never imports a service.
 - `service.py`: operations. Each checks first, then writes, and returns its errors (a message as `str | None`, or field errors as `dict[str, str]`) with nothing changed when there are any. Operations flush; `get_db` commits once per request.
 - `page.py`: render functions taking the request, a view and an optional error. No database access. The view's fields become the template context (`core/templates.py:view_context`).
-- `rules.py`: pure 2024 PHB rule math and constants with no DB access; anything may import it
+- `rules.py`: pure rule logic and constants with no DB access (2024 PHB math for the game domains); anything may import it
 - `templates/<domain>/`: Jinja templates, referenced as `"<domain>/x.html"`
 
 `app/core/` (config, db, templates) must never import from domains. `app/models.py` imports every domain's models so `Base.metadata` is complete. Alembic and the app both rely on it, so **any new models module must be added there**.

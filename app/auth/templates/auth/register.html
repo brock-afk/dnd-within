@@ -19,10 +19,9 @@
     <input id="confirm_password" name="confirm_password" type="password"
            autocomplete="new-password" minlength="8" required>
 
-    {% if invite_required %}
     <label for="invite_code">Invite code</label>
-    <input id="invite_code" name="invite_code" type="text" autocomplete="off" required>
-    {% endif %}
+    <input id="invite_code" name="invite_code" type="text" autocomplete="off"
+           value="{{ invite_code }}" required>
 
     <div id="form-error" aria-live="polite"></div>
 

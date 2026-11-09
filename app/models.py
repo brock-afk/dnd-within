@@ -7,6 +7,7 @@ from app.content import models as content  # noqa: F401
 from app.feats import models as feats  # noqa: F401
 from app.features import models as features  # noqa: F401
 from app.inventory import models as inventory  # noqa: F401
+from app.invites import models as invites  # noqa: F401
 from app.leveling import models as leveling  # noqa: F401
 from app.sharing import models as sharing  # noqa: F401
 from app.sheet import models as sheet  # noqa: F401

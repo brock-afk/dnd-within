@@ -78,7 +78,7 @@ The workflows log in through OIDC with no stored secrets. They need the reposito
 
 ### Server setup
 
-Copy `.env.production.example` to `/opt/dnd-within/.env` and fill in every value. `INVITE_CODE` gates registration; leaving it empty opens sign-up. Content packs are installed from a release of the `dnd-within-content` repo with `ssh az-dnd 'bash /opt/dnd-within/scripts/content-release.sh <tag>'`, which downloads it from the `content-releases` container, checks it with the running image, puts it in `/opt/dnd-within/content-private/` and imports it.
+Copy `.env.production.example` to `/opt/dnd-within/.env` and fill in every value. Registration needs a one-time invite link, made on the admin page (`/admin/invites`). After the first deploy with invites, make your account an admin once by running the Ops workflow with `grant-admin` and your username (`revoke-admin` takes it away). On an empty database, `python -m app.auth create-admin` in the app container creates one interactively. Content packs are installed from a release of the `dnd-within-content` repo with `ssh az-dnd 'bash /opt/dnd-within/scripts/content-release.sh <tag>'`, which downloads it from the `content-releases` container, checks it with the running image, puts it in `/opt/dnd-within/content-private/` and imports it.
 
 Keep the app a single process: live shared views (`app/sharing/live.py`) and login rate limits (`app/auth/limits.py`) are held in memory, so extra processes would delay live updates by up to 60 s and multiply allowed guesses. Running more than one would need a shared store for both, such as MySQL or Redis.
 

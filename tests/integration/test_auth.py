@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.auth import service
-from app.auth.form import LoginForm, RegisterForm
+from app.auth.form import USERNAME_RULE, LoginForm, RegisterForm
 from app.auth.limits import AttemptLimiter, Throttle
 from app.auth.models import User
 from app.auth.page import STATUS
@@ -84,8 +84,10 @@ def test_registering_creates_the_user_and_uses_up_the_invite(db, throttle, invit
 @pytest.mark.parametrize(
     ("fields", "message"),
     [
-        ({"username": "ab"}, "Username must be 3–50 characters."),
-        ({"username": "x" * 51}, "Username must be 3–50 characters."),
+        ({"username": "ab"}, USERNAME_RULE),
+        ({"username": "x" * 51}, USERNAME_RULE),
+        ({"username": "Zoë B"}, USERNAME_RULE),
+        ({"username": "-dm"}, USERNAME_RULE),
         (
             {"password": "short", "confirm_password": "short"},
             "Password must be at least 8 characters.",
@@ -133,9 +135,8 @@ def test_creating_a_taken_username_leaves_the_session_usable(db, owner):
 
 
 def test_the_pages_open_logged_out_and_redirect_logged_in(visitor, client):
-    assert visitor.get("/login").status_code == 200
-    assert 'value="abc-123"' in visitor.get("/register?invite=abc-123").text
     for path in ("/login", "/register"):
+        assert visitor.get(path).status_code == 200
         response = client.get(path, follow_redirects=False)
         assert (response.status_code, response.headers["location"]) == (303, "/")
 
@@ -157,10 +158,12 @@ def test_registering_through_the_app_logs_in_as_a_plain_user(db, visitor, invite
     assert user_named(db, "newcomer").is_admin is False
 
 
-def test_granting_admin(db, owner):
-    assert service.grant_admin(db, owner.username)
-    assert owner.is_admin
-    assert not service.grant_admin(db, "nobody")
+def test_granting_and_revoking_admin(db, owner, client):
+    assert service.set_admin(db, owner.username, is_admin=True) is None
+    assert client.get("/admin/invites").status_code == 200
+    assert service.set_admin(db, owner.username, is_admin=False) is None
+    assert client.get("/admin/invites").status_code == 404
+    assert service.set_admin(db, "nobody", is_admin=True) == "No user named nobody."
 
 
 @pytest.mark.parametrize(

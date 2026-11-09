@@ -26,22 +26,22 @@ def all_invites(db: Session) -> list[Invite]:
     return list(db.scalars(query))
 
 
-def _day(moment: datetime) -> str:
+def _day(moment: datetime, now: datetime) -> str:
     day = f"{moment:%b} {moment.day}"
-    return day if moment.year == datetime.now().year else f"{day}, {moment.year}"
+    return day if moment.year == now.year else f"{day}, {moment.year}"
 
 
-def _detail(invite: Invite, invite_status: InviteStatus) -> str:
+def _detail(invite: Invite, invite_status: InviteStatus, now: datetime) -> str:
     match invite_status:
         case InviteStatus.ACTIVE:
-            return f"expires {_day(invite.expires_at)}"
+            return f"expires {_day(invite.expires_at, now)}"
         case InviteStatus.USED:
             who = invite.used_by.username if invite.used_by else "a deleted account"
-            return f"used by {who} on {_day(invite.used_at)}"
+            return f"used by {who} on {_day(invite.used_at, now)}"
         case InviteStatus.EXPIRED:
-            return f"expired {_day(invite.expires_at)}"
+            return f"expired {_day(invite.expires_at, now)}"
         case InviteStatus.REVOKED:
-            return f"revoked {_day(invite.revoked_at)}"
+            return f"revoked {_day(invite.revoked_at, now)}"
 
 
 @dataclass(frozen=True)
@@ -75,8 +75,8 @@ def _entry(invite: Invite, now: datetime) -> InviteEntry:
         id=invite.id,
         note=invite.note,
         status=invite_status,
-        detail=_detail(invite, invite_status),
-        created=_day(invite.created_at),
+        detail=_detail(invite, invite_status, now),
+        created=_day(invite.created_at, now),
         revocable=invite_status is InviteStatus.ACTIVE,
     )
 
@@ -88,7 +88,7 @@ def invites_view(
     new = None
     if created:
         invite, code = created
-        new = CreatedInvite(note=invite.note, code=code, expires=_day(invite.expires_at))
+        new = CreatedInvite(note=invite.note, code=code, expires=_day(invite.expires_at, now))
     return InvitesView(
         user=admin, invites=[_entry(i, now) for i in all_invites(db)], created=new, note=note
     )

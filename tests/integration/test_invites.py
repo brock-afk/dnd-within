@@ -59,8 +59,7 @@ def test_inviting_someone_through_the_app(admin_client, visitor):
     blank = admin_client.post("/admin/invites", data={"note": "  "})
     assert (blank.status_code, blank.headers["HX-Retarget"]) == (400, "#invite-form")
     created = admin_client.post("/admin/invites", data={"note": "Alex"})
-    code = re.search(r'register\?invite=([\w-]+)"', created.text)[1]
-    assert f'value="{code}"' in visitor.get(f"/register?invite={code}").text
+    code = re.search(r'register#invite=([\w-]+)"', created.text)[1]
     new = {"username": "newcomer", "password": "long enough", "confirm_password": "long enough"}
     registered = visitor.post("/register", data=new | {"invite_code": code})
     assert registered.headers["HX-Redirect"] == "/"

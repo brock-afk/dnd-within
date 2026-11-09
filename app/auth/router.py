@@ -7,7 +7,6 @@ from app.auth import page, service
 from app.auth.dependencies import ClientThrottle, OptionalUser, end_session, start_session
 from app.auth.form import LoginForm, RegisterForm
 from app.auth.models import User
-from app.auth.queries import register_view
 from app.auth.service import Refusal
 from app.core.db import DbSession
 from app.core.templates import hx_redirect
@@ -40,10 +39,10 @@ def login(
 
 
 @router.get("/register", response_class=HTMLResponse)
-def register_page(request: Request, user: OptionalUser, invite: str = ""):
+def register_page(request: Request, user: OptionalUser):
     if user:
         return RedirectResponse("/", status_code=303)
-    return page.register(request, register_view(invite))
+    return page.register(request)
 
 
 @router.post("/register")

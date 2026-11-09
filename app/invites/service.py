@@ -13,8 +13,9 @@ from app.invites.rules import INVITE_LIFETIME, code_hash
 
 def create_invite(db: Session, note: str) -> tuple[Invite, str]:
     code = secrets.token_urlsafe(16)
+    now = datetime.now()
     invite = Invite(
-        code_hash=code_hash(code), note=note, expires_at=datetime.now() + INVITE_LIFETIME
+        code_hash=code_hash(code), note=note, created_at=now, expires_at=now + INVITE_LIFETIME
     )
     db.add(invite)
     db.flush()

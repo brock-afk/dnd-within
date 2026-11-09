@@ -13,11 +13,16 @@ on:
           - restore-drill
           - backup
           - restore
+          - grant-admin
+          - revoke-admin
       blob:
         description: "restore only: the backup's name in db-backups"
         required: false
       confirm:
         description: "restore only: type RESTORE (it overwrites the production database)"
+        required: false
+      username:
+        description: "grant-admin and revoke-admin only: the existing user"
         required: false
   # A backup is only proven once it's been restored.
   schedule:
@@ -36,6 +41,7 @@ jobs:
       OPERATION: ${{ inputs.operation || 'restore-drill' }}
       BLOB: ${{ inputs.blob }}
       CONFIRM: ${{ inputs.confirm }}
+      ADMIN_USERNAME: ${{ inputs.username }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -45,6 +51,11 @@ jobs:
         run: |
           [ "$CONFIRM" = RESTORE ] || { echo "::error::Type RESTORE in 'confirm' to overwrite production"; exit 1; }
           [[ "$BLOB" =~ ^[A-Za-z0-9._-]+\.sql\.gz$ ]] || { echo "::error::Not a backup name: $BLOB"; exit 1; }
+
+      - name: Check username
+        if: env.OPERATION == 'grant-admin' || env.OPERATION == 'revoke-admin'
+        run: |
+          [[ "$ADMIN_USERNAME" =~ ^[A-Za-z0-9._][A-Za-z0-9._-]{2,49}$ ]] || { echo "::error::Not a username this can pass on: $ADMIN_USERNAME"; exit 1; }
 
       - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
         with:
@@ -58,6 +69,8 @@ jobs:
             backup)        command="bash scripts/backup.sh" ;;
             restore-drill) command="bash scripts/restore-drill.sh" ;;
             restore)       command="bash scripts/restore-db.sh $BLOB" ;;
+            grant-admin|revoke-admin)
+              command="docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T app python -m app.auth $OPERATION $ADMIN_USERNAME" ;;
           esac
           # run-command starts with an almost empty environment; az needs HOME.
           printf 'export HOME=/root\ncd /opt/dnd-within\n%s && echo "Ops succeeded"\n' "$command" > ops.sh

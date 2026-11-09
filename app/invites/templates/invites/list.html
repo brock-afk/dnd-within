@@ -22,7 +22,7 @@
   {% if created %}
   <div class="card invite-created">
     <p class="share-text">Send this link to {{ created.note }}. It's shown only once and expires {{ created.expires }}.</p>
-    {% set link = request.base_url ~ "register?invite=" ~ created.code %}
+    {% set link = request.base_url ~ "register#invite=" ~ created.code %}
     {% set label = "Invite link for " ~ created.note %}
     {% include "partials/copy_link.html" %}
   </div>

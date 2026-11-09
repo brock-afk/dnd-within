@@ -18,7 +18,6 @@ class Settings(BaseSettings):
 
     secret_key: str = DEV_SECRET_KEY
     session_https_only: bool = False
-    invite_code: str = ""
 
     @model_validator(mode="after")
     def check_secret_key(self):

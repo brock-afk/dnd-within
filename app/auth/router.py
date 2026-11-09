@@ -40,10 +40,10 @@ def login(
 
 
 @router.get("/register", response_class=HTMLResponse)
-def register_page(request: Request, user: OptionalUser):
+def register_page(request: Request, user: OptionalUser, invite: str = ""):
     if user:
         return RedirectResponse("/", status_code=303)
-    return page.register(request, register_view())
+    return page.register(request, register_view(invite))
 
 
 @router.post("/register")

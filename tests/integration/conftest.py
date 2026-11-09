@@ -19,6 +19,8 @@ from app.content.models import Source
 from app.core.db import SessionLocal, engine, get_db
 from app.features.models import CharacterChoicePick, Choice, ChoiceOption, Feature
 from app.inventory.models import CharacterItem, Item
+from app.invites.models import Invite
+from app.invites.service import create_invite
 from app.leveling.models import CharacterLevel
 from app.main import app
 from app.sheet.models import CharacterPreparedSpell
@@ -182,6 +184,11 @@ def visitor(db, serve_with) -> TestClient:
 @pytest.fixture
 def password() -> str:
     return PASSWORD
+
+
+@pytest.fixture
+def invite(db) -> tuple[Invite, str]:
+    return create_invite(db, "Friend")
 
 
 @pytest.fixture

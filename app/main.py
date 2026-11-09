@@ -1,3 +1,4 @@
+import logging
 import re
 
 from fastapi import FastAPI, Request
@@ -17,6 +18,7 @@ from app.characters.router import router as characters_router
 from app.core.config import settings
 from app.core.csrf import is_cross_origin
 from app.core.db import DbSession
+from app.core.logs import AccessLogWithoutQuery
 from app.core.templates import APP_DIR, templates
 from app.features.router import router as features_router
 from app.homebrew.router import router as homebrew_router
@@ -29,6 +31,7 @@ from app.sheet.router import router as sheet_router
 from app.species.router import router as species_router
 
 app = FastAPI()
+logging.getLogger("uvicorn.access").addFilter(AccessLogWithoutQuery())
 templates.env.globals.update(Coin=Coin, CoinChange=CoinChange)
 app.add_middleware(
     SessionMiddleware,

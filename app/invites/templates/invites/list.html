@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Invites · DnD Within{% endblock %}
+{% block content %}
+<div id="invites-page">
+  <div class="page-header">
+    <div>
+      <h1>Invites</h1>
+      <p class="subtitle">Each link creates one account and expires after {{ lifetime_days }} days.</p>
+    </div>
+  </div>
+
+  <form class="card invite-form" id="invite-form" hx-post="/admin/invites">
+    <label for="invite-note">Who is it for?</label>
+    <div class="inline-form invite-form-row">
+      <input id="invite-note" name="note" type="text" maxlength="{{ note_length }}" autocomplete="off"
+             value="{{ note }}" required>
+      <button type="submit">Create invite</button>
+    </div>
+    {% if form_error %}<p class="error">{{ form_error }}</p>{% endif %}
+  </form>
+
+  {% if created %}
+  <div class="card invite-created">
+    <p class="share-text">Send this link to {{ created.note }}. It's shown only once and expires {{ created.expires }}.</p>
+    {% set link = request.base_url ~ "register?invite=" ~ created.code %}
+    {% set label = "Invite link for " ~ created.note %}
+    {% include "partials/copy_link.html" %}
+  </div>
+  {% endif %}
+
+  <div id="invite-list">
+  {% if list_error %}<p class="error invite-list-error">{{ list_error }}</p>{% endif %}
+  {% if invites %}
+  <ul class="character-list invite-list">
+    {% for invite in invites %}
+    <li class="card">
+      <div class="list-item-text">
+        <span class="character-name">{{ invite.note }}</span>
+        <span class="muted">{{ invite.status.label }} · {{ invite.detail }} · created {{ invite.created }}</span>
+      </div>
+      {% if invite.revocable %}
+      <form hx-post="/admin/invites/{{ invite.id }}/revoke">
+        <button type="submit" class="link-button">Revoke</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="card empty">
+    <p>No invites yet.</p>
+  </div>
+  {% endif %}
+  </div>
+</div>
+{% endblock %}

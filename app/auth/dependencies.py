@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 
 from app.auth.limits import AttemptLimiter, Throttle, auth_attempts, client_key
@@ -39,6 +39,15 @@ def require_user(user: Annotated[User | None, Depends(get_optional_user)]) -> Us
 
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 CurrentUser = Annotated[User, Depends(require_user)]
+
+
+def get_admin(user: OptionalUser) -> User:
+    if user is None or not user.is_admin:
+        raise HTTPException(status_code=404)
+    return user
+
+
+AdminUser = Annotated[User, Depends(get_admin)]
 
 
 def get_limiter() -> AttemptLimiter:

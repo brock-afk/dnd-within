@@ -6,6 +6,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.auth.models import User
 from app.core.db import Base
 
+NOTE_LENGTH = 50
+
 
 class Invite(Base):
     __tablename__ = "invites"
@@ -15,7 +17,7 @@ class Invite(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code_hash: Mapped[str] = mapped_column(String(64), unique=True)
-    note: Mapped[str] = mapped_column(String(50))
+    note: Mapped[str] = mapped_column(String(NOTE_LENGTH))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     used_at: Mapped[datetime | None] = mapped_column(DateTime)

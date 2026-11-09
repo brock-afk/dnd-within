@@ -5,6 +5,7 @@ from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.auth.models import User
+from app.invites.form import InviteForm
 from app.invites.models import Invite
 from app.invites.queries import is_active, with_code
 from app.invites.rules import INVITE_LIFETIME, code_hash
@@ -18,6 +19,12 @@ def create_invite(db: Session, note: str) -> tuple[Invite, str]:
     db.add(invite)
     db.flush()
     return invite, code
+
+
+def create_from_form(db: Session, form: InviteForm) -> tuple[Invite, str] | str:
+    if problem := form.problem():
+        return problem
+    return create_invite(db, form.note)
 
 
 def revoke(db: Session, invite: Invite) -> str | None:

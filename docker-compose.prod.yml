@@ -28,7 +28,7 @@ services:
       - /srv/data/mysql:/var/lib/mysql
 
   caddy:
-    image: caddy:2.10@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+    image: caddy:2.11@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
     restart: unless-stopped
     ports:
       - "80:80"
